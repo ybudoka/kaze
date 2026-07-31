@@ -431,7 +431,24 @@ document.addEventListener('touchcancel',()=>{ for(const k in doigts) finDoigt(k)
   const zoome=()=>Math.abs(vv.scale-1)>0.02;
   vv.addEventListener('resize',()=>{ if(zoome()){ clearTimeout(raz); raz=setTimeout(remettreAUn,80); } });
   vv.addEventListener('scroll',()=>{ if(zoome()) scrollTo(0,0); });
+  // Si la page démarre déjà agrandie (zoom mémorisé), on tente de la remettre à 1.
+  const auDemarrage=()=>{ if(zoome()){ clearTimeout(raz); raz=setTimeout(remettreAUn,50); } };
+  addEventListener('load',auDemarrage);
+  addEventListener('pageshow',auDemarrage);
+  addEventListener('orientationchange',()=>setTimeout(auDemarrage,200));
 })();
+
+/* Garde-fou pincement : tout touchmove est déjà bloqué, mais on annule aussi
+   un contact à 2 doigts+ dès qu'il ne reste pas entièrement sur la manette
+   (un pincement de zoom couvre la zone de jeu). Le multi-touch de jeu (une
+   direction + un bouton, tous sur la manette) reste autorisé. */
+document.addEventListener('touchstart',e=>{
+  if(e.touches.length>=2){
+    let tousManette=true;
+    for(const t of e.touches){ if(!surManette(t.target)){ tousManette=false; break; } }
+    if(!tousManette && e.cancelable) e.preventDefault();
+  }
+},{passive:false,capture:true});
 
 /* si la fenêtre perd le focus, on relâche tout */
 function relacherTout(){
