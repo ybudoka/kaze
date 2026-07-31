@@ -324,6 +324,12 @@ Autres pièges rencontrés en construisant la région :
 - **Un test ne doit pas recalculer ce qu'il mesure** : passer par la vraie boucle
   de jeu, pas par un appel direct avec la valeur attendue en argument (cf. 9.4).
   Et toujours **réinjecter le bug** pour voir le contrôle rougir.
+- **Une comparaison d'images doit cadrer sur ce qu'elle prétend comparer** : un
+  chiffre voisin suffit à faire différer deux captures et à laisser passer deux
+  dessins identiques (cf. 10).
+- **Un nouvel objet doit être ajouté partout où les objets se dessinent**, pas
+  seulement là où ils agissent : la table `OBJETS` existait mais le HUD choisissait
+  son image en dur, et le marteau était affiché en arc (cf. 10).
 
 ---
 
@@ -390,4 +396,25 @@ Autres verrous du même ordre : les éclats d'obsidienne ne tombent que des
 golems, jamais plus de trois à la fois (**les éclats déjà au sol sont comptés**,
 sinon trois golems tués coup sur coup en laissaient six), et un brasier déjà
 allumé ne se recompte ni ne repaie.
+
+---
+
+## 10. ⚠️ Le marteau était invisible dans la boîte d'objet
+
+| | |
+|---|---|
+| **Symptôme** | « Je ne vois pas le marteau dans mes armes. » |
+| **Cause** | La boîte d'objet du HUD choisissait son image **en dur** : `SPR[o==='bombe'?'bombeItem':'fleche']`, et affichait `J.fleches` comme compte. Tout objet qui n'était pas une bombe était donc dessiné **en arc, munitions comprises**. |
+| **Mesuré** | La case du marteau et celle de l'arc étaient **rigoureusement identiques, pixel pour pixel**. |
+| **Correctif** | La boîte lit la table `OBJETS` (`id`, `nom`, `spr`), qui existait déjà mais n'était utilisée nulle part. Seuls les objets à munitions affichent un compte ; le marteau montre **Y**, la touche qui s'en sert. |
+
+Vérifié dans `06-terres-de-cendre.js` : les icônes des trois objets doivent être
+**deux à deux différentes**, avec un contrôle à blanc (relire la même case
+redonne exactement la même image) pour que « toutes distinctes » veuille dire
+quelque chose.
+
+> Le premier jet du contrôle lisait **toute la boîte** : le compte de munitions
+> suffisait à faire différer les images, et le contrôle restait vert alors que
+> les deux dessins étaient identiques. Il ne lit désormais que **l'icône**.
+> Réinjection du bug d'origine : rouge.
 

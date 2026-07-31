@@ -3821,9 +3821,16 @@ function ath(){
   panneau(X,2,H-24,34,22);
   if(J.objets.length){
     const o=J.objets[J.objSel];
-    const s=SPR[o==='bombe'?'bombeItem':'fleche'];
-    X.drawImage(s,8,H-20,14,14);
-    texte(X,String(o==='bombe'?J.bombes:J.fleches),22,H-16,'#e8f0ff');
+    /* La boîte affichait EN DUR la flèche dès que l'objet n'était pas une
+       bombe : le marteau y ressemblait donc trait pour trait à l'arc, munitions
+       comprises, et on croyait ne l'avoir jamais reçu. On lit la table `OBJETS`,
+       et seuls les objets à munitions affichent un compte — le marteau montre
+       la touche qui s'en sert. */
+    const def=OBJETS.find(d=>d.id===o);
+    X.drawImage(SPR[def?def.spr:'fleche'],8,H-20,14,14);
+    const munitions=o==='bombe'?J.bombes:o==='arc'?J.fleches:null;
+    if(munitions!==null) texte(X,String(munitions),22,H-16,'#e8f0ff');
+    else texte(X,'Y',24,H-16,'#7de0a0');
     if(J.objets.length>1){ texte(X,'L',4,H-22,'#7f8ab0'); texte(X,'R',29,H-22,'#7f8ab0'); }
   } else texte(X,'--',12,H-16,'#5a6280');
 

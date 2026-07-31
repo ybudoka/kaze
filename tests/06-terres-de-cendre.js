@@ -88,6 +88,30 @@ module.exports = {
       // il doit être ÉQUIPÉ, sinon la boîte d'objet montre encore l'arc et on
       // repart du coffre en croyant n'avoir rien reçu
       out.marteauEquipe = J.objets[J.objSel] === 'marteau';
+
+      /* La boîte d'objet doit MONTRER l'objet tenu. Elle affichait en dur la
+         flèche dès que l'objet n'était pas une bombe : le marteau y était
+         pixel pour pixel identique à l'arc, munitions comprises, et on croyait
+         ne l'avoir jamais reçu. */
+      {
+        /* On ne lit que l'ICÔNE, pas toute la boîte : le compte de munitions
+           suffisait à rendre les images différentes, et le contrôle restait
+           vert alors que les deux dessins étaient les mêmes. */
+        const lireBoite = async i => {
+          J.objSel = i; await dort(120);
+          const c = document.createElement('canvas'); c.width = 14; c.height = 14;
+          c.getContext('2d').drawImage(CV, 8, H - 20, 14, 14, 0, 0, 14, 14);
+          return c.toDataURL();
+        };
+        const vues = [];
+        for (let i = 0; i < J.objets.length; i++) vues.push(await lireBoite(i));
+        // contrôle à blanc : relire la même case doit redonner exactement la
+        // même image, sinon « toutes distinctes » ne prouverait rien
+        out.boiteStable = (await lireBoite(0)) === vues[0];
+        out.boitesDistinctes = new Set(vues).size === J.objets.length;
+        out.boiteObjets = J.objets.slice();
+        J.objSel = J.objets.indexOf('marteau');
+      }
       const cf = CENDRE.falaises, cx = cf.x0 + (cf.w >> 1);
       for (let k = -1; k <= 1; k++) putO(cx + k, cf.y0, O.RIEN);
       out.falaisesOuvertes = atteint(joignable(), coffres[4]);
@@ -165,6 +189,10 @@ module.exports = {
     v('les bottes sont obtenues', r.bottes && r.braises2 === 2, `${r.bottes}/${r.braises2}`);
     v('LE MARTEAU EST ÉQUIPÉ DÈS QU\'ON LE TROUVE',
       r.marteauEquipe, 'la boîte d\'objet montre encore autre chose');
+    v('la lecture de la boîte d\'objet est stable', r.boiteStable,
+      'la boîte scintille : la mesure ne prouverait rien');
+    v('LA BOÎTE D\'OBJET MONTRE VRAIMENT L\'OBJET TENU',
+      r.boitesDistinctes, `${(r.boiteObjets || []).join(' / ')} : deux cases identiques`);
     v('le journal montre marteau et bottes',
       /MARTEAU/.test(r.journal) && /BOTTES/.test(r.journal), r.journal.slice(0, 120));
     v('la mini-carte distingue les Cendres de la prairie',
