@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Kaze &amp; les Trois Étoiles</title>
+<!-- Installé via « Ajouter à l'écran d'accueil », le jeu devient une vraie
+     application : iOS cesse alors d'effacer son stockage au bout de sept
+     jours sans visite, ce qui faisait disparaître les sauvegardes. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Kaze">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;
   -webkit-user-select:none;-moz-user-select:none;user-select:none;
@@ -95,6 +102,28 @@ body.sanspad #pad{display:none}
 #aide{font-size:11px;letter-spacing:.04em;opacity:.5;text-align:center;max-width:560px}
 #aide b{color:#e8c86a;font-weight:500}
 @media (max-height:700px){#aide{display:none}}
+
+/* ---------------- panneau des sauvegardes ---------------- */
+#coffreFort{position:fixed;inset:0;z-index:60;background:#04060cdd;
+  display:flex;align-items:center;justify-content:center;padding:12px;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
+#coffreFort[hidden]{display:none}
+#coffreFort .cadre{width:min(460px,96vw);max-height:92vh;overflow:auto;
+  background:#121a2e;border:1px solid #39456b;border-radius:12px;padding:14px;
+  font:400 13px/1.45 system-ui,-apple-system,sans-serif;color:#c8d2ee}
+#coffreFort h2{font:700 13px/1 system-ui;letter-spacing:.14em;color:#ffe06a;margin-bottom:8px}
+#coffreFort p{margin:6px 0}
+#coffreFort .note{font-size:11px;color:#8f9cc4}
+#cfEtat{font-size:12px;color:#9fe0b8;min-height:1.2em}
+#cfCode{width:100%;height:110px;margin:6px 0;padding:8px;border-radius:8px;resize:vertical;
+  background:#0a0f1c;border:1px solid #39456b;color:#aab6dc;
+  font:400 11px/1.35 ui-monospace,Menlo,Consolas,monospace;
+  -webkit-user-select:text;user-select:text;touch-action:auto}
+#coffreFort .rangee{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+#coffreFort button,#coffreFort .bouton{background:#1b2136;border:1px solid #39456b;color:#aab6dc;
+  border-radius:7px;font:600 11px/1 system-ui;padding:9px 11px;cursor:pointer;letter-spacing:.06em}
+#coffreFort button:hover,#coffreFort .bouton:hover{background:#26304d;color:#eaf0ff}
+#coffreFort .fort{background:#2b3a22;border-color:#4d6b3a;color:#cfe8b0}
 </style>
 </head>
 <body>
@@ -102,6 +131,33 @@ body.sanspad #pad{display:none}
 <div id="outils">
   <button id="btPlein">PLEIN ÉCRAN</button>
   <button id="btPad">MANETTE</button>
+  <button id="btSauve">SAUVEGARDES</button>
+</div>
+
+<!-- Copie de secours des parties : le stockage du navigateur peut être effacé
+     (vidage des données de site, ou purge automatique d'iOS après sept jours
+     sans visite). Ce panneau permet d'en garder une copie hors du navigateur
+     et de la restaurer. -->
+<div id="coffreFort" hidden>
+  <div class="cadre">
+    <h2>SAUVEGARDES</h2>
+    <p id="cfEtat"></p>
+    <textarea id="cfCode" spellcheck="false" autocomplete="off"
+      placeholder="Colle ici un code de sauvegarde pour le restaurer"></textarea>
+    <div class="rangee">
+      <button id="cfCopier">COPIER</button>
+      <button id="cfFichier">TÉLÉCHARGER</button>
+      <label class="bouton" for="cfImport">OUVRIR UN FICHIER</label>
+      <input id="cfImport" type="file" accept=".txt,.kaze,text/plain" hidden>
+    </div>
+    <div class="rangee">
+      <button id="cfRestaurer" class="fort">RESTAURER</button>
+      <button id="cfFermer">FERMER</button>
+    </div>
+    <p class="note">Garde ce code ailleurs (Notes, mail, Fichiers) : il contient
+      tes trois emplacements. Pour que le navigateur cesse d'effacer tes parties,
+      ajoute aussi le jeu à ton écran d'accueil.</p>
+  </div>
 </div>
 
 <div id="stage"><canvas id="c" width="256" height="224"></canvas></div>
@@ -3178,8 +3234,12 @@ async function reprendreAncienne(){
   const d=await lireCle(CLE_ANCIENNE);
   if(!apercu(d)) return;
   if(!d.nom) d.nom='KAZE';
-  await ecrireCle(cleSlot(0),d);
-  await effacerCle(CLE_ANCIENNE);
+  const ou=await ecrireCle(cleSlot(0),d);
+  // On ne supprime l'original qu'après avoir relu la copie sur le disque : si
+  // l'écriture n'a pas abouti (stockage refusé ou plein), effacer ici
+  // détruirait définitivement la partie.
+  const relu=await lireCle(cleSlot(0));
+  if(ou==='disque'&&apercu(relu)) await effacerCle(CLE_ANCIENNE);
   resumes[0]=apercu(d);
 }
 async function verifierSauves(){
@@ -3542,6 +3602,94 @@ function outil(id,fn){
 }
 outil('btPlein',basculerPlein);
 outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,30); });
+
+/* ====================== COPIE DE SECOURS DES PARTIES ======================
+   Le stockage du navigateur n'est pas fiable sur la durée : il part avec le
+   vidage des données de site, et iOS le purge de lui-même après sept jours
+   sans visite. On permet donc d'exporter les trois emplacements et de les
+   restaurer, pour qu'une partie perdue reste toujours récupérable. */
+const MARQUE_SAUVE='KAZE-SAUVEGARDE-1';
+const cf=id=>document.getElementById(id);
+function cfDire(t,bon){ const e=cf('cfEtat'); e.textContent=t; e.style.color=bon===false?'#e0908a':'#9fe0b8'; }
+
+async function construireCode(){
+  const parts=[];
+  for(let i=0;i<NB_SLOTS;i++) parts.push(await stockLire(i));
+  const paquet={marque:MARQUE_SAUVE,date:Date.now(),parties:parts};
+  // encodage base64 tolérant à l'UTF-8, pour un code copiable d'un bloc
+  return btoa(unescape(encodeURIComponent(JSON.stringify(paquet))));
+}
+function lireCode(txt){
+  const t=String(txt||'').replace(/\s+/g,'');
+  if(!t) return null;
+  let o=null;
+  try{ o=JSON.parse(decodeURIComponent(escape(atob(t)))); }
+  catch(e){ try{ o=JSON.parse(txt); }catch(e2){ return null; } }   // tolère le JSON brut
+  if(!o||o.marque!==MARQUE_SAUVE||!Array.isArray(o.parties)) return null;
+  return o;
+}
+async function ouvrirCoffre(){
+  cf('coffreFort').hidden=false;
+  cfDire('Lecture des emplacements...');
+  const code=await construireCode();
+  cf('cfCode').value=code;
+  const n=resumes.filter(Boolean).length;
+  cfDire(n?`${n} partie(s) dans ce code. Garde-le en lieu sûr.`
+          :'Aucune partie enregistrée pour l’instant.');
+}
+function fermerCoffre(){ cf('coffreFort').hidden=true; }
+
+async function restaurerCode(){
+  const o=lireCode(cf('cfCode').value);
+  if(!o){ cfDire('Code non reconnu. Colle le code entier, sans rien enlever.',false); return; }
+  let repris=0;
+  for(let i=0;i<NB_SLOTS;i++){
+    const d=o.parties[i];
+    if(!apercu(d)) continue;                       // emplacement vide dans le code
+    await stockEcrire(d,i);
+    repris++;
+  }
+  await verifierSauves();
+  if(!repris){ cfDire('Ce code ne contient aucune partie lisible.',false); return; }
+  // on ne l'annonce qu'après avoir relu ce qui est réellement sur le disque
+  const surDisque=resumes.filter(Boolean).length;
+  cfDire(`${repris} partie(s) restaurée(s), ${surDisque} relue(s) sur l’appareil.`);
+  menuSel=0; modeEffacer=false; if(etat!=='jeu') etat='titre';
+}
+function telechargerCode(){
+  try{
+    const b=new Blob([cf('cfCode').value],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b); a.download='kaze-sauvegardes.txt';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+    cfDire('Fichier enregistré.');
+  }catch(e){ cfDire('Téléchargement impossible ici : copie le code à la main.',false); }
+}
+async function copierCode(){
+  const t=cf('cfCode');
+  try{ await navigator.clipboard.writeText(t.value); cfDire('Code copié.'); }
+  catch(e){ t.focus(); t.select(); cfDire('Sélectionne le code puis copie-le.',false); }
+}
+outil('btSauve',ouvrirCoffre);
+cf('cfFermer').addEventListener('click',fermerCoffre);
+cf('cfCopier').addEventListener('click',copierCode);
+cf('cfFichier').addEventListener('click',telechargerCode);
+cf('cfRestaurer').addEventListener('click',restaurerCode);
+cf('cfImport').addEventListener('change',e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const l=new FileReader();
+  l.onload=()=>{ cf('cfCode').value=String(l.result||''); cfDire('Fichier chargé. Appuie sur RESTAURER.'); };
+  l.onerror=()=>cfDire('Lecture du fichier impossible.',false);
+  l.readAsText(f);
+});
+/* le panneau utilise du vrai HTML : on laisse passer les gestes de sélection */
+['touchstart','touchmove','touchend','pointerdown','wheel'].forEach(ev=>
+  cf('coffreFort').addEventListener(ev,e=>e.stopPropagation(),true));
+
+/* Stockage persistant : là où c'est possible, le navigateur cesse de purger
+   les parties de lui-même. Sans effet sur iOS, d'où le panneau ci-dessus. */
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist().catch(()=>{}); }catch(e){}
 addEventListener('keydown',e=>{
   if(e.code==='KeyF'){ basculerPlein(); }
   if(e.code==='KeyH'){ document.body.classList.toggle('sanspad'); setTimeout(redim,30); }
