@@ -256,6 +256,19 @@ sauvegardes** au lieu de donner l'objet. Renommée en `ouvrirCoffreFort`.
 Au passage, `ouvrirCoffre` refuse désormais de rouvrir un coffre déjà ouvert
 (il redonnait son contenu à chaque appel).
 
+### ⚠️ Le portail restait clos pour les parties antérieures
+
+`Q.portailOuvert` n'était mis qu'**au moment** de ramasser la troisième étoile.
+Une partie qui les avait déjà toutes avant l'ajout de la région ne repassait
+jamais par là : le portail restait verrouillé **définitivement**, sans aucun
+moyen de le déverrouiller. Le chargement rattrape désormais le cas
+(`chargerInterne`) : trois étoiles ⇒ portail ouvert.
+
+Leçon plus générale : **un drapeau posé au passage d'un événement ne rattrape
+pas les parties qui ont déjà passé cet événement.** Toute nouvelle condition de
+progression doit être dérivable de l'état sauvegardé, ou rattrapée au
+chargement.
+
 Autres pièges rencontrés en construisant la région :
 
 - `hash()` est **dégénéré** sur des entrées régulières (ses valeurs plafonnaient

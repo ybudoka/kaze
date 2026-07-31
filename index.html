@@ -3739,6 +3739,17 @@ async function chargerInterne(slot){
   J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
 
   degager(J);                       // au cas où la sauvegarde daterait d'avant le correctif
+
+  /* Parties antérieures aux Terres de Cendre : le portail ne s'ouvre qu'au
+     moment de ramasser la troisième étoile. Une partie qui les avait déjà
+     toutes serait restée devant un portail clos à jamais, sans aucun moyen de
+     le déverrouiller. On rattrape ici. */
+  if(J.fragments>=3&&!Q.portailOuvert){
+    Q.portailOuvert=true;
+    setTimeout(()=>{ if(etat==='jeu')
+      dire("LE PORTAIL DE CENDRE EST OUVERT, AU SUD DE LA VALLÉE.",320); },900);
+  }
+
   tempsJeu=d.temps||0; dernierAuto=tempsJeu;
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
   msgT=0; bandeauT=0; secousse=0; gel=0;

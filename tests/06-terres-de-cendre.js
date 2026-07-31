@@ -88,6 +88,24 @@ module.exports = {
 
       ouvrirCoffre(coffres[5]); await dort(1700);
       out.braises3 = Q.braises; out.etat = etat;
+
+      /* Une partie d'AVANT les Terres de Cendre : elle a déjà ses trois
+         étoiles, mais le drapeau du portail n'existait pas encore. Sans
+         rattrapage au chargement, elle resterait devant un portail clos. */
+      for (let i = 0; i < NB_SLOTS; i++) await stockEffacer(i);
+      nouvellePartie('ANCIENNE', 0); await dort(300);
+      J.fragments = 3; await sauver(true); await dort(200);
+      const brut = JSON.parse(localStorage.getItem('kaze-partie-1'));
+      delete brut.Q.portailOuvert;          // comme dans une sauvegarde d'époque
+      delete brut.Q.braises; delete brut.Q.bottes; delete brut.Q.coeurTue;
+      localStorage.setItem('kaze-partie-1', JSON.stringify(brut));
+      await charger(0); await dort(500);
+      out.ancienneEtoiles = J.fragments;
+      out.anciennePortail = !!Q.portailOuvert;
+      const gg = CENDRE.gorge;
+      let yp = -1;
+      for (let y = Y_CENDRE - 12; y < Y_CENDRE; y++) if (Obj(gg.x0, y) === O.PORTAIL) { yp = y; break; }
+      out.anciennePassage = yp >= 0 && !solide(gg.x0 * TS + 8, yp * TS + 8, 0);
       return out;
     });
 
@@ -112,6 +130,11 @@ module.exports = {
     v('vaincre le Cœur descelle le coffre', r.bossVaincu, 'coffre verrouillé');
     v('la dernière braise donne la victoire',
       r.braises3 === 3 && r.etat === 'victoire', `braises=${r.braises3} état=${r.etat}`);
+    v('une partie d\'avant la région garde ses trois étoiles',
+      r.ancienneEtoiles === 3, r.ancienneEtoiles);
+    v('UNE PARTIE D\'AVANT LA RÉGION TROUVE LE PORTAIL OUVERT',
+      r.anciennePortail, 'portail resté clos');
+    v('et peut réellement le franchir', r.anciennePassage, 'passage encore bloqué');
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },
