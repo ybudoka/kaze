@@ -40,6 +40,12 @@ Les monstres et les buissons lâchent trois pierres : **rubis vert** (1),
 **saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les
 Terres de Cendre, plus dures, en lâchent davantage.
 
+## La colporteuse
+
+Une marchande ambulante s'installe de temps à autre près de toi, puis repart.
+Elle ne vend pas ce que Bran propose : **carquois de cuir**, **grand sac**,
+**cœur supplémentaire**, potions supplémentaires. Elle clignote sur la carte.
+
 ## Sauvegardes
 
 Trois emplacements nommés. Le bouton **SAUVEGARDES** exporte les trois en un
@@ -53,7 +59,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 129 contrôles, ~11 s
+npm test                          # 145 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

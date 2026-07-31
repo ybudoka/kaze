@@ -38,6 +38,7 @@ PLAYWRIGHT_MODULE=/chemin/vers/playwright CHROMIUM_PATH=/chemin/vers/chrome node
 | `04-rendu.js` | § 5.3 rien ne se voit à travers le relief · § 5.4 une salle close garde ses occupants invisibles du dehors |
 | `05-jouabilite.js` | § 5.5 l'épée touche sur toute sa lame, dans les 4 directions · § 5.2 les 8 lucioles restent dégagées et atteignables |
 | `06-terres-de-cendre.js` | § 7 génération du biome, et l'aventure entière du portail verrouillé jusqu'à la victoire |
+| `10-colporteuse.js` | La marchande itinérante : elle s'installe sur une case libre à portée, ne vend que ce que Bran n'a pas, ses capacités survivent au rechargement — et tous les libellés des boutiques sont affichables par la police pixel. |
 | `09-gemmes.js` | Les trois gemmes : valeurs (1 / 5 / 20), teintes distinctes, ramassage, et rareté croissante — le grenat plus rare que le saphir, et les Terres de Cendre plus généreuses. |
 | `08-musique.js` | La musique démarre, suit la situation (titre, vallée, Cendres, gardien), se coupe et se rallume, et la préférence est retenue. Le séquenceur doit réellement émettre des notes. |
 | `07-hors-ligne.js` | Le jeu s'installe et démarre **hors ligne**, et reçoit quand même la dernière version dès qu'il y a du réseau (pas de cache figé). Tourne sur un vrai serveur HTTP : un service worker refuse de s'enregistrer en `file://`. |

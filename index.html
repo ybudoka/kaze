@@ -1323,6 +1323,19 @@ function bakeEnnemis(){
     rc(g,13,30+d,18,4,'#6e1f10');
     rc(g,10,6,4,5,'#ff8b3a'); rc(g,30,6,4,5,'#ff8b3a');           // cornes ardentes
   });
+  /* la colporteuse : capuche, grande cape, et son ballot sur le dos */
+  for(let f=0;f<2;f++) faireSprite(`colporteuse${f}`,22,30,g=>{
+    const d=f?1:0;
+    rc(g,4,12+d,7,9,'#6a4a2e');                       // le ballot
+    rc(g,5,13+d,5,4,'#8a6440'); rc(g,6,11+d,3,2,'#c8a060');
+    rc(g,8,6+d,10,16,'#4a3a6a');                      // la cape
+    rc(g,9,7+d,8,7,'#6a56a0');
+    rc(g,10,3+d,7,6,'#5a4880');                       // la capuche
+    rc(g,11,4+d,5,4,'#2a2038');
+    rc(g,12,6+d,1,2,'#ffe86a'); rc(g,14,6+d,1,2,'#ffe86a');   // yeux
+    rc(g,9,22,4,6,'#3a2f4e'); rc(g,14,22,4,6,'#3a2f4e');      // pieds
+    rc(g,17,10+d,3,10,'#8a6a3a');                     // bâton
+  });
   faireSprite('marteauItem',14,14,g=>{
     rc(g,2,2,10,6,'#5c5470'); rc(g,3,3,8,3,'#8d84a4');
     rc(g,6,7,2,7,'#8a6a3a'); rc(g,5,12,4,2,'#6a4e28');
@@ -1531,12 +1544,18 @@ const Q={
   lucioles:0, epeeLongue:false, bouclierFort:false, potions:0,
   prime:0, primeRendue:false, feeVue:false,
   /* Terres de Cendre */
-  portailOuvert:false, braises:0, bottes:false, coeurTue:false
+  portailOuvert:false, braises:0, bottes:false, coeurTue:false,
+  /* marchand itinérant */
+  carquois:false, grandSac:false
 };
+/* Capacités : le marchand itinérant est le seul à les augmenter. */
+const maxFleches=()=>Q.carquois?99:60;
+const maxBombes =()=>Q.grandSac?40:20;
 function razQuetes(){
   Object.assign(Q,{parleDoyenne:false,cle:false,porteOuverte:false,grilleOuverte:false,
     fissureOuverte:false,chefTue:false,champignons:0,tarte:false,perle:false,
     coeurCristal:false,lucioles:0,epeeLongue:false,bouclierFort:false,potions:0,
+    carquois:false,grandSac:false,
     prime:0,primeRendue:false,feeVue:false,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false});
 }
@@ -1909,22 +1928,84 @@ function parler(nom,pages,apres){
 function articles(){
   return [
     {id:'fleches',nom:'10 FLÈCHES',prix:12,spr:'fleche',
-     ok:()=>J.objets.includes('arc'), effet:()=>{J.fleches=Math.min(60,J.fleches+10);}},
+     ok:()=>J.objets.includes('arc'), effet:()=>{J.fleches=Math.min(maxFleches(),J.fleches+10);}},
     {id:'bombes',nom:'5 BOMBES',prix:18,spr:'bombeItem',
-     ok:()=>J.objets.includes('bombe'), effet:()=>{J.bombes=Math.min(30,J.bombes+5);}},
+     ok:()=>J.objets.includes('bombe'), effet:()=>{J.bombes=Math.min(maxBombes(),J.bombes+5);}},
     {id:'potion',nom:'POTION ROUGE',prix:35,spr:'potion',
      ok:()=>Q.potions<2, effet:()=>{Q.potions++;}},
     {id:'bouclier',nom:'BOUCLIER RENFORCÉ',prix:90,spr:'coeur',
      ok:()=>!Q.bouclierFort, effet:()=>{Q.bouclierFort=true;}}
   ];
 }
-function ouvrirBoutique(){ boutique={sel:0,liste:articles()}; SFX.menu(); }
+/* Le marchand itinérant ne vend que ce qu'on ne trouve nulle part ailleurs :
+   des capacités, jamais des consommables que Bran propose déjà. */
+function articlesItinerants(){
+  return [
+    {id:'carquois',nom:'CARQUOIS DE CUIR',prix:60,spr:'fleche',
+     ok:()=>J.objets.includes('arc')&&!Q.carquois,
+     effet:()=>{Q.carquois=true; J.fleches=Math.min(maxFleches(),J.fleches+20);}},
+    {id:'sac',nom:'GRAND SAC',prix:70,spr:'bombeItem',
+     ok:()=>J.objets.includes('bombe')&&!Q.grandSac,
+     effet:()=>{Q.grandSac=true; J.bombes=Math.min(maxBombes(),J.bombes+8);}},
+    /* « COEUR » et non « CŒUR » : la police pixel du jeu n'a pas de Œ et
+       afficherait un point d'interrogation. */
+    {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:120,spr:'coeur',
+     ok:()=>J.pvmax<24, effet:()=>{J.pvmax=Math.min(24,J.pvmax+2); J.pv=J.pvmax;}},
+    {id:'potion',nom:'POTION ROUGE',prix:40,spr:'potion',
+     ok:()=>Q.potions<4, effet:()=>{Q.potions++;}}
+  ];
+}
+function ouvrirBoutique(nom){
+  const itinerant=(nom==='itinerant');
+  boutique={sel:0,liste:itinerant?articlesItinerants():articles(),
+            qui:itinerant?'LA COLPORTEUSE':'BRAN',
+            recharger:itinerant?articlesItinerants:articles};
+  SFX.menu();
+}
 function acheter(){
-  const a=boutique.liste[boutique.sel];
-  if(!a.ok()){ SFX.erreur(); dire("BRAN : JE N'AI RIEN DE PLUS POUR TOI."); return; }
-  if(J.rubis<a.prix){ SFX.erreur(); dire("BRAN : IL TE MANQUE DES RUBIS."); return; }
-  J.rubis-=a.prix; a.effet(); boutique.liste=articles();
-  SFX.coffre(); dire("BRAN : MERCI BIEN !");
+  const a=boutique.liste[boutique.sel], qui=boutique.qui||'BRAN';
+  if(!a.ok()){ SFX.erreur(); dire(qui+" : JE N'AI RIEN DE PLUS POUR TOI."); return; }
+  if(J.rubis<a.prix){ SFX.erreur(); dire(qui+" : IL TE MANQUE DES RUBIS."); return; }
+  J.rubis-=a.prix; a.effet(); boutique.liste=(boutique.recharger||articles)();
+  SFX.coffre(); autoSauver();
+  dire(qui+" : MERCI BIEN !");
+}
+
+/* ==================== LE MARCHAND ITINÉRANT ====================
+   Il s'installe de temps à autre quelque part autour du héros, reste un
+   moment, puis plie bagage. Il n'est pas sauvegardé : il va et vient, et
+   reparaîtra de lui-même. Seuls ses achats, eux, sont acquis. */
+const marchand={actif:false,x:0,y:0,anim:0,reste:0,prochain:900};
+function poserMarchand(){
+  // un endroit libre, ni collé au héros ni à l'autre bout du monde
+  for(let essai=0;essai<200;essai++){
+    const a=rnd()*6.2832, d=13+rnd()*11;
+    const tx=Math.floor(J.x/TS+Math.cos(a)*d), ty=Math.floor(J.y/TS+Math.sin(a)*d);
+    if(!libre(tx,ty)) continue;
+    if(salleDe(tx*TS+8,ty*TS+8)) continue;              // jamais dans une salle close
+    if(enCendre(J.y)!==enCendre(ty*TS)) continue;        // il reste dans ta région
+    marchand.x=tx*TS+8; marchand.y=ty*TS+8; marchand.actif=true;
+    marchand.reste=5400; marchand.anim=0;                // ~90 s de présence
+    annonce('UNE COLPORTEUSE S EST INSTALLÉE');
+    dire("UNE MARCHANDE AMBULANTE EST DANS LES PARAGES. ELLE NE RESTERA PAS.",300);
+    son(680,.12,'triangle',.05,180); son(910,.14,'triangle',.05,120,.1);
+    return true;
+  }
+  return false;
+}
+function majMarchand(){
+  if(etat!=='jeu') return;
+  if(marchand.actif){
+    marchand.anim++;
+    if(--marchand.reste<=0){
+      marchand.actif=false; marchand.prochain=tempsJeu+3600+Math.floor(rnd()*3600);
+      dire("LA COLPORTEUSE A PLIÉ BAGAGE.",150);
+    }
+    return;
+  }
+  if(tempsJeu>=marchand.prochain){
+    if(!poserMarchand()) marchand.prochain=tempsJeu+600;   // réessai plus tard
+  }
 }
 
 /* ------------------------------- LES PNJ ------------------------------- */
@@ -1958,7 +2039,7 @@ function dialoguePNJ(p){
     if(Q.primeRendue) return parler(p.nom,["LA ROUTE EST PLUS SÛRE GRÂCE À TOI."]);
     if(Q.prime>=15) return parler(p.nom,
       ["QUINZE MONSTRES ! TU AS TENU PAROLE.","VOICI TA PRIME."],
-      ()=>{ Q.primeRendue=true; autoSauver(); J.rubis+=60; J.bombes=Math.min(30,J.bombes+5);
+      ()=>{ Q.primeRendue=true; autoSauver(); J.rubis+=60; J.bombes=Math.min(maxBombes(),J.bombes+5);
             SFX.coffre(); dire("PRIME : 60 RUBIS ET 5 BOMBES !"); });
     return parler(p.nom,
       ["LES MONSTRES DESCENDENT DES BOIS.","ABATS-EN QUINZE ET LA GARDE TE PAIERA.",
@@ -1983,6 +2064,12 @@ function dialoguePNJ(p){
 
 /* -------------------- INTERACTION : PARLER / LIRE / OUVRIR -------------------- */
 function tenterInteraction(){
+  if(marchand.actif&&Math.hypot(marchand.x-J.x,marchand.y-J.y)<24){
+    parler('LA COLPORTEUSE',
+      ["JE NE PASSE QUE RAREMENT PAR ICI.","CE QUE JE VENDS, BRAN NE L'A PAS."],
+      ()=>ouvrirBoutique('itinerant'));
+    return true;
+  }
   for(const p of pnjs){
     if(Math.hypot(p.x-J.x,p.y-J.y)<22 && Math.abs(J.z-Etg(Math.floor(p.x/TS),Math.floor(p.y/TS))*EH)<22){
       const a=Math.atan2(J.y-p.y,J.x-p.x);
@@ -2444,8 +2531,8 @@ function majJoueur(){
                    dire(val>5?'GRENAT ! +'+val+' RUBIS':'SAPHIR ! +'+val+' RUBIS',110); }
       }
       if(o.type==='coeur'){ J.pv=Math.min(J.pvmax,J.pv+2); SFX.coeur(); }
-      if(o.type==='bombe'){ J.bombes=Math.min(20,J.bombes+2); SFX.rubis(); }
-      if(o.type==='fleche'){ J.fleches=Math.min(60,J.fleches+5); SFX.rubis(); }
+      if(o.type==='bombe'){ J.bombes=Math.min(maxBombes(),J.bombes+2); SFX.rubis(); }
+      if(o.type==='fleche'){ J.fleches=Math.min(maxFleches(),J.fleches+5); SFX.rubis(); }
       if(o.type==='champi'){ Q.champignons=Math.min(4,Q.champignons+1); SFX.coeur();
         dire('CHAMPIGNON ROUGE : '+Q.champignons+'/4'); }
       if(o.type==='cle'){ Q.cle=true; SFX.coffre(); annonce('CLÉ DE PIERRE');
@@ -2503,6 +2590,8 @@ function majJoueur(){
     dire("LE SOL BRÛLE ! IL FAUT DES BOTTES.",120);
     particules(J.x,J.y,J.z+4,8,'#ff9a3c',2,20);
   }
+
+  majMarchand();
 
   /* --- brouillard de carte --- */
   const tx=Math.floor(J.x/TS),ty=Math.floor(J.y/TS);
@@ -3248,6 +3337,7 @@ function rendreMonde(){
   for(const st of structures) add(st,'struct');
   for(const p of pnjs) add(p,'pnj');
   for(const l of lucioles) if(!l.pris) add(l,'luciole');
+  if(marchand.actif) add(marchand,'colporteuse');
   add(J,'joueur');
 
   for(let ty=y0;ty<=y1;ty++){
@@ -3281,6 +3371,21 @@ function rendreMonde(){
             X.fillStyle='#ffe86a';
             X.fillRect(Math.round(o.x)-3,Math.round(o.y-sp.height-12+f),6,2);
             X.fillRect(Math.round(o.x)-1,Math.round(o.y-sp.height-14+f),2,6);
+          }
+        }
+        else if(t==='colporteuse'){
+          const s=SPR['colporteuse'+(Math.floor(o.anim/26)%2)];
+          ombre(X,o.x,o.y,0,7);
+          // une lueur chaude : on la repère de loin, elle ne reste pas longtemps
+          X.globalCompositeOperation='lighter'; X.globalAlpha=.32;
+          X.drawImage(glowCV,o.x-24,o.y-34,48,48);
+          X.globalAlpha=1; X.globalCompositeOperation='source-over';
+          X.drawImage(s,Math.round(o.x-s.width/2),Math.round(o.y-s.height));
+          if(!dial&&!boutique&&Math.hypot(o.x-J.x,o.y-J.y)<28){
+            const f=Math.sin(tick*.16)*1.5;
+            X.fillStyle='#ffe86a';
+            X.fillRect(Math.round(o.x)-3,Math.round(o.y-s.height-12+f),6,2);
+            X.fillRect(Math.round(o.x)-1,Math.round(o.y-s.height-14+f),2,6);
           }
         }
         else if(t==='luciole'){
@@ -3473,7 +3578,8 @@ function ath(){
   if(boutique){
     const bw=Math.min(W-20,186), bx=Math.round(W/2-bw/2), by=Math.round(H/2-52);
     panneau(X,bx,by,bw,104);
-    texteCentre(X,'ÉCHOPPE DE BRAN',W/2,by+5,'#ffe06a');
+    texteCentre(X,boutique.qui==='LA COLPORTEUSE'?'LE BALLOT DE LA COLPORTEUSE'
+                                                 :'ÉCHOPPE DE BRAN',W/2,by+5,'#ffe06a');
     X.fillStyle='#39456b'; X.fillRect(bx+4,by+15,bw-8,1);
     boutique.liste.forEach((a,i)=>{
       const yy=by+20+i*17, dispo=a.ok()&&J.rubis>=a.prix;
@@ -3649,6 +3755,9 @@ function ecranCarte(){
     X.fillStyle=col; X.fillRect(mx+tx*sc-(gros?1:0),my+ty*sc-(gros?1:0),sc+(gros?2:0),sc+(gros?2:0));
   };
   for(const p of pnjs) rep2(Math.floor(p.x/TS),Math.floor(p.y/TS),'#7fd0ff',true);
+  // la colporteuse clignote : elle ne reste pas, autant la trouver vite
+  if(marchand.actif) rep2(Math.floor(marchand.x/TS),Math.floor(marchand.y/TS),
+    (tick%30<15)?'#ffe86a':'#c88a2a',true);
   for(const l of lucioles) if(!l.pris) rep2(Math.floor(l.x/TS),Math.floor(l.y/TS),
     (tick%40<20)?'#fff6b0':'#c8b03c',true);
   if(!Q.chefTue) rep2(15,14,(tick%30<15)?'#ff7a6a':'#a03a2a',true);
@@ -3945,6 +4054,7 @@ async function chargerInterne(slot){
       dire("LE PORTAIL DE CENDRE EST OUVERT, AU SUD DE LA VALLÉE.",320); },900);
   }
 
+  marchand.actif=false; marchand.prochain=(d.temps||0)+900;
   tempsJeu=d.temps||0; dernierAuto=tempsJeu;
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
   msgT=0; bandeauT=0; secousse=0; gel=0;
@@ -4104,6 +4214,8 @@ function nouvellePartie(nom,slot){
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
   msgT=0; bandeauT=0; secousse=0; gel=0;
   tempsJeu=0; dernierAuto=-9999; sauveEtatT=0;
+  // la colporteuse va et vient : elle n'est pas sauvegardée, on la remet à zéro
+  marchand.actif=false; marchand.prochain=900;
   annonce('VAL-DES-SAULES');
   dire("PARLE À LA DOYENNE, AU CENTRE DU VILLAGE.",260);
   etat='jeu';
