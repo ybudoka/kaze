@@ -3,6 +3,7 @@
    Les tests pilotent le vrai jeu dans un navigateur : ils mesurent des pixels
    et de l'état de jeu, jamais des détails d'implémentation. */
 const path = require('path');
+const fs = require('fs');
 
 /* Playwright peut être installé localement (npm i -D playwright) ou
    globalement selon la machine : on essaie les emplacements courants. */
@@ -58,4 +59,38 @@ async function nouvellePartie(page, nom = 'TEST', slot = 0) {
 
 const dort = ms => new Promise(r => setTimeout(r, ms));
 
-module.exports = { ouvrirNavigateur, pageDeJeu, nouvellePartie, urlJeu, dort };
+/* Petit serveur statique : un service worker ne s'enregistre qu'en http(s),
+   impossible donc de le tester en file://. `marqueur` permet de modifier à
+   chaud ce que renvoie le serveur, pour vérifier qu'une nouvelle version
+   parvient bien au joueur. */
+function serveurStatique(racine = path.resolve(__dirname, '..')) {
+  const http = require('http');
+  const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript',
+                  '.svg': 'image/svg+xml', '.png': 'image/png',
+                  '.webmanifest': 'application/manifest+json' };
+  const etat = { marqueur: '' };
+  const serveur = http.createServer((req, res) => {
+    let rel = decodeURIComponent(req.url.split('?')[0]);
+    if (rel === '/' ) rel = '/index.html';
+    const f = path.join(racine, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
+    fs.readFile(f, (err, buf) => {
+      if (err) { res.writeHead(404); res.end('absent'); return; }
+      const ext = path.extname(f);
+      let corps = buf;
+      if (ext === '.html' && etat.marqueur)
+        corps = Buffer.from(buf.toString('utf8').replace('</head>', `<meta name="marqueur" content="${etat.marqueur}"></head>`));
+      res.writeHead(200, { 'Content-Type': TYPES[ext] || 'application/octet-stream',
+                           'Cache-Control': 'no-store' });
+      res.end(corps);
+    });
+  });
+  return new Promise(res => {
+    serveur.listen(0, '127.0.0.1', () => res({
+      url: `http://127.0.0.1:${serveur.address().port}/`,
+      marquer: m => { etat.marqueur = m; },
+      fermer: () => new Promise(r => serveur.close(r)),
+    }));
+  });
+}
+
+module.exports = { ouvrirNavigateur, pageDeJeu, nouvellePartie, urlJeu, dort, serveurStatique };

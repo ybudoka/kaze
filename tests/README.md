@@ -38,6 +38,7 @@ PLAYWRIGHT_MODULE=/chemin/vers/playwright CHROMIUM_PATH=/chemin/vers/chrome node
 | `04-rendu.js` | § 5.3 rien ne se voit à travers le relief · § 5.4 une salle close garde ses occupants invisibles du dehors |
 | `05-jouabilite.js` | § 5.5 l'épée touche sur toute sa lame, dans les 4 directions · § 5.2 les 8 lucioles restent dégagées et atteignables |
 | `06-terres-de-cendre.js` | § 7 génération du biome, et l'aventure entière du portail verrouillé jusqu'à la victoire |
+| `07-hors-ligne.js` | Le jeu s'installe et démarre **hors ligne**, et reçoit quand même la dernière version dès qu'il y a du réseau (pas de cache figé). Tourne sur un vrai serveur HTTP : un service worker refuse de s'enregistrer en `file://`. |
 
 ## Trois principes suivis ici
 

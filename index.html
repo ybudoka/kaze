@@ -18,6 +18,12 @@
 <link rel="apple-touch-icon" href="icone-180.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#07080e">
+<script>
+/* Le service worker permet de jouer hors ligne. On ne l'enregistre qu'en
+   http(s) : le navigateur le refuse en file://, d'où l'ouverture des tests. */
+if('serviceWorker' in navigator && location.protocol.startsWith('http'))
+  addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;
   -webkit-user-select:none;-moz-user-select:none;user-select:none;

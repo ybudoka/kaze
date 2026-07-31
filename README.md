@@ -7,8 +7,12 @@ Jeu d'action-aventure 16 bits, **en un seul fichier HTML**, sans dépendance.
 ### ▶️ Jouer : **<https://ybudoka.github.io/kaze/>**
 
 Sur téléphone, ajoute-le à ton **écran d'accueil** (Partager → « Sur l'écran
-d'accueil ») : le jeu s'ouvre en plein écran, et le navigateur cesse d'effacer
-tes sauvegardes au bout de sept jours.
+d'accueil ») : le jeu s'ouvre en plein écran, se joue **hors ligne**, et le
+navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
+
+> Le jeu reste servi en « réseau d'abord » : tant qu'il y a de la connexion, tu
+> reçois toujours la dernière version. Le cache n'est qu'un filet hors ligne —
+> jamais une raison de rester bloqué sur une version périmée.
 
 ## Manette
 
