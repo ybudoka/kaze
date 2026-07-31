@@ -58,7 +58,17 @@ manuels.
 > `aA` de la barre d'adresse). Aucun code de la page ne peut l'annuler. Si la page
 > s'ouvre agrandie, c'est le premier réflexe à vérifier.
 
-### 2.3 Les boutons masquaient le HUD — `7fe404f`
+### 2.3 Les gâchettes L/R s'accrochaient
+
+- **Cause** : `.bumper::after` élargissait la zone tactile de 9 px **dans toutes
+  les directions, vers le bas comprise** — donc par-dessus le stick et les
+  boutons de façade. Mesuré : jusqu'à **813 px² de recouvrement**.
+- **Correctif** : gâchettes remontées de 5 px, et marge tactile qui ne déborde
+  plus que vers le haut et les côtés.
+- **Vérifié** : 0 px² de recouvrement avec le stick et les boutons, de 320 à
+  414 px, la cible restant confortable (≥ 18 px de haut).
+
+### 2.4 Les boutons masquaient le HUD — `7fe404f`
 
 - **Cause** : `#outils` (PLEIN ÉCRAN / MANETTE) était en `position:fixed` en haut
   à droite — exactement là où le jeu dessine les rubis et les 3 étoiles.

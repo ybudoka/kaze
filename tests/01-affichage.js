@@ -36,6 +36,39 @@ module.exports = {
       });
       v(`${largeur}px : les boutons ne couvrent pas le HUD`, h === 0, `${h}px² recouverts`);
 
+      /* Les gâchettes L/R s'accrochaient : leur marge tactile mordait sur le
+         stick et les boutons de façade. On mesure les rectangles réellement
+         sensibles (le pseudo-élément ::after), pas les boutons visibles. */
+      const zones = await page.evaluate(() => {
+        const marge = el => {
+          const r = el.getBoundingClientRect();
+          const s = getComputedStyle(el, '::after');
+          const px = v => parseFloat(v) || 0;
+          return { haut: r.top - px(s.top) * 0, // les insets sont relatifs à l'élément
+                   t: r.top + px(s.top), b: r.bottom - px(s.bottom),
+                   g: r.left + px(s.left), d: r.right - px(s.right) };
+        };
+        const chevauche = (a, b) =>
+          Math.max(0, Math.min(a.d, b.d) - Math.max(a.g, b.g)) *
+          Math.max(0, Math.min(a.b, b.b) - Math.max(a.t, b.t));
+        const L = marge(document.getElementById('bL'));
+        const R = marge(document.getElementById('bR'));
+        const stick = document.getElementById('stickZone').getBoundingClientRect();
+        const zs = { t: stick.top, b: stick.bottom, g: stick.left, d: stick.right };
+        const faces = [...document.querySelectorAll('.fb')].map(marge);
+        return {
+          surStick: Math.round(chevauche(L, zs) + chevauche(R, zs)),
+          surBoutons: Math.round(faces.reduce((n, f) => n + chevauche(L, f) + chevauche(R, f), 0)),
+          hauteurL: Math.round(L.b - L.t),
+        };
+      });
+      v(`${largeur}px : L/R ne mordent pas sur le stick`,
+        zones.surStick === 0, `${zones.surStick}px² de recouvrement`);
+      v(`${largeur}px : L/R ne mordent pas sur les boutons`,
+        zones.surBoutons === 0, `${zones.surBoutons}px² de recouvrement`);
+      v(`${largeur}px : L/R restent confortables à toucher`,
+        zones.hauteurL >= 18, `${zones.hauteurL}px de haut`);
+
       v(`${largeur}px : aucune erreur JS`, page.erreursJS.length === 0, page.erreursJS[0]);
       await page.context().close();
     }
