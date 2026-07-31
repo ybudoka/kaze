@@ -1822,6 +1822,7 @@ function mourir(){
   }
   etat='mort'; finT=0; viderTampon(); SFX.mort();
   particules(J.x,J.y,J.z+10,26,'#e8e0ff',3.4,40);
+  sauverPointDeReprise();          // la progression est mise à l'abri
 }
 
 function larguer(x,y,z){
@@ -1971,6 +1972,7 @@ function majJoueur(){
       l.pris=true; Q.lucioles++;
       SFX.coffre(); particules(l.x,l.y,l.e*EH+14,18,'#ffe86a',2.6,30);
       dire('LUCIOLE D OR : '+Q.lucioles+'/8');
+      autoSauver();                      // une trouvaille ne se reperd pas
     }
   }
   /* --- jamais coincé dans un obstacle --- */
@@ -3001,6 +3003,7 @@ function ecranFin(gagne){
     texte(X,'LUCIOLES '+Q.lucioles+'/8',g,by+30,'#fff0a0','#0a0c18');
     texte(X,'TEMPS  '+formatTemps(tempsJeu),d,by+18,'#9fe0b8','#0a0c18');
     texte(X,'RUBIS  '+J.rubis,d,by+30,'#8fe0b0','#0a0c18');
+    if(!gagne) texteCentre(X,'PROGRESSION CONSERVÉE',W/2,by+50,'#9fe0b8','#0a0c18');
   }
 
   // le menu n'apparaît qu'une fois le verrou levé
@@ -3143,6 +3146,22 @@ async function sauver(silencieux){
 function autoSauver(){
   if(tempsJeu-dernierAuto<180) return;      // au plus une fois toutes les 3 s
   dernierAuto=tempsJeu; sauver(true);
+}
+/* Mourir ne doit jamais coûter la progression. La sauvegarde automatique ne
+   passe qu'une fois par minute — et jamais pendant un combat de gardien — donc
+   sans cela une mort effaçait tout ce qui avait été gagné depuis, combat de
+   boss compris. On écrit ici un point de reprise qui conserve absolument tout
+   (quêtes, objets, étoiles, lucioles, rubis, coffres, carte explorée) et se
+   contente de replacer le héros vivant au village. */
+async function sauverPointDeReprise(){
+  const d=construireSauve();
+  d.J.pv=J.pvmax; d.J.z=0;                  // on revient debout et soigné
+  d.J.x=35*TS+8; d.J.y=45*TS+8;             // Val-des-Saules
+  const ou=await stockEcrire(d,emplacement);
+  resumes[emplacement]=apercu(d);
+  sauveEtat=(ou==='disque')?'PROGRESSION CONSERVÉE':'SAUVEGARDE TEMPORAIRE';
+  sauveEtatT=110;
+  return d;
 }
 
 /* ------------------------------ LECTURE ------------------------------ */
