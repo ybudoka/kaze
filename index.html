@@ -779,15 +779,15 @@ const S = {HERBE:0,TERRE:1,EAU:2,SABLE:3,DALLE:4,RAMPE:5,TAPIS:6,
            CENDRE:7,LAVE:8,BRAISE:9,BASALTE:10};                    // sol
 const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNEAU:8,
            SOUCHE:9,FLEUR:10,BLOC:11,PORTE:12,GRILLE:13,OEIL:14,FISSURE:15,
-           ROCNOIR:16,PORTAIL:17,CRISTAL:18};
+           ROCNOIR:16,PORTAIL:17,CRISTAL:18,BRASIER:19,BRASIERVIF:20,LANTERNE:21};
 
-const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16];
-const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1];
+const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16];
+const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0];
 /* Ce qu'un saut permet réellement d'enjamber. Tout le reste — murs, portes,
    grilles, murs fissurés, piliers, statues, arbres, maisons — reste infranchissable
    quelle que soit la hauteur atteinte, sinon le saut annulerait toute la progression. */
 /* La roche noire ne s'enjambe pas : elle ne cède qu'au marteau. */
-const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0];
+const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0];
 
 const sol   = new Uint8Array(MW*MH);
 const objs  = new Uint8Array(MW*MH);
@@ -923,11 +923,22 @@ function genererMonde(){
   /* --- la seconde région, au sud --- */
   genererCendres();
 
-  /* --- inventaire des torches pour l'éclairage --- */
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)
-    if(objs[y*MW+x]===O.TORCHE) torches.push({x:x*TS+8,y:y*TS+4-Etg(x,y)*EH,r:46});
+  inventorierTorches();
 
   objsRef=objs.slice();          // état de référence pour les sauvegardes
+}
+
+/* Inventaire des sources de lumière. Refait à chaque chargement : un brasier
+   rallumé est restitué par les différences de décor, et sans ce recalcul il
+   serait dessiné en feu tout en n'éclairant rien. */
+function inventorierTorches(){
+  torches.length=0;
+  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
+    const o=objs[y*MW+x];
+    if(o===O.TORCHE) torches.push({x:x*TS+8,y:y*TS+4-Etg(x,y)*EH,r:46});
+    else if(o===O.BRASIERVIF) torches.push({x:x*TS+8,y:y*TS+2-Etg(x,y)*EH,r:78});
+    else if(o===O.LANTERNE) torches.push({x:x*TS+8,y:y*TS+8-Etg(x,y)*EH,r:52});
+  }
 }
 
 /* ---- hauteur du sol (gère les rampes) ---- */
@@ -1388,6 +1399,15 @@ function bakeEnnemis(){
     rc(g,9,22,4,6,'#3a2f4e'); rc(g,14,22,4,6,'#3a2f4e');      // pieds
     rc(g,17,10+d,3,10,'#8a6a3a');                     // bâton
   });
+  faireSprite('lanterne',14,16,g=>{                   // la lanterne du pêcheur
+    rc(g,5,0,4,2,'#8a8a9a'); rc(g,3,2,8,2,'#6a6a7a');
+    rc(g,4,4,6,8,'#2a2f3e'); rc(g,5,5,4,6,'#ffd88a'); rc(g,6,6,2,3,'#fff6d0');
+    rc(g,3,12,8,2,'#6a6a7a');
+  });
+  faireSprite('eclat',12,12,g=>{                      // éclat d'obsidienne
+    rc(g,4,1,4,9,'#241f2c'); rc(g,3,3,6,5,'#3a3446');
+    rc(g,5,3,2,4,'#6a5f86'); rc(g,4,8,4,2,'#171320');
+  });
   faireSprite('marteauItem',14,14,g=>{
     rc(g,2,2,10,6,'#5c5470'); rc(g,3,3,8,3,'#8d84a4');
     rc(g,6,7,2,7,'#8a6a3a'); rc(g,5,12,4,2,'#6a4e28');
@@ -1598,7 +1618,10 @@ const Q={
   /* Terres de Cendre */
   portailOuvert:false, braises:0, bottes:false, coeurTue:false,
   /* marchand itinérant */
-  carquois:false, grandSac:false
+  carquois:false, grandSac:false,
+  /* quêtes annexes : la lanterne du pêcheur (vallée → Cendres) et les brasiers */
+  lanterne:0,          // 0 rien · 1 cherchée · 2 trouvée · 3 rendue (le forgeron attend)
+  eclats:0, epeeCendre:false, brasiers:0
 };
 /* Capacités : le marchand itinérant est le seul à les augmenter. */
 const maxFleches=()=>Q.carquois?99:60;
@@ -1607,7 +1630,7 @@ function razQuetes(){
   Object.assign(Q,{parleDoyenne:false,cle:false,porteOuverte:false,grilleOuverte:false,
     fissureOuverte:false,chefTue:false,champignons:0,tarte:false,perle:false,
     coeurCristal:false,lucioles:0,epeeLongue:false,bouclierFort:false,potions:0,
-    carquois:false,grandSac:false,
+    carquois:false,grandSac:false,lanterne:0,eclats:0,epeeCendre:false,brasiers:0,
     prime:0,primeRendue:false,feeVue:false,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false});
 }
@@ -1636,7 +1659,10 @@ function bakeBoucliers(){
 
 function bakeQuete(){
   const robes=[['#7a4a9a','#9a6ac0'],['#a05a2a','#c47a44'],['#2a6a9a','#4a8ac0'],
-               ['#8a2a3a','#b04a58'],['#3a7a4a','#5a9a68']];
+               ['#8a2a3a','#b04a58'],['#3a7a4a','#5a9a68'],
+               /* Le forgeron des Cendres : tablier de cuir. Une robe grise se
+                  serait fondue dans le basalte de sa clairière. */
+               ['#6a3428','#8f4c36']];
   robes.forEach((c,i)=>faireSprite('pnj'+i,20,28,g=>{
     rc(g,6,24,4,3,'#5a3a1a'); rc(g,11,24,4,3,'#5a3a1a');
     rc(g,4,13,12,12,c[0]); rc(g,5,14,10,6,c[1]); rc(g,4,22,12,3,c[0]);
@@ -1831,6 +1857,20 @@ function genererVillage(){
   putO(12,11,O.TORCHE); putO(18,11,O.TORCHE);
   putO(12,17,O.TORCHE); putO(18,17,O.TORCHE);
 
+  /* --- la clairière aux pins, où le pêcheur a perdu sa lanterne ---
+     Même précaution que pour les lucioles : une clairière franche et deux
+     torches en diagonale. Un objet de quête posé au milieu des arbres
+     générés serait invisible, et la quête impossible à finir. */
+  for(let y=LANTERNE_POS[1]-2;y<=LANTERNE_POS[1]+2;y++)
+    for(let x=LANTERNE_POS[0]-2;x<=LANTERNE_POS[0]+2;x++)
+      if(dansCarte(x,y)){ putO(x,y,O.RIEN); putE(x,y,0);
+                          if(Sol(x,y)!==S.EAU) putS(x,y,S.TERRE); }
+  putO(LANTERNE_POS[0]-2,LANTERNE_POS[1]-2,O.TORCHE);
+  putO(LANTERNE_POS[0]+2,LANTERNE_POS[1]+2,O.TORCHE);
+  putO(LANTERNE_POS[0],LANTERNE_POS[1],O.LANTERNE);
+  panneaux.push({x:LANTERNE_POS[0]*TS+8,y:(LANTERNE_POS[1]+3)*TS+8,
+    txt:"CLAIRIÈRE AUX PINS. BOIS DU NORD."});
+
   /* --- les verrous --- */
   for(let k=62;k<=64;k++) putO(k,19,O.PORTE);        // porte du sanctuaire
   for(let k=16;k<=17;k++) putO(k,72,O.GRILLE);       // grille de la ruine
@@ -1853,6 +1893,15 @@ const CENDRE={
   falaises:{x0:58,y0:96,w:14,h:12},    // les Falaises Ardentes : bottes — à l'est
   arene:{x0:32,y0:132,w:19,h:17}       // l'Antre du Cœur de Cendre — plein sud
 };
+/* Quêtes annexes : la lanterne perdue dans le bois du nord, les trois brasiers
+   éteints des Cendres, et l'atelier du forgeron. Déclarés ici pour que le monde
+   et les tests parlent des mêmes coordonnées. */
+const LANTERNE_POS=[44,10];
+/* Les trois brasiers sont tous au sud de la Forge : un chemin tracé vers un
+   point situé plus au nord traverserait ses murs, que le traceur ne perce pas,
+   et le brasier resterait injoignable. */
+const BRASIERS_POS=[[12,112],[74,110],[16,126]];
+const FORGERON_POS=[41,104];           // sous la Forge, sur le chemin des salles
 function genererCendres(){
   const Y0=Y_CENDRE;
   /* Nappes de terrain : une grille grossière tirée du générateur du jeu, puis
@@ -1951,6 +2000,34 @@ function genererCendres(){
   /* un champ de braises garde l'Antre : il faut les bottes */
   {const [cx,cy]=centre(CENDRE.arene);
    for(let y=cy-4;y<cy;y++)for(let k=-2;k<=2;k++){ putS(cx+k,y,S.BRAISE); putO(cx+k,y,O.RIEN); }}
+
+  /* --- l'atelier du forgeron, juste sous la sortie de la Forge ---
+     On le croise en revenant du marteau : c'est le seul endroit des Cendres
+     par lequel tout le monde passe. */
+  for(let y=FORGERON_POS[1]-2;y<=FORGERON_POS[1]+2;y++)
+    for(let x=FORGERON_POS[0]-2;x<=FORGERON_POS[0]+2;x++){
+      putS(x,y,S.BASALTE); putO(x,y,O.RIEN); putE(x,y,0);
+    }
+  putO(FORGERON_POS[0]-2,FORGERON_POS[1]-2,O.TORCHE);
+  putO(FORGERON_POS[0]+2,FORGERON_POS[1]-2,O.TORCHE);
+  chemin(...depart,FORGERON_POS[0],FORGERON_POS[1]);
+  pnjs.push({id:'forgeron',x:FORGERON_POS[0]*TS+8,y:FORGERON_POS[1]*TS+12,
+             spr:'pnj5',nom:'DURN LE FORGERON',anim:rnd()*90,dir:2});
+  panneaux.push({x:(FORGERON_POS[0]-2)*TS+8,y:(FORGERON_POS[1]+2)*TS+8,
+    txt:"ATELIER DE DURN. LES BRASIERS DE LA ROUTE SONT ÉTEINTS."});
+
+  /* --- les trois brasiers éteints ---
+     Chacun dans sa propre clairière de basalte, à découvert : ils servent de
+     repère autant que de quête, et un brasier noyé dans la lave serait
+     impossible à rallumer. */
+  for(const [bx,by] of BRASIERS_POS){
+    for(let y=by-2;y<=by+2;y++)for(let x=bx-2;x<=bx+2;x++){
+      if(!dansCarte(x,y)) continue;
+      putS(x,y,S.BASALTE); putO(x,y,O.RIEN); putE(x,y,0);
+    }
+    putO(bx,by,O.BRASIER);
+    chemin(...depart,bx,by);       // jamais cerné par la lave
+  }
 
   /* quelques cristaux en repère */
   for(let i=0;i<26;i++){
@@ -2097,6 +2174,27 @@ function dialoguePNJ(p){
       ["LES MONSTRES DESCENDENT DES BOIS.","ABATS-EN QUINZE ET LA GARDE TE PAIERA.",
        "COMPTE ACTUEL : "+Q.prime+" SUR 15."]);
   case 'pecheur':
+    /* La lanterne prime : elle vient après la tarte et mène aux Cendres. */
+    if(Q.lanterne>=3) return parler(p.nom,
+      ["MON FRÈRE DURN FORGE AU-DELÀ DU PORTAIL DE CENDRE.",
+       "MONTRE-LUI CETTE LANTERNE. IL SAURA DE QUI ELLE VIENT."]);
+    if(Q.lanterne===2) return parler(p.nom,
+      ["MA LANTERNE ! ELLE A ÉCLAIRÉ QUARANTE ANS DE NUITS.",
+       "PRENDS CES RUBIS. ET ÉCOUTE-MOI BIEN :",
+       "MON FRÈRE DURN EST PARTI FORGER DANS LES TERRES DE CENDRE.",
+       "VA LE TROUVER. DIS-LUI QUE LA LANTERNE BRÛLE ENCORE."],
+      ()=>{ Q.lanterne=3; J.rubis=Math.min(999,J.rubis+40); SFX.coffre();
+            autoSauver(); annonce('LE FRÈRE FORGERON');
+            dire("40 RUBIS. NOUVELLE QUÊTE : RETROUVER DURN, AU SUD.",300); });
+    if(Q.lanterne===1) return parler(p.nom,
+      ["ELLE EST QUELQUE PART DANS LE BOIS DU NORD.",
+       "CHERCHE LA CLAIRIÈRE AUX PINS. SA FLAMME NE S'ÉTEINT PAS."]);
+    if(Q.coeurCristal) return parler(p.nom,
+      ["J'AI PERDU MA LANTERNE DANS LE BOIS DU NORD, L'AN DERNIER.",
+       "UNE CLAIRIÈRE AUX PINS. JE N'Y VOIS PLUS ASSEZ POUR Y RETOURNER.",
+       "RAPPORTE-LA-MOI ET JE TE DIRAI CE QUE JE SAIS."],
+      ()=>{ Q.lanterne=1; autoSauver(); annonce('LA LANTERNE DU PÊCHEUR');
+            dire("NOUVELLE QUÊTE : LA CLAIRIÈRE AUX PINS, AU BOIS DU NORD.",300); });
     if(Q.coeurCristal||Q.perle) return parler(p.nom,["CETTE TARTE ÉTAIT DIVINE. PORTE LA PERLE À LA DOYENNE."]);
     if(Q.tarte) return parler(p.nom,
       ["UNE TARTE AUX CHAMPIGNONS ! MIRA SE SOUVIENT DE MOI.","J'AI REPÊCHÉ CECI L'AUTRE JOUR. PRENDS-LA."],
@@ -2111,6 +2209,30 @@ function dialoguePNJ(p){
     return parler(p.nom,
       ["MES HUIT LUCIOLES D'OR SE SONT ENVOLÉES AUX QUATRE COINS DE LA VALLÉE.",
        "RAPPORTE-LES ET JE FORGERAI TON ÉPÉE.","TU EN AS "+Q.lucioles+" SUR HUIT."]);
+  /* Durn, le forgeron des Cendres : le bout de la chaîne de la lanterne, et
+     le donneur de la quête des brasiers. */
+  case 'forgeron':
+    if(Q.lanterne>=3&&!Q.epeeCendre&&Q.eclats>=3) return parler(p.nom,
+      ["TROIS ÉCLATS D'OBSIDIENNE. C'EST EXACTEMENT CE QU'IL ME FALLAIT.",
+       "TIENS TA LAME AU-DESSUS DE L'ENCLUME. NE BOUGE PLUS."],
+      ()=>{ Q.eclats=0; Q.epeeCendre=true; autoSauver(); SFX.coffre(); secousse=12;
+            particules(J.x,J.y,J.z+12,34,'#ff9a3c',3,44);
+            annonce('ÉPÉE DE CENDRE');
+            dire("ÉPÉE DE CENDRE : CHACUN DE TES COUPS FRAPPE PLUS FORT.",300); });
+    if(Q.lanterne>=3&&!Q.epeeCendre) return parler(p.nom,
+      ["LA LANTERNE DE MON FRÈRE ! IL VIT DONC ENCORE.",
+       "JE VAIS TE FORGER QUELQUE CHOSE. IL ME FAUT TROIS ÉCLATS D'OBSIDIENNE.",
+       "LES GOLEMS DE BASALTE EN PORTENT DANS LE DOS. BRISE-LES.",
+       "TU EN AS "+Q.eclats+" SUR TROIS."]);
+    if(Q.brasiers>=3) return parler(p.nom,
+      [Q.epeeCendre?"CETTE LAME BOIT LE FEU. PRENDS-EN SOIN."
+                   :"REVIENS ME VOIR SI LA VALLÉE T'ENVOIE UN MESSAGE.",
+       "ET MERCI POUR LES TROIS FEUX : LA ROUTE EST SÛRE."]);
+    return parler(p.nom,
+      ["DURN, FORGERON. J'AI QUITTÉ LA VALLÉE POUR LE FEU D'ICI.",
+       "TROIS BRASIERS BALISAIENT LA ROUTE. ILS SE SONT ÉTEINTS.",
+       "UN COUP D'ACIER Y FAIT JAILLIR L'ÉTINCELLE. RALLUME-LES.",
+       "BRASIERS : "+Q.brasiers+" SUR TROIS."]);
   }
 }
 
@@ -2173,10 +2295,19 @@ function lignesJournal(){
   L.push([f(Q.coeurCristal)+'TARTE DE MIRA : '+
     (Q.coeurCristal?'TERMINÉ':Q.perle?'PERLE A LA DOYENNE':Q.tarte?'VOIR LE PÊCHEUR':'CHAMPIGNONS '+Q.champignons+'/4'),'#c8d0e8']);
   L.push([f(Q.primeRendue)+'PRIME DE LA GARDE : '+Math.min(Q.prime,15)+'/15','#c8d0e8']);
-  if(Q.portailOuvert) L.push([f(Q.braises>=3)+'BRAISES : '+Q.braises+'/3','#e8b0a0']);
+  L.push([f(Q.lanterne>=3)+'LANTERNE DU PÊCHEUR : '+
+    (Q.lanterne>=3?'RENDUE':Q.lanterne===2?'LA RAPPORTER À LA GRÈVE'
+     :Q.lanterne===1?'CLAIRIÈRE AUX PINS, BOIS DU NORD':'PARLER AU PÊCHEUR'),'#c8d0e8']);
+  if(Q.lanterne>=3)
+    L.push([f(Q.epeeCendre)+'ÉPÉE DE CENDRE : '+
+      (Q.epeeCendre?'FORGÉE':"ÉCLATS D'OBSIDIENNE "+Q.eclats+'/3 - VOIR DURN'),'#e8b0a0']);
+  if(Q.portailOuvert){
+    L.push([f(Q.brasiers>=3)+'BRASIERS DES CENDRES : '+Q.brasiers+'/3','#e8b0a0']);
+    L.push([f(Q.braises>=3)+'BRAISES : '+Q.braises+'/3','#e8b0a0']);
+  }
   L.push(['','#000']);
   L.push(['ÉQUIPEMENT','#ffb0c0']);
-  L.push(['ÉPÉE '+(Q.epeeLongue?'LONGUE':'COURTE'),'#c8d0e8']);
+  L.push(['ÉPÉE '+(Q.epeeLongue?'LONGUE':'COURTE')+(Q.epeeCendre?' DE CENDRE':''),'#c8d0e8']);
   L.push([(J.objets.includes('arc')?'ARC':'-')+'   '+(J.objets.includes('bombe')?'BOMBES':'-'),'#c8d0e8']);
   /* équipement des Cendres : les bottes ne se voient nulle part ailleurs */
   if(Q.portailOuvert||J.objets.includes('marteau')||Q.bottes)
@@ -2543,7 +2674,8 @@ function majJoueur(){
          part de derrière le héros — un ennemi collé à lui doit être touché —
          et va jusqu'à la pointe, en s'élargissant sur les côtés pour suivre
          l'arc du balayage montré à l'écran. */
-      const d=Q.epeeLongue?2:1;
+      // l'épée de Cendre ajoute un point de dégât à la lame, quelle qu'elle soit
+      const d=(Q.epeeLongue?2:1)+(Q.epeeCendre?1:0);
       const lg=Q.epeeLongue?46:38;          // longueur couverte, du corps à la pointe
       const la=Q.epeeLongue?34:32;          // largeur du balayage
       const c=lg/2-8;                        // 8 px en arrière du héros
@@ -2554,7 +2686,8 @@ function majJoueur(){
   }
   if(J.spin>0){
     J.spin--;
-    if(J.spin%3===0) zoneDegats(J.x,J.y,Q.epeeLongue?66:54,Q.epeeLongue?62:50,Q.epeeLongue?3:2,'epee');
+    if(J.spin%3===0) zoneDegats(J.x,J.y,Q.epeeLongue?66:54,Q.epeeLongue?62:50,
+                                (Q.epeeLongue?3:2)+(Q.epeeCendre?1:0),'epee');
     if(J.spin%5===0) particules(J.x+(rnd()-.5)*30,J.y+(rnd()-.5)*26,J.z+10,2,'#dfe8ff',1.2,12);
   }
 
@@ -2587,6 +2720,10 @@ function majJoueur(){
       autoSauver();                      // une trouvaille ne se reperd pas
     }
   }
+  /* --- la lanterne perdue : marcher dessus suffit --- */
+  {const lx=Math.floor(J.x/TS), ly=Math.floor(J.y/TS);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++) ramasserLanterne(lx+dx,ly+dy);}
+
   /* --- jamais coincé dans un obstacle --- */
   if(!J.enAir){
     const eau=Sol(Math.floor(J.x/TS),Math.floor(J.y/TS))===S.EAU;
@@ -2690,8 +2827,44 @@ function ramasserButin(o){
   if(o.type==='fleche'){ J.fleches=Math.min(maxFleches(),J.fleches+5); SFX.rubis(); }
   if(o.type==='champi'){ Q.champignons=Math.min(4,Q.champignons+1); SFX.coeur();
     dire('CHAMPIGNON ROUGE : '+Q.champignons+'/4'); }
+  if(o.type==='eclat'){ Q.eclats=Math.min(3,Q.eclats+1); SFX.coffre();
+    dire("ÉCLAT D'OBSIDIENNE : "+Q.eclats+'/3'); autoSauver(); }
   if(o.type==='cle'){ Q.cle=true; SFX.coffre(); annonce('CLÉ DE PIERRE');
     dire('LA PORTE DU SANCTUAIRE PEUT S OUVRIR.'); }
+}
+
+/* ==================== QUÊTES ANNEXES DU DÉCOR ====================
+   La lanterne et les brasiers sont des tuiles, pas des butins : ils survivent
+   donc au rechargement par les différences de décor, sans champ de sauvegarde
+   supplémentaire. Chaque changement refait l'inventaire des lumières, faute de
+   quoi un brasier s'afficherait en feu sans rien éclairer. */
+function ramasserLanterne(tx,ty){
+  if(Obj(tx,ty)!==O.LANTERNE) return false;
+  putO(tx,ty,O.RIEN); rafraichirTuile(tx,ty); inventorierTorches();
+  Q.lanterne=2; SFX.coffre();
+  particules(tx*TS+8,ty*TS+8,Etg(tx,ty)*EH+12,22,'#ffd88a',2.6,32);
+  annonce('LA LANTERNE DU PÊCHEUR');
+  dire("UNE VIEILLE LANTERNE DE PÊCHE. RAPPORTE-LA À LA GRÈVE.",280);
+  autoSauver();
+  return true;
+}
+function allumerBrasier(tx,ty){
+  if(Obj(tx,ty)!==O.BRASIER) return false;
+  putO(tx,ty,O.BRASIERVIF); rafraichirTuile(tx,ty); inventorierTorches();
+  Q.brasiers=Math.min(3,Q.brasiers+1);
+  SFX.coffre(); secousse=4;
+  particules(tx*TS+8,ty*TS+4,Etg(tx,ty)*EH+16,26,'#ff9a3c',3,36);
+  dire('BRASIER RALLUMÉ : '+Q.brasiers+'/3');
+  if(Q.brasiers>=3) recompenseBrasiers();
+  autoSauver();
+  return true;
+}
+function recompenseBrasiers(){
+  // la route balisée se découvre : les Cendres apparaissent entières sur la carte
+  for(let y=Y_CENDRE;y<MH;y++)for(let x=0;x<MW;x++) vu[y*MW+x]=1;
+  J.rubis=Math.min(999,J.rubis+120);
+  secousse=10; annonce('LA ROUTE DES BRASIERS EST BALISÉE');
+  dire("LES TROIS FEUX BRÛLENT. LES CENDRES S'OUVRENT SUR TA CARTE, ET DURN TE PAIE 120 RUBIS.",320);
 }
 
 /* zone de dégâts (épée / tourbillon) */
@@ -2730,6 +2903,13 @@ function zoneDegats(cx,cy,w,h,deg,type){
       butins.push({x:tx*TS+8,y:ty*TS+8,z:Etg(tx,ty)*EH,vz:1.5,type:'champi',t:0});
     else if(rnd()<.5) larguer(tx*TS+8,ty*TS+8,Etg(tx,ty)*EH);
   }
+  /* Objets de quête du décor : un coup les atteint sur toute la zone balayée,
+     pas seulement sur la tuile du centre — sinon il fallait viser au pixel. */
+  for(let y=Math.floor((cy-h/2)/TS);y<=Math.floor((cy+h/2)/TS);y++)
+    for(let x=Math.floor((cx-w/2)/TS);x<=Math.floor((cx+w/2)/TS);x++){
+      if(!dansCarte(x,y)||Math.abs(Etg(x,y)*EH-J.z)>26) continue;
+      if(!allumerBrasier(x,y)) ramasserLanterne(x,y);
+    }
 }
 
 /* ============================ IA ENNEMIS ============================ */
@@ -2750,6 +2930,12 @@ function majEnnemis(){
       if(e.type==='gluant'&&!dansRefuge(e.x,e.y,10)){ for(let k=0;k<2;k++){
         ennemis.push({type:'mini',x:e.x+(k?9:-9),y:e.y,z:e.z,vz:1.4,r:4,dir:2,pv:1,pvmax:1,
           t:0,cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*50,stun:0}); } }
+      /* Quête de Durn : seuls les golems de basalte portent de l'obsidienne,
+         et seulement tant qu'il en manque. On compte aussi les éclats déjà au
+         sol, sinon trois golems tués coup sur coup en laisseraient six. */
+      if(e.type==='golem'&&Q.lanterne>=3&&!Q.epeeCendre
+         &&Q.eclats+butins.filter(b=>b.type==='eclat').length<3)
+        butins.push({x:e.x,y:e.y,z:e.z+8,vz:2,type:'eclat',t:0});
       larguer(e.x,e.y,e.z); ennemis.splice(i,1); son(160,.16,'square',.05,-90); continue;
     }
     if(dansRefuge(e.x,e.y)){ sortirRefuge(e); e.kx=0; e.ky=0; e.hx=0; e.hy=0; }
@@ -3095,6 +3281,40 @@ function decorTuile(g,x,y){
     if(h>.5){ g.fillStyle='#5d5570'; g.fillRect(gx+4,t+7,3,2); }
     return;
   }
+  if(o===O.BRASIER){                           // brasier éteint, à rallumer
+    /* Assez clair pour ne pas se confondre avec la roche noire des Cendres :
+       socle de pierre pâle, vasque de cuivre terni, braises mortes. */
+    const gx=x*TS, t=by-22;
+    g.fillStyle='#3a3446'; g.fillRect(gx+2,by-6,12,6);      // socle
+    g.fillStyle='#6a6280'; g.fillRect(gx+3,by-7,10,3);
+    g.fillStyle='#7a6a52'; g.fillRect(gx+6,t+8,4,9);        // le pied
+    g.fillStyle='#9a8a68'; g.fillRect(gx+6,t+8,2,9);
+    g.fillStyle='#8a7a5a'; g.fillRect(gx+3,t+4,10,5);       // la vasque
+    g.fillStyle='#a8977a'; g.fillRect(gx+3,t+4,10,2);
+    g.fillStyle='#241f2c'; g.fillRect(gx+4,t+5,8,3);        // braises mortes
+    g.fillStyle='#4b4458'; g.fillRect(gx+5,t+5,2,2); g.fillRect(gx+9,t+6,2,2);
+    return;
+  }
+  if(o===O.BRASIERVIF){                        // brasier rallumé : un phare
+    const gx=x*TS, t=by-22, v=Math.sin(tick*.13+x*1.7)*.5+.5;
+    g.fillStyle='#2a2436'; g.fillRect(gx+3,by-7,10,7);
+    g.fillStyle='#5a4c2a'; g.fillRect(gx+4,by-8,8,3);
+    g.fillStyle='#4a3f52'; g.fillRect(gx+5,t+6,6,10);
+    g.fillStyle='#8a2f1a'; g.fillRect(gx+4,t+4,8,4);
+    g.fillStyle='#ff8b3a'; g.fillRect(gx+5,t+1,6,4);
+    g.fillStyle='#ffd06a'; g.fillRect(gx+6,t-1+Math.round(v),4,4);
+    g.globalAlpha=.5+v*.5; g.fillStyle='#fff0c0';
+    g.fillRect(gx+7,t-3+Math.round(v*2),2,3); g.globalAlpha=1;
+    return;
+  }
+  if(o===O.LANTERNE){                          // la lanterne perdue du pêcheur
+    const v=Math.sin(tick*.08+y)*.5+.5;
+    g.globalCompositeOperation='lighter'; g.globalAlpha=.30+v*.22;
+    g.drawImage(glowCV,cx-24,by-40,48,48);
+    g.globalAlpha=1; g.globalCompositeOperation='source-over';
+    g.drawImage(SPR.lanterne,cx-7,by-17);
+    return;
+  }
   if(o===O.CRISTAL){                           // repère lumineux des Cendres
     const gx=x*TS, t=by-16, v=Math.sin(tick*.06+h*6)*.5+.5;
     g.fillStyle='#2a1d3a'; g.fillRect(gx+5,by-4,6,4);
@@ -3261,17 +3481,20 @@ function eclatsDeLame(g,dx,dy){
   if(J.atk>0&&J.atk<13){
     const cx=Math.round(J.x)+dx, cy=Math.round(J.y-J.z)-15+dy;
     const R=Q.epeeLongue?25:20;
-    trainee(g,cx,cy,angleLame(),R,clamp(J.atk/8,0,1)*1.15,4,['#cfe6ff','#7fb8ff']);
+    // l'épée de Durn traîne du feu : on doit voir qu'on l'a reçue
+    trainee(g,cx,cy,angleLame(),R,clamp(J.atk/8,0,1)*1.15,4,
+      Q.epeeCendre?['#ffd7a8','#ff8b3a']:['#cfe6ff','#7fb8ff']);
   }
   if(J.spin>0){
     const cx=Math.round(J.x)+dx, cy=Math.round(J.y-J.z)-15+dy;
     const R=Q.epeeLongue?28:23;
     const a=-Math.PI/2+((30-J.spin)/30)*Math.PI*2*1.7;
     g.globalAlpha=.20*clamp(J.spin/10,0,1);
-    g.strokeStyle='#a8d8ff'; g.lineWidth=5;
+    g.strokeStyle=Q.epeeCendre?'#ffb87a':'#a8d8ff'; g.lineWidth=5;
     g.beginPath(); g.arc(cx,cy,R-2,0,6.2832); g.stroke();
     g.globalAlpha=1;
-    trainee(g,cx,cy,a,R,clamp(J.spin/12,0,1)*1.2,5,['#dff0ff','#8fd0ff']);
+    trainee(g,cx,cy,a,R,clamp(J.spin/12,0,1)*1.2,5,
+      Q.epeeCendre?['#ffe6c8','#ff9a4a']:['#dff0ff','#8fd0ff']);
   }
   for(const p of parts){
     if(p.entaille===undefined) continue;
@@ -3470,8 +3693,9 @@ function rendreMonde(){
           ombre(X,o.x,o.y,o.z,3.5);
           const nom=VALEUR_GEMME[o.type]?o.type+(Math.floor(tick/7)%4)
                    :o.type==='coeur'?'coeur':o.type==='bombe'?'bombeItem'
-                   :o.type==='champi'?'champi':o.type==='cle'?'cle':'fleche';
-          if(o.type==='cle'){
+                   :o.type==='champi'?'champi':o.type==='cle'?'cle'
+                   :o.type==='eclat'?'eclat':'fleche';
+          if(o.type==='cle'||o.type==='eclat'){
             X.globalCompositeOperation='lighter'; X.globalAlpha=.5;
             X.drawImage(glowCV,o.x-20,o.y-o.z-28,40,40);
             X.globalAlpha=1; X.globalCompositeOperation='source-over';
@@ -3826,6 +4050,12 @@ function ecranCarte(){
   for(const l of lucioles) if(!l.pris) rep2(Math.floor(l.x/TS),Math.floor(l.y/TS),
     (tick%40<20)?'#fff6b0':'#c8b03c',true);
   if(!Q.chefTue) rep2(15,14,(tick%30<15)?'#ff7a6a':'#a03a2a',true);
+  /* Repères des quêtes annexes : sans eux, une lanterne et trois brasiers
+     posés dans deux régions entières se cherchent tuile par tuile. */
+  if(Q.lanterne===1) rep2(LANTERNE_POS[0],LANTERNE_POS[1],
+    (tick%36<18)?'#ffd88a':'#c8912a',true);
+  for(const [bx,by] of BRASIERS_POS) if(Obj(bx,by)===O.BRASIER)
+    rep2(bx,by,(tick%36<18)?'#ff9a3c':'#8a4a1a',true);
   for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert){
     X.fillStyle=(tick%30<15)?'#ffe86a':'#c8a03c';
     X.fillRect(mx+Math.floor(c.x/TS)*sc-1,my+Math.floor(c.y/TS)*sc-1,4,4);
@@ -4095,6 +4325,7 @@ async function chargerInterne(slot){
   genererMonde();
   Object.assign(Q,d.Q||{});
   if(Array.isArray(d.diff)) for(let i=0;i<d.diff.length;i+=2) objs[d.diff[i]]=d.diff[i+1];
+  inventorierTorches();          // brasiers rallumés, lanterne prise : la lumière suit
   prerendreSol(); construireMini();
   poserCoffres();
   (d.coffres||[]).forEach((c,i)=>{ if(coffres[i]){ coffres[i].ouvert=!!c[0]; coffres[i].verrou=!!c[1]; } });

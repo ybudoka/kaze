@@ -36,6 +36,31 @@ ton épée.
 **Les Terres de Cendre** — les trois étoiles ouvrent le portail du sud. Marteau,
 bottes de cendre, et le Cœur de Cendre au bout.
 
+## Quêtes annexes
+
+Cinq quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+l'état de chacune ; les objets à trouver clignotent sur la carte.
+
+| Quête | Où | Récompense |
+| --- | --- | --- |
+| Les huit lucioles d'or | toute la vallée | épée longue (portée et dégâts doublés) |
+| La tarte de Mira | village → lac → doyenne | cœur de cristal (+2 cœurs) |
+| La prime de la garde | quinze monstres | 60 rubis et 5 bombes |
+| **La lanterne du pêcheur** | vallée **puis** Terres de Cendre | **épée de Cendre** (+1 dégât) |
+| **Les brasiers éteints** | Terres de Cendre | carte des Cendres révélée, 120 rubis |
+
+**La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
+fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
+la **clairière aux pins**, au bois du nord ; sa flamme ne s'éteint pas, on la
+voit de loin. Rapportée, elle mène à **Durn**, son frère forgeron, installé sous
+la Forge Noire. Durn réclame **trois éclats d'obsidienne** — seuls les golems de
+basalte en portent — et forge l'**épée de Cendre**, qui ajoute un point de dégât
+à chaque coup et fait traîner du feu derrière la lame.
+
+**Les brasiers éteints** — trois brasiers balisaient la route des Cendres. Un
+coup d'épée y fait jaillir l'étincelle. Les trois rallumés, la région entière
+apparaît sur la carte et Durn paie 120 rubis.
+
 ## Gemmes
 
 Un **coup d'épée ramasse** ce qu'il touche — inutile de marcher pile dessus.

@@ -314,3 +314,80 @@ Autres pièges rencontrés en construisant la région :
 - **Tout est dans une seule portée JavaScript** : deux `function` de même nom
   s'écrasent silencieusement, la dernière l'emportant (cf. `ouvrirCoffre`).
   Vérifier qu'un nouveau nom de fonction est libre avant de l'employer.
+- **Les listes construites une fois à la génération ne suivent pas les tuiles
+  modifiées** : `torches` (l'éclairage) doit être refaite à chaque changement de
+  décor **et après application des différences au chargement** (cf. 9.3). Même
+  raisonnement pour toute liste future dérivée de `objs`.
+- **`chemin()` ne perce que la lave et la roche noire, jamais les murs** : un
+  point d'intérêt placé derrière une salle des Cendres reste injoignable, même
+  si l'appel « trace » un chemin jusqu'à lui (cf. 9.2).
+- **Un test ne doit pas recalculer ce qu'il mesure** : passer par la vraie boucle
+  de jeu, pas par un appel direct avec la valeur attendue en argument (cf. 9.4).
+  Et toujours **réinjecter le bug** pour voir le contrôle rougir.
+
+---
+
+## 9. Les deux quêtes annexes (lanterne, brasiers)
+
+Deux quêtes ajoutées après coup : **la lanterne du pêcheur**, une chaîne en
+cinq étapes qui traverse les deux régions, et **les brasiers éteints**, propre
+aux Cendres. Vérifiées par `tests/11-quetes.js`.
+
+### 9.1 Un objet de quête posé dans le décor doit être *trouvable*
+
+Même piège que les lucioles (§ 5.2) : une tuile posée au hasard dans un bois
+généré se retrouve cernée d'arbres et devient invisible. La lanterne et les
+trois brasiers ont donc chacun **leur clairière franche de 5×5**, deux torches
+en diagonale, un panneau, et un **repère clignotant sur la carte**. Un contrôle
+compte les obstacles collés à chacun — il doit trouver **zéro**.
+
+Vérifié en déplaçant la lanterne au cœur d'un bosquet sans clairière : le
+contrôle passe au rouge (4 obstacles collés).
+
+### 9.2 Et *atteignable* — mesuré, pas supposé
+
+Un parcours en largeur rejoue les vraies règles de collision (lave, eau, roche
+noire, braises sans les bottes, murs, dénivelés) et exige qu'une case **voisine**
+de chaque objet soit atteinte : un brasier est un obstacle dur, on le frappe
+depuis à côté.
+
+Piège rencontré : le traceur de chemins des Cendres (`chemin()`) ne dégage que
+la **lave et la roche noire** — il ne perce **pas les murs**. Un brasier posé au
+nord de la Forge aurait vu son chemin tracé *au travers* de la salle, sans rien
+ouvrir. Les trois brasiers sont donc tous **au sud de la Forge**. Vérifié en
+enfermant un brasier dans l'Antre : le contrôle tombe à 2/3.
+
+### 9.3 Une tuile modifiée doit refaire l'inventaire des lumières
+
+La lanterne et les brasiers **éclairent**. L'inventaire des sources de lumière
+était construit une seule fois à la génération du monde : un brasier rallumé
+s'affichait en feu **sans rien éclairer**, et un rechargement rendait la lumière
+définitivement perdue (les différences de décor restituent bien la tuile, pas la
+liste des torches). D'où `inventorierTorches()`, appelée à chaque changement
+**et après application des différences au chargement**.
+
+### 9.4 Ne pas mesurer sa propre arithmétique
+
+Premier jet du contrôle « l'épée de Cendre frappe plus fort » :
+
+```js
+zoneDegats(x, y, w, h, (Q.epeeLongue?2:1) + (Q.epeeCendre?1:0), 'epee');
+```
+
+Le test **recalculait lui-même** le dégât au lieu de laisser le jeu le faire :
+supprimer le bonus dans `index.html` le laissait **vert**. Il passe désormais par
+la vraie boucle du héros (`J.atk=13` puis `majJoueur()`, qui ne laisse passer
+qu'une seule frappe) et mesure les points de vie réellement perdus. Injection
+refaite : rouge, `1 -> 1`.
+
+### 9.5 Une quête ne doit jamais pouvoir se bloquer
+
+La lanterne se ramasse **même sans avoir parlé au pêcheur** : elle est en plein
+bois du nord, on peut tomber dessus le premier jour. Le pêcheur l'accepte alors
+directement. Un contrôle rejoue exactement ce cas.
+
+Autres verrous du même ordre : les éclats d'obsidienne ne tombent que des
+golems, jamais plus de trois à la fois (**les éclats déjà au sol sont comptés**,
+sinon trois golems tués coup sur coup en laissaient six), et un brasier déjà
+allumé ne se recompte ni ne repaie.
+
