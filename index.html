@@ -100,7 +100,10 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;backg
    recouvraient le HUD (rubis et étoiles, dessinés en haut à droite du canvas)
    dès que la zone de jeu montait jusqu'en haut de la page. En plein écran ils
    repassent en superposition, le jeu occupant alors tout l'espace. */
-#outils{display:flex;gap:6px;z-index:30;align-self:flex-end;flex:0 0 auto}
+/* les boutons passent à la ligne : à quatre, ils dépassaient sur un écran
+   étroit, et la hauteur ainsi prise est déduite du calcul de l'écran de jeu */
+#outils{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;z-index:30;
+  align-self:stretch;flex:0 0 auto}
 body.plein #outils{position:fixed;top:8px;right:10px}
 #outils button{background:#1b2136cc;border:1px solid #39456b;color:#aab6dc;border-radius:7px;
   font:600 11px/1 system-ui;padding:7px 10px;cursor:pointer;letter-spacing:.06em;backdrop-filter:blur(4px)}
@@ -145,6 +148,7 @@ body.sanspad #pad{display:none}
   <button id="btPlein">PLEIN ÉCRAN</button>
   <button id="btPad">MANETTE</button>
   <button id="btSauve">SAUVEGARDES</button>
+  <button id="btMus">MUSIQUE</button>
 </div>
 
 <!-- Copie de secours des parties : le stockage du navigateur peut être effacé
@@ -611,6 +615,112 @@ const SFX={
   menu:()=>{son(880,.05,'square',.04);},
   erreur:()=>{son(160,.12,'square',.05,-60);}
 };
+
+/* ============================ MUSIQUE ============================
+   Séquenceur chiptune. Les notes sont programmées un peu en avance sur
+   l'horloge audio plutôt qu'au rythme des images : le rendu graphique peut
+   bégayer, la musique non.
+   Chaque piste est une suite de pas : une note ("A4"), un silence ("-") ou
+   une tenue ("="). La musique a son propre volume, sous les bruitages. */
+const DEMI={C:0,'C#':1,D:2,'D#':3,E:4,F:5,'F#':6,G:7,'G#':8,A:9,'A#':10,B:11};
+function hauteur(n){
+  const m=/^([A-G]#?)(-?\d)$/.exec(n);
+  return m ? 440*Math.pow(2,(DEMI[m[1]]+(+m[2]-4)*12-9)/12) : 0;
+}
+const p=s=>s.trim().split(/\s+/);
+const MUSIQUES={
+  /* la vallée : ouverte, en marche */
+  vallee:{bpm:104,pistes:[
+    {t:'square',v:.055,n:p(`A4 = E5 = C5 = E5 =  D5 = B4 = A4 = - -
+                            G4 = D5 = B4 = D5 =  C5 = A4 = E4 = - -
+                            F4 = C5 = A4 = C5 =  B4 = G4 = D4 = - -
+                            E4 = B4 = G4 = B4 =  A4 = E4 = A4 = = =`)},
+    {t:'triangle',v:.07,n:p(`A2 = = = A2 = = =  E2 = = = E2 = = =
+                             G2 = = = G2 = = =  D2 = = = D2 = = =
+                             F2 = = = F2 = = =  C2 = = = C2 = = =
+                             E2 = = = E2 = = =  A2 = = = A2 = = =`)}]},
+  /* les Terres de Cendre : lourd, mineur, menaçant */
+  cendre:{bpm:88,pistes:[
+    {t:'square',v:.05,n:p(`D4 = = F4 = = A4 =  G4 = F4 = D4 = - -
+                           C4 = = E4 = = G4 =  F4 = E4 = C4 = - -
+                           D4 = = A4 = = D5 =  C5 = A4 = F4 = - -
+                           A#4 = = A4 = = F4 =  D4 = = = = = = =`)},
+    {t:'sawtooth',v:.045,n:p(`D2 = = = = = = =  D2 = = = = = = =
+                              C2 = = = = = = =  C2 = = = = = = =
+                              D2 = = = = = = =  D2 = = = = = = =
+                              A#1 = = = = = = =  A1 = = = = = = =`)}]},
+  /* les gardiens : pressant */
+  boss:{bpm:150,pistes:[
+    {t:'square',v:.055,n:p(`E4 E4 B4 E4 E4 B4 D5 C5  E4 E4 B4 E4 E4 B4 C5 B4
+                            D4 D4 A4 D4 D4 A4 C5 A#4  E4 E4 B4 E4 G4 B4 E5 D5`)},
+    {t:'sawtooth',v:.05,n:p(`E1 = E1 = E1 = E1 =  E1 = E1 = E1 = E1 =
+                             D1 = D1 = D1 = D1 =  E1 = E1 = E1 = G1 =`)}]},
+  /* l'écran-titre : calme, suspendu */
+  titre:{bpm:72,pistes:[
+    {t:'triangle',v:.06,n:p(`A4 = = = C5 = = =  E5 = = = C5 = = =
+                             G4 = = = B4 = = =  D5 = = = B4 = = =`)},
+    {t:'sine',v:.05,n:p(`A2 = = = = = = =  F2 = = = = = = =
+                         G2 = = = = = = =  E2 = = = = = = =`)}]}
+};
+let musiqueOn=true, themeMus=null, pasMus=0, tempsMus=0, horlogeMus=null, gainMus=null;
+try{ musiqueOn=localStorage.getItem('kaze-musique')!=='0'; }catch(e){}
+
+function volumeMusique(){ if(gainMus) gainMus.gain.value=musiqueOn?.5:0; }
+function noteMus(f,duree,type,vol){
+  if(!AC||!gainMus) return;
+  const t=tempsMus;
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+.02);
+  g.gain.setValueAtTime(vol,t+duree*.7);
+  g.gain.exponentialRampToValueAtTime(.0001,t+duree);
+  o.connect(g); g.connect(gainMus); o.start(t); o.stop(t+duree+.02);
+}
+function programmerPas(){
+  const m=MUSIQUES[themeMus]; if(!m) return;
+  const duree=60/m.bpm/2;                       // deux pas par temps
+  for(const piste of m.pistes){
+    const n=piste.n[pasMus%piste.n.length];
+    if(n&&n!=='-'&&n!=='='){
+      // la note tient tant que les pas suivants la prolongent
+      let l=1, i=pasMus+1;
+      while(piste.n[i%piste.n.length]==='='&&l<16){ l++; i++; }
+      noteMus(hauteur(n),duree*l*.95,piste.t,piste.v);
+    }
+  }
+  const long=Math.max(...m.pistes.map(x=>x.n.length));
+  pasMus=(pasMus+1)%long;
+  tempsMus+=duree;
+}
+function tickMusique(){
+  if(!AC||!themeMus) return;
+  if(tempsMus<AC.currentTime) tempsMus=AC.currentTime+.05;
+  /* Borne indispensable : si un pas n'avance pas l'horloge — morceau inconnu,
+     partition vide — cette boucle tournerait sans fin et figerait la page. */
+  let garde=0;
+  while(tempsMus<AC.currentTime+.25&&garde++<64) programmerPas();
+}
+function lancerMusique(nom){
+  if(!AC) return;
+  if(!gainMus){ gainMus=AC.createGain(); gainMus.connect(maitre); volumeMusique(); }
+  if(themeMus===nom) return;
+  themeMus=nom; pasMus=0; tempsMus=AC.currentTime+.08;
+  if(!horlogeMus) horlogeMus=setInterval(tickMusique,60);
+}
+/* le morceau suit la situation : titre, région, gardien */
+function themeVoulu(){
+  if(etat==='titre'||etat==='nom') return 'titre';
+  if(boss) return 'boss';
+  return enCendre(J.y)?'cendre':'vallee';
+}
+function majMusique(){ if(AC) lancerMusique(themeVoulu()); }
+function basculerMusique(){
+  musiqueOn=!musiqueOn; volumeMusique();
+  try{ localStorage.setItem('kaze-musique',musiqueOn?'1':'0'); }catch(e){}
+  const b=document.getElementById('btMus'); if(b) b.textContent=musiqueOn?'MUSIQUE':'MUSIQUE ✕';
+  return musiqueOn;
+}
 
 /* ============================ MONDE ============================ */
 const S = {HERBE:0,TERRE:1,EAU:2,SABLE:3,DALLE:4,RAMPE:5,TAPIS:6,
@@ -3977,6 +4087,7 @@ function nouvellePartie(nom,slot){
 function boucle(){
   requestAnimationFrame(boucle);
   majEntrees(); tick++;
+  if((tick&15)===0) majMusique();      // le morceau suit la situation
 
   if(etat==='titre'){
     ecranTitre();
@@ -4133,6 +4244,8 @@ function outil(id,fn){
 }
 outil('btPlein',basculerPlein);
 outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,30); });
+outil('btMus',()=>{ if(!AC) initSon(); basculerMusique(); majMusique(); });
+if(!musiqueOn) document.getElementById('btMus').textContent='MUSIQUE ✕';
 
 /* ====================== COPIE DE SECOURS DES PARTIES ======================
    Le stockage du navigateur n'est pas fiable sur la durée : il part avec le

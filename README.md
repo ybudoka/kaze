@@ -21,6 +21,8 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 | **B** épée (maintenir = tourbillon) · **A** saut | **Y** objet · **X** bouclier |
 | **L/R** changer d'objet | **START** carte · **SELECT** journal |
 
+Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
+
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
@@ -45,7 +47,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 105 contrôles, ~11 s
+npm test                          # 119 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 
