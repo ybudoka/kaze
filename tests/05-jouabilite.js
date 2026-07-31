@@ -50,7 +50,10 @@ module.exports = {
     /* ---- § 5.2 : lucioles dégagées et atteignables ---- */
     const luc = await page.evaluate(() => {
       const bilan = { encombrees: [], inatteignables: [] };
-      for (let essai = 0; essai < 5; essai++) {
+      /* Une seule génération suffit : genererMonde() réamorce sa graine
+         (_s=987654321), donc le monde est rigoureusement identique à chaque
+         appel — le regénérer cinq fois ne testait rien de plus. */
+      {
         nouvellePartie('T', 0);
         // dégagement : aucun obstacle bloquant dans la clairière (torches exclues)
         lucioles.forEach((l, i) => {

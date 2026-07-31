@@ -7,7 +7,7 @@ correspond à un correctif documenté dans [`../CORRECTIFS.md`](../CORRECTIFS.md
 ## Lancer
 
 ```bash
-node tests/lancer.js              # toute la suite (~30 s)
+node tests/lancer.js              # toute la suite (~11 s)
 node tests/lancer.js sauvegardes  # seulement les fichiers dont le nom contient « sauvegardes »
 ```
 
@@ -54,7 +54,10 @@ PLAYWRIGHT_MODULE=/chemin/vers/playwright CHROMIUM_PATH=/chemin/vers/chrome node
    # réduire la portée de l'épée dans index.html fait tomber 3 contrôles
    node tests/lancer.js jouabilite   # → code de sortie 1
    ```
-3. **Contrôle à blanc.** `04-rendu.js` compare d'abord le rendu à lui-même (il
+3. **Ne pas répéter pour rien.** `genererMonde()` réamorce sa graine
+   (`_s=987654321`) : le monde est **rigoureusement identique** à chaque appel.
+   Le régénérer en boucle ne teste rien de plus — les tests le font une fois.
+4. **Contrôle à blanc.** `04-rendu.js` compare d'abord le rendu à lui-même (il
    doit donner 0) : la caméra suit le héros en douceur et fausserait toute
    mesure de pixels si elle n'a pas convergé.
 

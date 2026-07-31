@@ -8,6 +8,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Une nouvelle poussée annule l'exécution précédente : inutile de faire tourner
+# une suite sur du code déjà remplacé.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     name: Suite de tests
@@ -35,8 +41,16 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-      - name: Installer Chromium
+      # Cache manquant : on installe navigateur ET dépendances système.
+      # Cache présent : le binaire est déjà là, on évite le apt-get qui
+      # coûtait à lui seul une douzaine de secondes à chaque exécution.
+      - name: Installer Chromium (cache manquant)
+        if: steps.cache-navigateur.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Vérifier Chromium (cache présent)
+        if: steps.cache-navigateur.outputs.cache-hit == 'true'
+        run: npx playwright install chromium
 
       - name: Lancer la suite
         run: npm test

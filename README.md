@@ -45,7 +45,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 82 contrôles, ~30 s
+npm test                          # 105 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 
