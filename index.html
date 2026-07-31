@@ -1983,9 +1983,17 @@ function majJoueur(){
   if(J.atk>0){
     J.atk--;
     if(J.atk>5&&J.atk<13){
-      const p=Q.epeeLongue?20:15, d=Q.epeeLongue?2:1, t=Q.epeeLongue?28:22;
-      const ox=[0,-p,0,p][J.dir], oy=[-p,0,p,0][J.dir];
-      zoneDegats(J.x+ox,J.y+oy,t,t-2,d,'epee');
+      /* La lame touche sur toute sa longueur, pas seulement au bout : la zone
+         part de derrière le héros — un ennemi collé à lui doit être touché —
+         et va jusqu'à la pointe, en s'élargissant sur les côtés pour suivre
+         l'arc du balayage montré à l'écran. */
+      const d=Q.epeeLongue?2:1;
+      const lg=Q.epeeLongue?46:38;          // longueur couverte, du corps à la pointe
+      const la=Q.epeeLongue?34:32;          // largeur du balayage
+      const c=lg/2-8;                        // 8 px en arrière du héros
+      const ox=[0,-c,0,c][J.dir], oy=[-c,0,c,0][J.dir];
+      const horiz=(J.dir===1||J.dir===3);
+      zoneDegats(J.x+ox,J.y+oy,horiz?lg:la,horiz?la:lg,d,'epee');
     }
   }
   if(J.spin>0){
@@ -2084,10 +2092,15 @@ function ouvrirCoffre(c){
 function zoneDegats(cx,cy,w,h,deg,type){
   for(let i=ennemis.length-1;i>=0;i--){
     const e=ennemis[i];
-    if(Math.abs(e.x-cx)<w/2+6&&Math.abs(e.y-cy)<h/2+6&&Math.abs(e.z-J.z)<22)
+    // on compte l'épaisseur de l'ennemi : sinon un gros monstre dont le corps
+    // est en travers de la lame ressortait indemne parce que son centre était
+    // juste en dehors de la zone.
+    const m=Math.max(6,e.r||0);
+    if(Math.abs(e.x-cx)<w/2+m&&Math.abs(e.y-cy)<h/2+m&&Math.abs(e.z-J.z)<22)
       frapper(e,deg,J.x,J.y,type);
   }
-  if(boss&&Math.abs(boss.x-cx)<w/2+14&&Math.abs(boss.y-cy)<h/2+14&&Math.abs(boss.z-J.z)<30)
+  const mb=boss?Math.max(14,boss.r||0):14;
+  if(boss&&Math.abs(boss.x-cx)<w/2+mb&&Math.abs(boss.y-cy)<h/2+mb&&Math.abs(boss.z-J.z)<30)
     frapper(boss,deg,J.x,J.y,type);
   // taille les buissons
   const tx=Math.floor(cx/TS),ty=Math.floor(cy/TS);
