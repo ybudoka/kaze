@@ -831,6 +831,27 @@ function faceFalaise(g,sx,sy,x,y){
   if(h>.75){ g.fillStyle='#3d7a35'; g.fillRect(sx+((h*10)|0),sy,3,2); }  // herbe qui déborde
 }
 
+/* Le sol pré-rendu (relief et faces de falaise compris) est posé d'un bloc
+   avant les entités : un monstre en contrebas se voyait donc à travers la
+   falaise censée le masquer. On réapplique le sol en relief rangée par rangée,
+   juste avant d'y dessiner le décor et les entités : il recouvre alors les
+   entités des rangées situées derrière, et seulement celles-là.
+   Les tuiles contiguës de même étage sont réappliquées d'un seul tenant. */
+function reliefRangee(g,ty,x0,x1){
+  let tx=x0;
+  while(tx<=x1){
+    const e=Etg(tx,ty);
+    if(e<=0){ tx++; continue; }
+    let fin=tx;
+    while(fin+1<=x1&&Etg(fin+1,ty)===e) fin++;
+    const sx=tx*TS, w=(fin-tx+1)*TS;
+    const sy=ty*TS-e*EH, sy0=Math.max(0,sy);
+    const h=Math.min(solCV.height-sy0,TS+EH-(sy0-sy));
+    if(h>0) g.drawImage(solCV,sx,sy0,w,h,sx,sy0,w,h);
+    tx=fin+1;
+  }
+}
+
 function prerendreSol(){
   solG.clearRect(0,0,solCV.width,solCV.height);
   solG.fillStyle='#0d1018'; solG.fillRect(0,0,solCV.width,solCV.height);
@@ -2522,6 +2543,7 @@ function rendreMonde(){
   add(J,'joueur');
 
   for(let ty=y0;ty<=y1;ty++){
+    reliefRangee(X,ty,x0,x1);
     for(let tx=x0;tx<=x1;tx++) decorTuile(X,tx,ty);
     const b=bacs.get(ty);
     if(b){
