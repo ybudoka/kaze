@@ -2573,23 +2573,7 @@ function majJoueur(){
   for(let i=butins.length-1;i>=0;i--){
     const o=butins[i];
     if(Math.hypot(o.x-J.x,o.y-J.y)<13&&Math.abs(o.z-J.z)<20){
-      if(VALEUR_GEMME[o.type]){
-        const val=VALEUR_GEMME[o.type];
-        J.rubis=Math.min(999,J.rubis+val); SFX.rubis();
-        // les belles pierres se signalent : son plus riche et éclat
-        if(val>1){ son(880+val*8,.10,'triangle',.05,260,.05);
-                   particules(o.x,o.y,o.z+8,val>5?10:6,
-                              val>5?'#ff9aae':'#8fc4ff',1.8,20);
-                   dire(val>5?'GRENAT ! +'+val+' RUBIS':'SAPHIR ! +'+val+' RUBIS',110); }
-      }
-      if(o.type==='coeur'){ J.pv=Math.min(J.pvmax,J.pv+2); SFX.coeur(); }
-      if(o.type==='bombe'){ J.bombes=Math.min(maxBombes(),J.bombes+2); SFX.rubis(); }
-      if(o.type==='fleche'){ J.fleches=Math.min(maxFleches(),J.fleches+5); SFX.rubis(); }
-      if(o.type==='champi'){ Q.champignons=Math.min(4,Q.champignons+1); SFX.coeur();
-        dire('CHAMPIGNON ROUGE : '+Q.champignons+'/4'); }
-      if(o.type==='cle'){ Q.cle=true; SFX.coffre(); annonce('CLÉ DE PIERRE');
-        dire('LA PORTE DU SANCTUAIRE PEUT S OUVRIR.'); }
-      butins.splice(i,1);
+      ramasserButin(o); butins.splice(i,1);
     }
   }
 
@@ -2689,6 +2673,27 @@ function ouvrirCoffre(c){
     menuSel=0; sauver(true); etat='victoire'; finT=0; viderTampon(); } },1400);
 }
 
+/* Effets d'un butin ramassé. Extrait de la boucle de proximité pour servir
+   aussi aux coups d'épée : frapper un objet le ramasse. */
+function ramasserButin(o){
+  if(VALEUR_GEMME[o.type]){
+    const val=VALEUR_GEMME[o.type];
+    J.rubis=Math.min(999,J.rubis+val); SFX.rubis();
+    // les belles pierres se signalent : son plus riche et éclat
+    if(val>1){ son(880+val*8,.10,'triangle',.05,260,.05);
+               particules(o.x,o.y,o.z+8,val>5?10:6,
+                          val>5?'#ff9aae':'#8fc4ff',1.8,20);
+               dire(val>5?'GRENAT ! +'+val+' RUBIS':'SAPHIR ! +'+val+' RUBIS',110); }
+  }
+  if(o.type==='coeur'){ J.pv=Math.min(J.pvmax,J.pv+2); SFX.coeur(); }
+  if(o.type==='bombe'){ J.bombes=Math.min(maxBombes(),J.bombes+2); SFX.rubis(); }
+  if(o.type==='fleche'){ J.fleches=Math.min(maxFleches(),J.fleches+5); SFX.rubis(); }
+  if(o.type==='champi'){ Q.champignons=Math.min(4,Q.champignons+1); SFX.coeur();
+    dire('CHAMPIGNON ROUGE : '+Q.champignons+'/4'); }
+  if(o.type==='cle'){ Q.cle=true; SFX.coffre(); annonce('CLÉ DE PIERRE');
+    dire('LA PORTE DU SANCTUAIRE PEUT S OUVRIR.'); }
+}
+
 /* zone de dégâts (épée / tourbillon) */
 function zoneDegats(cx,cy,w,h,deg,type){
   for(let i=ennemis.length-1;i>=0;i--){
@@ -2699,6 +2704,14 @@ function zoneDegats(cx,cy,w,h,deg,type){
     const m=Math.max(6,e.r||0);
     if(Math.abs(e.x-cx)<w/2+m&&Math.abs(e.y-cy)<h/2+m&&Math.abs(e.z-J.z)<22)
       frapper(e,deg,J.x,J.y,type);
+  }
+  /* Un coup d'épée ramasse ce qu'il touche : plus besoin de marcher pile
+     dessus, ce qui était pénible quand un butin tombait dans un coin. */
+  for(let i=butins.length-1;i>=0;i--){
+    const o=butins[i];
+    if(Math.abs(o.x-cx)<w/2+8&&Math.abs(o.y-cy)<h/2+8&&Math.abs(o.z-J.z)<26){
+      ramasserButin(o); butins.splice(i,1);
+    }
   }
   const mb=boss?Math.max(14,boss.r||0):14;
   if(boss&&Math.abs(boss.x-cx)<w/2+mb&&Math.abs(boss.y-cy)<h/2+mb&&Math.abs(boss.z-J.z)<30)

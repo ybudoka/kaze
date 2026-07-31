@@ -56,6 +56,35 @@ module.exports = {
       };
       out.valleeTirages = tirer(45 * TS, 3000);
       out.cendreTirages = tirer((Y_CENDRE + 20) * TS, 3000);
+
+      /* Frapper un butin doit le ramasser : marcher pile dessus était pénible
+         quand il tombait dans un recoin. */
+      const cx0 = Math.floor(J.x / TS), cy0 = Math.floor(J.y / TS);
+      for (let y = cy0 - 4; y <= cy0 + 4; y++) for (let x = cx0 - 4; x <= cx0 + 4; x++) {
+        putO(x, y, O.RIEN); putE(x, y, 0); putS(x, y, S.HERBE);
+      }
+      prerendreSol();
+      const px = J.x, py = J.y;
+      const frapper = async (dir, dx, dy, type) => {
+        butins.length = 0;
+        J.x = px; J.y = py; J.z = 0; J.dir = dir; J.atk = 0; J.spin = 0; J.rubis = 0; J.pv = 2;
+        butins.push({ x: px + dx, y: py + dy, z: 0, vz: 0, type, t: 0 });
+        J.atk = 12;
+        for (let f = 0; f < 8; f++) await dort(18);
+        return butins.length === 0;
+      };
+      out.frappeDroite = await frapper(3, 24, 0, 'saphir');
+      out.frappeHaut   = await frapper(0, 0, -24, 'rubis');
+      out.frappeGauche = await frapper(1, -24, 0, 'grenat');
+      out.frappeBas    = await frapper(2, 0, 24, 'coeur');
+      // et le gain est bien crédité
+      butins.length = 0; J.rubis = 0; J.dir = 3;
+      butins.push({ x: px + 22, y: py, z: 0, vz: 0, type: 'grenat', t: 0 });
+      J.atk = 12; for (let f = 0; f < 8; f++) await dort(18);
+      out.gainParFrappe = J.rubis;
+      // un butin hors de portée reste au sol
+      out.horsPortee = !(await frapper(3, 70, 0, 'rubis'));
+      butins.length = 0;
       return out;
     });
 
@@ -79,6 +108,11 @@ module.exports = {
       r.cendreTirages.grenat > r.valleeTirages.grenat
       && r.cendreTirages.saphir > r.valleeTirages.saphir,
       `vallée ${JSON.stringify(r.valleeTirages)} / cendre ${JSON.stringify(r.cendreTirages)}`);
+    v('FRAPPER UN BUTIN LE RAMASSE, DANS LES 4 DIRECTIONS',
+      r.frappeDroite && r.frappeHaut && r.frappeGauche && r.frappeBas,
+      `droite=${r.frappeDroite} haut=${r.frappeHaut} gauche=${r.frappeGauche} bas=${r.frappeBas}`);
+    v('le gain est bien crédité par la frappe', r.gainParFrappe === 20, r.gainParFrappe);
+    v('un butin hors de portée reste au sol', r.horsPortee, 'ramassé de trop loin');
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },

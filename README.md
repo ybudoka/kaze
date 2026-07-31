@@ -38,6 +38,7 @@ bottes de cendre, et le Cœur de Cendre au bout.
 
 ## Gemmes
 
+Un **coup d'épée ramasse** ce qu'il touche — inutile de marcher pile dessus.
 Les monstres et les buissons lâchent trois pierres : **rubis vert** (1),
 **saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les
 Terres de Cendre, plus dures, en lâchent davantage.
@@ -61,7 +62,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 169 contrôles, ~11 s
+npm test                          # 172 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 
