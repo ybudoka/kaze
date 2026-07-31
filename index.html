@@ -404,7 +404,14 @@ addEventListener('scroll',()=>{ if(scrollX||scrollY) scrollTo(0,0); },{passive:t
 let dernierTap=0;
 document.addEventListener('touchend',e=>{
   const t=Date.now();
-  if(t-dernierTap<330 && e.cancelable) e.preventDefault();
+  // Sur la manette, le comportement par défaut n'a aucune utilité : on l'annule
+  // toujours. C'est ce qui empêche iOS de voir un « double-tap » quand on tape
+  // B plusieurs fois de suite (dialogues) et de zoomer la page. La fenêtre de
+  // 330 ms ne suffisait pas : dernierTap est remis à jour par tous les
+  // contacts, y compris les glissements du stick.
+  let surPad=false;
+  for(const c of e.changedTouches) if(surManette(c.target)){ surPad=true; break; }
+  if((surPad || t-dernierTap<330) && e.cancelable) e.preventDefault();
   dernierTap=t;
 },{passive:false,capture:true});
 document.addEventListener('touchcancel',()=>{ for(const k in doigts) finDoigt(k); },{passive:true});
