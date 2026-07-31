@@ -219,9 +219,15 @@ plutôt qu'à l'œil. Environ **53 contrôles**. Trois principes utiles :
    fausse deux rendus successifs si elle n'a pas convergé. La correction du relief
    a aussi été comparée à l'état antérieur sur une scène normale : 0 différence.
 
-> Les scripts vivent dans un répertoire de travail **temporaire**, donc perdu
-> entre les sessions. À reconstruire au besoin — ou à committer dans un dossier
-> `tests/` s'ils doivent durer.
+La suite vit désormais dans **[`tests/`](tests/)** et se relance d'une commande :
+
+```bash
+node tests/lancer.js              # ~30 s, sortie 0 si tout passe, 1 sinon
+node tests/lancer.js sauvegardes  # un sous-ensemble
+```
+
+Chaque contrôle renvoie à une section de ce document — voir le tableau de
+correspondance dans [`tests/README.md`](tests/README.md).
 
 ---
 
