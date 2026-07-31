@@ -222,6 +222,9 @@ let clavier = {};
 const presse = b=>BTN[b]>0;
 const appui  = b=>(buf[b]|0)>0;                       // lecture non destructive
 const pris   = (...bs)=>{ for(const b of bs) buf[b]=0; };   // l'action a consommé l'appui
+/* Vide tout le tampon : indispensable en arrivant sur un écran de fin, sinon
+   le coup d'épée en cours au moment de la mort valide aussitôt le menu. */
+const viderTampon = ()=>{ for(const b in BTN) buf[b]=0; };
 const enfoncer = b=>{ if(!BTN[b]) buf[b]=TAMPON; BTN[b]=1; };
 
 const MAP_CLAVIER = {KeyJ:'B',KeyZ:'B',KeyK:'A',KeyX:'A',KeyU:'Y',KeyI:'X',
@@ -1791,7 +1794,7 @@ function mourir(){
     particules(J.x,J.y,J.z+10,26,'#ff8fa4',3,40);
     return;
   }
-  etat='mort'; SFX.mort();
+  etat='mort'; finT=0; viderTampon(); SFX.mort();
   particules(J.x,J.y,J.z+10,26,'#e8e0ff',3.4,40);
 }
 
@@ -1989,7 +1992,8 @@ function ouvrirCoffre(c){
   else if(c.contenu==='bombe'){ if(!J.objets.includes('bombe')) J.objets.push('bombe'); J.bombes=Math.max(J.bombes,8);
     dire("SAC DE BOMBES ! FRAGMENT "+J.fragments+"/3"); }
   else dire("FRAGMENT D'ÉTOILE "+J.fragments+"/3");
-  if(J.fragments>=3) setTimeout(()=>{ if(etat==='jeu'){ menuSel=0; sauver(true); etat='victoire'; } },1400);
+  if(J.fragments>=3) setTimeout(()=>{ if(etat==='jeu'){
+    menuSel=0; sauver(true); etat='victoire'; finT=0; viderTampon(); } },1400);
 }
 
 /* zone de dégâts (épée / tourbillon) */
@@ -2927,11 +2931,20 @@ function ecranCarte(){
 }
 
 /* ============================ FINS ============================ */
+/* L'écran de fin s'installe en douceur : le voile s'assombrit, le titre
+   descend, puis le bilan et enfin le menu. Le verrou d'entrée (VERROU_FIN)
+   court pendant cette mise en place, ce qui évite qu'un appui hérité du
+   combat ne relance une partie sans qu'on l'ait voulu. */
+let finT=0;
+const VERROU_FIN=52;
 function ecranFin(gagne){
   rendreMonde();
-  X.fillStyle=gagne?'rgba(8,18,14,.86)':'rgba(20,6,10,.88)';
+  const p=clamp(finT/30,0,1), e=1-Math.pow(1-p,3);      // fondu adouci
+  X.fillStyle=gagne?'rgba(8,18,14,'+(.86*e).toFixed(3)+')'
+                   :'rgba(20,6,10,'+(.88*e).toFixed(3)+')';
   X.fillRect(0,0,W,H);
-  const yT=Math.round(H*.40);
+
+  const yT=Math.round(H*.30)+Math.round((1-e)*-14);     // le titre se pose
   if(gagne){
     for(let i=0;i<3;i++){
       const a=tick*.03+i*2.1;
@@ -2946,16 +2959,31 @@ function ecranFin(gagne){
     X.drawImage(glyphe(ch,gagne?'#ffe06a':'#e0506a'),cx,yT,5*sc,7*sc);
     cx+=6*sc;
   }
-  const yB=yT+7*sc+12;
-  if(gagne){
-    texteCentre(X,'LES TROIS ÉTOILES BRILLENT À NOUVEAU.',W/2,yB,'#d8e0ff');
-    texteCentre(X,'RUBIS AMASSÉS : '+J.rubis,W/2,yB+14,'#8fe0b0');
-  } else {
-    texteCentre(X,'LA VALLÉE ATTEND SON GARDIEN.',W/2,yB,'#d8c0c8');
-    texteCentre(X,'ÉTOILES TROUVÉES : '+J.fragments+'/3',W/2,yB+14,'#e8b0a0');
+
+  // bilan de la partie, une fois le titre en place
+  if(finT>16){
+    const yB=yT+7*sc+12;
+    texteCentre(X,gagne?'LES TROIS ÉTOILES BRILLENT À NOUVEAU.'
+                       :'LA VALLÉE ATTEND SON GARDIEN.',
+                W/2,yB,gagne?'#d8e0ff':'#d8c0c8','#0a0c18');
+    const larg=Math.min(W-12,208), bx=Math.round(W/2-larg/2), by=yB+14;
+    panneau(X,bx,by,larg,gagne?46:46);
+    texteCentre(X,'PARTIE : '+nomPartie,W/2,by+5,'#ffe06a','#0a0c18');
+    const g=bx+8, d=Math.round(W/2+6);
+    texte(X,'ÉTOILES  '+J.fragments+'/3',g,by+18,'#e8b0a0','#0a0c18');
+    texte(X,'LUCIOLES '+Q.lucioles+'/8',g,by+30,'#fff0a0','#0a0c18');
+    texte(X,'TEMPS  '+formatTemps(tempsJeu),d,by+18,'#9fe0b8','#0a0c18');
+    texte(X,'RUBIS  '+J.rubis,d,by+30,'#8fe0b0','#0a0c18');
   }
-  const opts=optionsFin(gagne);
-  dessinerMenu(opts,W/2,H-30-opts.length*14,190);
+
+  // le menu n'apparaît qu'une fois le verrou levé
+  if(finT>VERROU_FIN-14){
+    const opts=optionsFin(gagne);
+    const larg=Math.min(W-12,200);
+    dessinerMenu(opts,W/2,H-32-opts.length*14,larg);
+    if(finT>VERROU_FIN && tick%50<32)
+      texteCentre(X,'START POUR CHOISIR',W/2,H-16,'#8f9cc4','#0a0c18');
+  }
 }
 
 
@@ -3266,13 +3294,16 @@ function dessinerMenu(opts,cx,y,largeur){
     yy+=o.sous?20:14;
   });
 }
-function naviguerMenu(opts,onChoix){
+/* « valid » liste les touches qui confirment. L'écran de fin s'en sert pour
+   exclure B : la mort survient presque toujours en plein coup d'épée. */
+function naviguerMenu(opts,onChoix,valid){
+  const touches=valid||['B','A','Start'];
   const d=menuFleche();
   if(d){ menuSel=(menuSel+d+opts.length)%opts.length; SFX.menu(); }
   if(appui('L')){ pris('L'); menuSel=(menuSel+opts.length-1)%opts.length; SFX.menu(); }
   if(appui('R')){ pris('R'); menuSel=(menuSel+1)%opts.length; SFX.menu(); }
-  if(appui('B')||appui('A')||appui('Start')){
-    pris('B','A','Start');
+  if(touches.some(appui)){
+    pris(...touches);
     onChoix(opts[clamp(menuSel,0,opts.length-1)].id);
   }
 }
@@ -3323,11 +3354,12 @@ function boucle(){
   if(etat==='nom'){ ecranNom(); naviguerNom(); return; }
   if(etat==='mort'||etat==='victoire'){
     const gagne=(etat==='victoire');
+    finT++;
     ecranFin(gagne);
-    naviguerMenu(optionsFin(gagne),id=>{
+    if(finT>VERROU_FIN) naviguerMenu(optionsFin(gagne),id=>{
       if(id==='continuer'){ SFX.coffre(); charger(); }
-      else { SFX.menu(); nouvellePartie(); }
-    });
+      else { SFX.menu(); nouvellePartie(nomPartie,emplacement); }
+    },['Start']);
     return;
   }
   if(etat==='carte'){
