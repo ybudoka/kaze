@@ -225,7 +225,45 @@ plutôt qu'à l'œil. Environ **53 contrôles**. Trois principes utiles :
 
 ---
 
-## 7. Pièges à ne pas réintroduire
+## 7. Les Terres de Cendre (seconde région)
+
+La carte est passée de 80 à **160 rangées**. La nouvelle région occupe les
+rangées 80-159 et s'ouvre une fois les **trois étoiles** réunies.
+
+- **Compatibilité des sauvegardes** : la région est ajoutée **en dessous**, donc
+  les index de tuiles de la vallée (`y*MW+x`) restent valables et les parties
+  existantes se rechargent sans conversion.
+- **Progression** : portail (3 étoiles) → Forge Noire (**marteau**, brise la
+  roche noire) → Falaises Ardentes (**bottes**, les braises ne brûlent plus) →
+  Antre (**Cœur de Cendre**) → dernière braise → victoire.
+- **Nouveaux monstres** : `braise` (bondissant), `golem` (n'est entamé que par le
+  marteau), `spectre` (traverse les murs, ne se touche que matérialisé).
+- Le sol `BRAISE` blesse tant qu'on n'a pas les bottes ; `LAVE` bloque comme
+  l'eau.
+
+### ⚠️ Bug livré et corrigé à cette occasion
+
+Le panneau des sauvegardes définissait une fonction nommée **`ouvrirCoffre`** —
+exactement le nom de la fonction qui ouvre les coffres du jeu. La déclaration la
+plus tardive écrasant l'autre, **ouvrir un coffre affichait le panneau des
+sauvegardes** au lieu de donner l'objet. Renommée en `ouvrirCoffreFort`.
+Au passage, `ouvrirCoffre` refuse désormais de rouvrir un coffre déjà ouvert
+(il redonnait son contenu à chaque appel).
+
+Autres pièges rencontrés en construisant la région :
+
+- `hash()` est **dégénéré** sur des entrées régulières (ses valeurs plafonnaient
+  à 0,5) : inutilisable comme bruit de terrain. La génération utilise une grille
+  tirée de `rnd()`.
+- `bruit()` est une fonction **sonore**, pas un bruit de Perlin.
+- Un obstacle posé *devant* une porte se contourne : la roche noire devait
+  boucher **la brèche elle-même**.
+- La falaise séparant les deux régions recouvrait la clairière d'une luciole et
+  la rendait inaccessible — d'où son déplacement en (9,72).
+
+---
+
+## 8. Pièges à ne pas réintroduire
 
 - **Ne jamais supprimer une donnée avant d'avoir relu sa copie** (cf. 3.2).
 - **`nouvellePartie()` écrit immédiatement** dans l'emplacement : tout chemin qui
@@ -236,3 +274,6 @@ plutôt qu'à l'œil. Environ **53 contrôles**. Trois principes utiles :
   personnage ne peut pas vivre uniquement dans ce pré-rendu (cf. 5.3).
 - **Le canvas descend jusqu'à 200 px de large** : vérifier chaque nouveau texte à
   cette largeur (les lignes de stats ont dû être raccourcies).
+- **Tout est dans une seule portée JavaScript** : deux `function` de même nom
+  s'écrasent silencieusement, la dernière l'emportant (cf. `ouvrirCoffre`).
+  Vérifier qu'un nouveau nom de fonction est libre avant de l'employer.
