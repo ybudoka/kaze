@@ -3216,8 +3216,17 @@ function optionsEffacer(){
 const optionsEcranTitre=()=>modeEffacer?optionsEffacer():optionsTitre();
 function optionsFin(gagne){
   const o=[];
-  if(resumeCourant()) o.push({id:'continuer',txt:'REPRENDRE LA SAUVEGARDE'});
-  o.push({id:'nouvelle',txt:gagne?'REJOUER':'NOUVELLE PARTIE'});
+  // Relancer sur place réécrirait aussitôt l'emplacement courant et effacerait
+  // la progression sauvegardée. Tant qu'une sauvegarde existe, on repasse donc
+  // par le titre : là, un emplacement occupé se charge, et seul un emplacement
+  // vide accepte une partie neuve. Écraser reste possible, mais uniquement en
+  // passant volontairement par « EFFACER UNE PARTIE ».
+  if(resumeCourant()){
+    o.push({id:'continuer',txt:'REPRENDRE LA SAUVEGARDE'});
+    o.push({id:'titre',txt:gagne?'REJOUER (CHOISIR UN EMPLACEMENT)':'CHOISIR UN EMPLACEMENT'});
+  } else {
+    o.push({id:'nouvelle',txt:gagne?'REJOUER':'NOUVELLE PARTIE'});
+  }
   return o;
 }
 /* ---------------------- SAISIE DU NOM DE LA PARTIE ---------------------- */
@@ -3358,6 +3367,7 @@ function boucle(){
     ecranFin(gagne);
     if(finT>VERROU_FIN) naviguerMenu(optionsFin(gagne),id=>{
       if(id==='continuer'){ SFX.coffre(); charger(); }
+      else if(id==='titre'){ SFX.menu(); verifierSauves(); modeEffacer=false; menuSel=0; etat='titre'; }
       else { SFX.menu(); nouvellePartie(nomPartie,emplacement); }
     },['Start']);
     return;
