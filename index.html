@@ -271,6 +271,15 @@ const GLYPHES = {
 'É':'...#./#####/#..../####./#..../#..../#####','È':'.#.../#####/#..../####./#..../#..../#####',
 'Ê':'..#../#####/#..../####./#..../#..../#####','À':'.#.../.###./#...#/#####/#...#/#...#/#...#',
 'Ç':'.####/#..../#..../#..../#..../.####/..#..','Û':'..#../#...#/#...#/#...#/#...#/#...#/.###.',
+/* Ajoutés après coup : sans eux, le journal affichait « ?X? » au lieu de
+   « [X] » pour ses cases à cocher, et Tomas disait « GR?CE À TOI ». Un
+   caractère absent est silencieusement remplacé par « ? ». */
+'[':'.###./.#.../.#.../.#.../.#.../.#.../.###.',']':'.###./...#./...#./...#./...#./...#./.###.',
+'Â':'..#../.###./#...#/#####/#...#/#...#/#...#','Ù':'.#.../#...#/#...#/#...#/#...#/#...#/.###.',
+'Ä':'#.#../.###./#...#/#####/#...#/#...#/#...#','Ë':'#.#../#####/#..../####./#..../#..../#####',
+'Ï':'#.#../.###./..#../..#../..#../..#../.###.','Ö':'#.#../.###./#...#/#...#/#...#/#...#/.###.',
+'Ü':'#.#../#...#/#...#/#...#/#...#/#...#/.###.',
+';':'...../..#../..#../...../..#../..#../.#...',
 'Ô':'..#../.###./#...#/#...#/#...#/#...#/.###.','Î':'..#../.###./..#../..#../..#../..#../.###.',
 '★':'..#../..#../#####/.###./..#../.#.#./#...#','♥':'.....//##.##/#####/#####/.###./..#../.....',
 '▶':'.#.../.##../.###./.####/.###./.##../.#...','■':'...../.###./.###./.###./.###./.###./.....'
@@ -4037,8 +4046,37 @@ function construireMini(){
 function ecranCarte(){
   rendreMonde();
   X.fillStyle='rgba(6,8,18,.82)'; X.fillRect(0,0,W,H);
-  const sc=Math.max(1,Math.min(4,Math.floor((H-62)/MH),Math.floor((W-24)/MW)));
-  const mx=Math.round(W/2-MW*sc/2), my=22;
+
+  /* --- légende : on n'annonce que ce qui est réellement sur la carte --- */
+  const leg=[['#ffffff','TOI'],['#7fd0ff','AMI']];
+  if(coffres.some(c=>!c.ouvert&&vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]))
+    leg.push(['#ffe86a','COFFRE']);
+  if(Q.lucioles<8) leg.push(['#fff6b0','LUCIOLE']);
+  if(!Q.chefTue) leg.push(['#ff7a6a','CHEF']);
+  if(Q.lanterne===1) leg.push(['#ffd88a','LANTERNE']);
+  if(Q.portailOuvert&&BRASIERS_POS.some(([x,y])=>Obj(x,y)===O.BRASIER))
+    leg.push(['#ff9a3c','BRASIER']);
+
+  /* Le pied de page est mesuré et posé À PARTIR DU BAS de l'écran ; la carte
+     prend ce qui reste. Dans l'autre sens — carte d'abord, textes calés sous
+     elle — « Y SAUVEGARDER » et « DERNIÈRE : … » se chevauchaient sur certaines
+     proportions d'écran, et la ligne du stockage passait sous le bord. */
+  const LP=11, largEnt=e=>8+largeurTexte(e[1])+8;
+  const lignesLeg=[]; { let cur=[],w=0;
+    for(const e of leg){ const le=largEnt(e);
+      if(cur.length&&w+le>W-10){ lignesLeg.push(cur); cur=[]; w=0; }
+      cur.push(e); w+=le; }
+    if(cur.length) lignesLeg.push(cur); }
+
+  /* Le pied est serré au pixel : sur un écran haut, six pixels de marge en trop
+     suffisaient à faire retomber la carte de l'échelle 2 à l'échelle 1, et elle
+     n'occupait plus qu'un sixième de l'écran. */
+  const alerteStock=!persistant();      // une ligne seulement quand ça coince
+  const HAUT=18;                        // sous le titre
+  const hPied=4+(alerteStock?LP:0)+LP*3+2+LP*lignesLeg.length+2+LP+2;
+  const yPied=H-hPied, hCarte=yPied-HAUT-2;
+  const sc=Math.max(1,Math.min(4,Math.floor(hCarte/MH),Math.floor((W-24)/MW)));
+  const mx=Math.round(W/2-MW*sc/2), my=Math.round(HAUT+Math.max(0,(hCarte-MH*sc)/2));
   panneau(X,mx-4,my-4,MW*sc+8,MH*sc+8);
   X.drawImage(miniCV,mx,my,MW*sc,MH*sc);
   // brouillard
@@ -4070,17 +4108,45 @@ function ecranCarte(){
   X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
   X.fillRect(mx+Math.floor(J.x/TS)*sc-1,my+Math.floor(J.y/TS)*sc-1,4,4);
 
-  texteCentre(X,enCendre(J.y)?'TERRES DE CENDRE':'CARTE DE LA VALLÉE',W/2,10,'#f0f4ff');
-  const bas=my+MH*sc+10;
-  texte(X,'ÉTOILES '+J.fragments+'/3',10,bas,'#ffe06a');
-  texte(X,'RUBIS '+J.rubis,100,bas,'#4fe08a');
-  texte(X,'BOMBES '+J.bombes,10,bas+10,'#c8d0e8');
-  texte(X,'FLÈCHES '+J.fleches,100,bas+10,'#c8d0e8');
-  texte(X,'LUCIOLES '+Q.lucioles+'/8',10,bas+20,'#fff0a0');
-  texteCentre(X,'START REVENIR    Y SAUVEGARDER',W/2,H-12,'#8b96b4');
-  texte(X,persistant()?'STOCKAGE : OK':'STOCKAGE : INDISPONIBLE',10,bas+30,
-        persistant()?'#7de0a0':'#e0a06a');
-  if(resumeCourant()) texte(X,'DERNIÈRE : '+formatTemps(resumeCourant().temps),W-Math.min(W-12,120),bas+20,'#8fa8d8');
+  texteCentre(X,enCendre(J.y)?'TERRES DE CENDRE':'CARTE DE LA VALLÉE',W/2,6,'#f0f4ff');
+
+  /* --- pied de page : deux colonnes, la droite alignée sur le bord ---
+     Trois colonnes ne tiennent pas : le canvas descend à 200 px de large et
+     « LUCIOLES 8/8 » y déborderait de la troisième. */
+  let y=yPied+4;
+  if(alerteStock){ texteCentre(X,'STOCKAGE FRAGILE : EXPORTE',W/2,y,'#e0a06a'); y+=LP; }
+  const paire=(g,cg,d,cd)=>{
+    texte(X,g,8,y,cg);
+    if(d) texte(X,d,W-8-largeurTexte(d),y,cd);
+    y+=LP;
+  };
+  paire('ÉTOILES '+J.fragments+'/3','#ffe06a','RUBIS '+J.rubis,'#4fe08a');
+  paire('BOMBES '+J.bombes,'#c8d0e8','FLÈCHES '+J.fleches,'#c8d0e8');
+  const der=resumeCourant();
+  paire('LUCIOLES '+Q.lucioles+'/8','#fff0a0',
+        der?'SAUVÉ '+formatTemps(der.temps):'','#8fa8d8');
+
+  y+=2;
+  for(const ligne of lignesLeg){
+    let x=Math.round(W/2-ligne.reduce((n,e)=>n+largEnt(e),0)/2);
+    for(const e of ligne){
+      X.fillStyle='#12111c'; X.fillRect(x+3,y+2,5,5);
+      X.fillStyle=e[0];      X.fillRect(x+2,y+1,5,5);
+      texte(X,e[1],x+10,y,'#9fa8c8');
+      x+=largEnt(e);
+    }
+    y+=LP;
+  }
+
+  y+=2;
+  /* Le témoin de sauvegarde prend la place de la ligne des commandes le temps
+     qu'il s'affiche : posé en bas dans son propre cadre, il recouvrait la
+     légende — et c'est justement sur cet écran qu'on appuie sur Y. */
+  if(sauveEtatT>0) texteCentre(X,sauveEtat,W/2,y,'#9fe0b8');
+  else {
+    const cmd='START REVENIR   Y SAUVEGARDER';
+    texteCentre(X,largeurTexte(cmd)<=W-8?cmd:'START RETOUR  Y SAUVER',W/2,y,'#8b96b4');
+  }
 }
 
 /* ============================ FINS ============================ */
@@ -4564,12 +4630,7 @@ function boucle(){
   }
   if(etat==='carte'){
     if(sauveEtatT>0) sauveEtatT--;
-    ecranCarte();
-    if(sauveEtatT>0){
-      const l=largeurTexte(sauveEtat);
-      panneau(X,Math.round(W/2-l/2)-8,H-34,l+16,15);
-      texteCentre(X,sauveEtat,W/2,H-30,'#9fe0b8');
-    }
+    ecranCarte();                    // le témoin de sauvegarde y est intégré
     if(appui('Y')){ pris('Y'); sauver(false); }
     if(appui('Start')||appui('B')){ pris('Start','B'); etat='jeu'; SFX.menu(); }
     return;

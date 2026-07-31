@@ -330,6 +330,15 @@ Autres pièges rencontrés en construisant la région :
 - **Un nouvel objet doit être ajouté partout où les objets se dessinent**, pas
   seulement là où ils agissent : la table `OBJETS` existait mais le HUD choisissait
   son image en dur, et le marteau était affiché en arc (cf. 10).
+- **Un écran se compose du texte vers l'image, jamais l'inverse** : mesurer le
+  pied de page d'abord et donner le reste au contenu rend le débordement
+  impossible par construction (cf. 11.1).
+- **La police pixel avale en silence ce qu'elle ne sait pas dessiner** : tout
+  nouveau texte affiché doit passer par `13-police.js`. `Œ` n'existe toujours
+  pas — écrire « COEUR » (cf. 12).
+- **Une assertion doit pouvoir être fausse** : `largeurTexte(c) === 0` ne l'est
+  jamais. Après avoir écrit un contrôle, lui donner exprès une entrée fautive
+  et vérifier qu'il la refuse (cf. 12).
 
 ---
 
@@ -417,4 +426,74 @@ quelque chose.
 > suffisait à faire différer les images, et le contrôle restait vert alors que
 > les deux dessins étaient identiques. Il ne lit désormais que **l'icône**.
 > Réinjection du bug d'origine : rouge.
+
+---
+
+## 11. L'écran de carte
+
+### 11.1 ⚠️ Le pied de page se chevauchait et débordait
+
+| | |
+|---|---|
+| **Symptôme** | « Y SAUVEGARDDERNIÈRE : 13:28 » sur une seule ligne, et une ligne coupée sous le bord de l'écran. |
+| **Cause** | La carte était dimensionnée sur `H - 62`, puis les textes calés **sous elle** (`bas = my + MH*sc + 10`) tandis que la ligne des commandes était en absolu (`H - 12`). Selon les proportions de l'écran, `bas + 20` tombait exactement sur `H - 12`, et `bas + 30` passait hors champ. |
+| **Correctif** | Le pied de page est **mesuré et posé à partir du bas** ; la carte prend ce qui reste. Un débordement devient impossible par construction. |
+
+### 11.2 La carte s'effondrait sur les écrans hauts
+
+Six pixels de marge de trop suffisaient à faire retomber la carte de l'échelle 2
+à l'échelle 1 (elle est en 88×160 tuiles, l'échelle est entière) : elle
+n'occupait plus qu'un sixième de l'écran. Le pied a été resserré au pixel.
+
+### 11.3 Ce qui a été ajouté
+
+- Une **légende** : les pastilles de couleur ne voulaient rien dire. Elle
+  n'annonce que ce qui est réellement sur la carte — une luciole déjà prise ou
+  un brasier déjà allumé en disparaissent — et se répartit sur autant de lignes
+  qu'il faut, **avant** que la carte soit dimensionnée.
+- Deux colonnes au lieu de trois : le canvas descend à 200 px de large, où
+  « LUCIOLES 8/8 » débordait de la troisième.
+- Le **témoin de sauvegarde** prend la place de la ligne des commandes le temps
+  de s'afficher, au lieu de recouvrir la légende dans son propre cadre — or
+  c'est justement sur cet écran qu'on appuie sur Y.
+- « STOCKAGE : OK » n'occupe plus une ligne à chaque ouverture : le stockage
+  n'est signalé que lorsqu'il pose problème.
+
+`12-carte.js` intercepte le tracé et mesure les **rectangles réellement
+dessinés** à cinq tailles d'écran : rien hors du canvas, aucun texte sur un
+autre, aucun texte sur la carte, et la carte garde une vraie part de l'écran.
+
+> Deux défauts du contrôle lui-même, trouvés en le réinjectant : il capturait
+> **plusieurs images** de la boucle de rendu (chaque texte « se recouvrait »
+> lui-même d'une image à l'autre), et il prenait le **mini-plan du HUD** pour la
+> carte (dessiné avec la même image) — d'où une surface ridicule. Il ne capture
+> plus qu'une image, et retient le plus grand des deux tracés.
+
+---
+
+## 12. ⚠️ La police remplaçait des caractères par « ? » sans rien dire
+
+`glyphe()` fait `GLYPHES[ch] || GLYPHES['?']` : un caractère absent de la table
+est dessiné en **point d'interrogation**, sans erreur ni avertissement.
+
+Deux textes livrés en souffraient depuis des versions :
+
+- le **journal** affichait `?X? PARLER À LA DOYENNE` : la table n'avait ni `[`
+  ni `]` ;
+- le garde Tomas disait « LA ROUTE EST PLUS SÛRE **GR?CE** À TOI » : pas de `Â`.
+
+Glyphes ajoutés : `[ ] ; Â Ù Ä Ë Ï Ö Ü`. `Œ` reste absent — « COEUR » est écrit
+en toutes lettres dans les boutiques, et le piège est consigné ci-dessous.
+
+`13-police.js` parcourt **tout ce que le jeu sait écrire** — dialogues de chaque
+personnage dans 28 états de partie, journal, objectif courant, étiquettes des
+deux boutiques, panneaux, noms d'objets, messages et bandeaux des coffres — et
+exige que chaque caractère soit dessinable. Plus un contrôle à blanc (on lui
+donne un `Ω` : il doit le voir) et une couverture du français majuscule.
+
+> ⚠️ Le contrôle qui existait pour cela dans `11-quetes.js` était **vide de
+> sens** : il testait `largeurTexte(c) === 0`, or `largeurTexte` renvoie
+> `longueur*6-1` — jamais 0 pour un caractère. Il passait quoi qu'on lui donne.
+> Il interroge maintenant la table `GLYPHES`, comme le faisait déjà
+> `10-colporteuse.js`.
 
