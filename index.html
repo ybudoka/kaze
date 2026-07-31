@@ -76,7 +76,12 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;backg
   box-shadow:0 5px 0 #00000055,inset 0 3px 0 #ffffff55,0 0 0 2px #00000022}
 #btB.on{box-shadow:0 1px 0 #00000055,inset 0 2px 7px #00000055,0 0 0 2px #00000022}
 
-#outils{position:fixed;top:8px;right:10px;display:flex;gap:6px;z-index:30}
+/* Les boutons sont dans le flux, au-dessus de l'écran : en position fixe ils
+   recouvraient le HUD (rubis et étoiles, dessinés en haut à droite du canvas)
+   dès que la zone de jeu montait jusqu'en haut de la page. En plein écran ils
+   repassent en superposition, le jeu occupant alors tout l'espace. */
+#outils{display:flex;gap:6px;z-index:30;align-self:flex-end;flex:0 0 auto}
+body.plein #outils{position:fixed;top:8px;right:10px}
 #outils button{background:#1b2136cc;border:1px solid #39456b;color:#aab6dc;border-radius:7px;
   font:600 11px/1 system-ui;padding:7px 10px;cursor:pointer;letter-spacing:.06em;backdrop-filter:blur(4px)}
 #outils button:hover{background:#26304dcc;color:#eaf0ff}
@@ -3459,9 +3464,11 @@ function redim(){
     }
   }
   let hPad=(padVisible&&!flottant)?pad.offsetHeight*ps+14:0;
+  const outils=document.getElementById('outils');
+  const hOutils=(outils&&!plein)?outils.offsetHeight+12:0;   // occupe le flux hors plein écran
   let hAide=(aide&&getComputedStyle(aide).display!=='none')?aide.offsetHeight+10:0;
   const vw=Math.max(240,window.innerWidth-(plein?0:14));
-  const vh=Math.max(180,window.innerHeight-hPad-hAide-(plein?0:12));
+  const vh=Math.max(180,window.innerHeight-hPad-hAide-hOutils-(plein?0:12));
   // on vise ~216 px de haut en interne, puis on remplit l'espace restant
   let s=Math.round(vh/216);
   s=Math.min(s,Math.floor(vw/200),Math.floor(vh/168));
