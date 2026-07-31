@@ -79,9 +79,15 @@ module.exports = {
       out.forgeOk = atteint(a, coffres[3]);
       out.falaisesBloquees = !atteint(a, coffres[4]);
 
-      // marteau -> on brise la roche noire qui bouche la brèche
+      // marteau -> on brise la roche noire qui bouche la brèche.
+      // Le joueur arrive ici avec l'arc et les bombes : le marteau se range
+      // donc APRÈS eux, et sans équipement automatique il resterait invisible.
+      J.objets = ['arc', 'bombe']; J.objSel = 0;
       ouvrirCoffre(coffres[3]); await dort(200);
       out.marteau = J.objets.includes('marteau'); out.braises1 = Q.braises;
+      // il doit être ÉQUIPÉ, sinon la boîte d'objet montre encore l'arc et on
+      // repart du coffre en croyant n'avoir rien reçu
+      out.marteauEquipe = J.objets[J.objSel] === 'marteau';
       const cf = CENDRE.falaises, cx = cf.x0 + (cf.w >> 1);
       for (let k = -1; k <= 1; k++) putO(cx + k, cf.y0, O.RIEN);
       out.falaisesOuvertes = atteint(joignable(), coffres[4]);
@@ -89,6 +95,17 @@ module.exports = {
       // bottes
       ouvrirCoffre(coffres[4]); await dort(200);
       out.bottes = !!Q.bottes; out.braises2 = Q.braises;
+      // le journal doit montrer marteau et bottes, sinon rien ne prouve au
+      // joueur qu'il les possède (les bottes ne s'affichent nulle part ailleurs)
+      journal = true;
+      const lignes = lignesJournal ? lignesJournal() : null;
+      out.journal = JSON.stringify(lignes || []);
+      journal = false;
+      // la mini-carte doit distinguer les Terres de Cendre de la prairie
+      const g2 = miniCV.getContext('2d');
+      const px = (x, y) => { const d = g2.getImageData(x, y, 1, 1).data; return `${d[0]},${d[1]},${d[2]}`; };
+      out.couleurVallee = px(35, 45);
+      out.couleurCendre = px(10, 120);
 
       // un coffre ne se rouvre pas
       ouvrirCoffre(coffres[4]); await dort(100);
@@ -146,6 +163,13 @@ module.exports = {
     v('le marteau est obtenu', r.marteau && r.braises1 === 1, `${r.marteau}/${r.braises1}`);
     v('le marteau ouvre les Falaises', r.falaisesOuvertes, 'toujours bloqué');
     v('les bottes sont obtenues', r.bottes && r.braises2 === 2, `${r.bottes}/${r.braises2}`);
+    v('LE MARTEAU EST ÉQUIPÉ DÈS QU\'ON LE TROUVE',
+      r.marteauEquipe, 'la boîte d\'objet montre encore autre chose');
+    v('le journal montre marteau et bottes',
+      /MARTEAU/.test(r.journal) && /BOTTES/.test(r.journal), r.journal.slice(0, 120));
+    v('la mini-carte distingue les Cendres de la prairie',
+      r.couleurVallee !== r.couleurCendre,
+      `vallée ${r.couleurVallee} / cendre ${r.couleurCendre}`);
     v('un coffre ne se rouvre pas', r.pasDeDoublon, 'contenu redonné');
     v('entrer dans l\'Antre réveille le Cœur', r.bossReveille, 'pas de boss');
     v('vaincre le Cœur descelle le coffre', r.bossVaincu, 'coffre verrouillé');

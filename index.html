@@ -1903,10 +1903,15 @@ function lignesJournal(){
   L.push([f(Q.coeurCristal)+'TARTE DE MIRA : '+
     (Q.coeurCristal?'TERMINÉ':Q.perle?'PERLE A LA DOYENNE':Q.tarte?'VOIR LE PÊCHEUR':'CHAMPIGNONS '+Q.champignons+'/4'),'#c8d0e8']);
   L.push([f(Q.primeRendue)+'PRIME DE LA GARDE : '+Math.min(Q.prime,15)+'/15','#c8d0e8']);
+  if(Q.portailOuvert) L.push([f(Q.braises>=3)+'BRAISES : '+Q.braises+'/3','#e8b0a0']);
   L.push(['','#000']);
   L.push(['ÉQUIPEMENT','#ffb0c0']);
   L.push(['ÉPÉE '+(Q.epeeLongue?'LONGUE':'COURTE'),'#c8d0e8']);
   L.push([(J.objets.includes('arc')?'ARC':'-')+'   '+(J.objets.includes('bombe')?'BOMBES':'-'),'#c8d0e8']);
+  /* équipement des Cendres : les bottes ne se voient nulle part ailleurs */
+  if(Q.portailOuvert||J.objets.includes('marteau')||Q.bottes)
+    L.push([(J.objets.includes('marteau')?'MARTEAU':'-')+'   '
+           +(Q.bottes?'BOTTES DE CENDRE':'-'),'#e8b0a0']);
   L.push(['BOUCLIER '+(Q.bouclierFort?'RENFORCÉ':'DE BOIS')+'   POTIONS '+Q.potions,'#c8d0e8']);
   return L;
 }
@@ -2361,17 +2366,22 @@ function ouvrirCoffre(c){
   particules(c.x,c.y,c.e*EH+14,26,'#ffe86a',3,44);
   J.fragments++;
   J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
-  if(c.contenu==='arc'){ if(!J.objets.includes('arc')) J.objets.push('arc'); J.fleches=Math.max(J.fleches,20);
+  /* On équipe aussitôt l'objet trouvé : sans cela la boîte d'objet continuait
+     d'afficher l'arc, et on pouvait repartir d'un coffre en croyant n'avoir
+     rien reçu — il fallait deviner qu'il fallait faire défiler avec L/R. */
+  const equiper=id=>{ if(!J.objets.includes(id)) J.objets.push(id);
+                      J.objSel=J.objets.indexOf(id); };
+  if(c.contenu==='arc'){ equiper('arc'); J.fleches=Math.max(J.fleches,20);
     dire("L'ARC ! FLÈCHES : 20. FRAGMENT "+J.fragments+"/3"); }
-  else if(c.contenu==='bombe'){ if(!J.objets.includes('bombe')) J.objets.push('bombe'); J.bombes=Math.max(J.bombes,8);
+  else if(c.contenu==='bombe'){ equiper('bombe'); J.bombes=Math.max(J.bombes,8);
     dire("SAC DE BOMBES ! FRAGMENT "+J.fragments+"/3"); }
   /* --- Terres de Cendre --- */
   else if(c.contenu==='marteau'){ J.fragments--;            // ne compte pas comme étoile
-    if(!J.objets.includes('marteau')) J.objets.push('marteau');
-    Q.braises++; dire("LE MARTEAU DE FORGE ! IL BRISE LA ROCHE NOIRE. BRAISE "+Q.braises+"/3"); }
+    equiper('marteau');
+    Q.braises++; dire("LE MARTEAU DE FORGE ! ÉQUIPÉ : APPUIE SUR Y. BRAISE "+Q.braises+"/3",340); }
   else if(c.contenu==='bottes'){ J.fragments--;
     Q.bottes=true; Q.braises++;
-    dire("LES BOTTES DE CENDRE ! LES BRAISES NE BRÛLENT PLUS. BRAISE "+Q.braises+"/3"); }
+    dire("LES BOTTES DE CENDRE ! TU MARCHES SUR LES BRAISES. BRAISE "+Q.braises+"/3",340); }
   else if(c.contenu==='braise'){ J.fragments--;
     Q.braises++; dire("LA DERNIÈRE BRAISE ! BRAISE "+Q.braises+"/3"); }
   else dire("FRAGMENT D'ÉTOILE "+J.fragments+"/3");
@@ -3459,9 +3469,16 @@ function construireMini(){
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
     const s=Sol(x,y), o=Obj(x,y), e=Etg(x,y);
     let c = s===S.EAU?'#24509c' : s===S.SABLE?'#cbb478' : s===S.TERRE||s===S.RAMPE?'#a8763f'
-          : s===S.DALLE||s===S.TAPIS?'#8c90a4' : (e?'#4f9a48':'#3f7f37');
+          : s===S.DALLE||s===S.TAPIS?'#8c90a4'
+          /* sans ces quatre teintes, les Terres de Cendre s'affichaient en vert
+             prairie sur la carte : la région était illisible */
+          : s===S.LAVE?'#e0561c' : s===S.BRAISE?'#8a4630'
+          : s===S.CENDRE?'#55505d' : s===S.BASALTE?'#3b3746'
+          : (e?'#4f9a48':'#3f7f37');
     if(o===O.ARBRE) c='#1d5a2c';
     if(o===O.MUR) c='#767b8b';
+    if(o===O.ROCNOIR) c='#241f2c';
+    if(o===O.PORTAIL) c='#ff8b3a';
     g.fillStyle=c; g.fillRect(x,y,1,1);
   }
 }
@@ -3492,7 +3509,7 @@ function ecranCarte(){
   X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
   X.fillRect(mx+Math.floor(J.x/TS)*sc-1,my+Math.floor(J.y/TS)*sc-1,4,4);
 
-  texteCentre(X,'CARTE DE LA VALLÉE',W/2,10,'#f0f4ff');
+  texteCentre(X,enCendre(J.y)?'TERRES DE CENDRE':'CARTE DE LA VALLÉE',W/2,10,'#f0f4ff');
   const bas=my+MH*sc+10;
   texte(X,'ÉTOILES '+J.fragments+'/3',10,bas,'#ffe06a');
   texte(X,'RUBIS '+J.rubis,100,bas,'#4fe08a');
