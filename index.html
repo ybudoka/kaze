@@ -408,6 +408,31 @@ document.addEventListener('touchend',e=>{
   dernierTap=t;
 },{passive:false,capture:true});
 document.addEventListener('touchcancel',()=>{ for(const k in doigts) finDoigt(k); },{passive:true});
+
+/* ---- Filet anti-zoom (iOS) ----
+   Malgré la prévention des gestes, un pincement ou double-tap peut parfois
+   zoomer la page ; comme le défilement est verrouillé, elle reste « collée »
+   agrandie et tout paraît bloqué. On surveille le zoom du viewport visuel et
+   on le ramène à 1 en réécrivant la balise viewport (bascule qui force iOS à
+   recadrer), puis on recale le défilement. */
+(function(){
+  const vp=document.querySelector('meta[name=viewport]');
+  const vv=window.visualViewport;
+  if(!vp||!vv) return;
+  const base='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no';
+  let raz=0;
+  const remettreAUn=()=>{
+    // bascule le contenu de la balise pour forcer iOS à réinitialiser l'échelle
+    vp.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no');
+    vp.setAttribute('content',base);
+    scrollTo(0,0);
+    if(typeof redim==='function') redim();
+  };
+  const zoome=()=>Math.abs(vv.scale-1)>0.02;
+  vv.addEventListener('resize',()=>{ if(zoome()){ clearTimeout(raz); raz=setTimeout(remettreAUn,80); } });
+  vv.addEventListener('scroll',()=>{ if(zoome()) scrollTo(0,0); });
+})();
+
 /* si la fenêtre perd le focus, on relâche tout */
 function relacherTout(){
   for(const k in BTN) BTN[k]=0;
