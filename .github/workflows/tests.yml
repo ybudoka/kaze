@@ -1,0 +1,42 @@
+name: Tests
+
+# Chaque correctif est couvert par un contrôle : on les rejoue à chaque push,
+# pour qu'une régression se voie sur le dépôt plutôt qu'en jouant.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    name: Suite de tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      # Le navigateur est mis en cache : sans cela, chaque exécution le
+      # retélécharge (~130 Mo).
+      - name: Restaurer le navigateur
+        id: cache-navigateur
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Lancer la suite
+        run: npm test
