@@ -1641,11 +1641,15 @@ function genererVillage(){
    Ouverte une fois les trois étoiles réunies. On y entre par le portail du
    sud de la vallée, et on en ressort par le même passage.
    ========================================================================== */
+/* La Forge est alignée sur le défilé et posée juste à sa sortie : on y entre en
+   marchant droit devant, sans avoir à fouiller les Cendres. Elle était
+   auparavant à cinq tuiles à l'ouest et neuf au sud, perdue dans un champ
+   ouvert — impossible à trouver sans la chercher exprès. */
 const CENDRE={
   gorge:{x0:34,x1:39},                 // le défilé qui relie les deux régions
-  forge:{x0:24,y0:96,w:15,h:11},       // la Forge Noire : marteau
-  falaises:{x0:58,y0:92,w:14,h:12},    // les Falaises Ardentes : bottes
-  arene:{x0:32,y0:132,w:19,h:17}       // l'Antre du Cœur de Cendre
+  forge:{x0:30,y0:90,w:15,h:11},       // la Forge Noire : marteau — droit devant
+  falaises:{x0:58,y0:96,w:14,h:12},    // les Falaises Ardentes : bottes — à l'est
+  arene:{x0:32,y0:132,w:19,h:17}       // l'Antre du Cœur de Cendre — plein sud
 };
 function genererCendres(){
   const Y0=Y_CENDRE;
@@ -1676,12 +1680,17 @@ function genererCendres(){
 
   /* le défilé d'entrée, percé dans cette falaise */
   const g=CENDRE.gorge;
-  for(let y=Y0-6;y<Y0+7;y++)for(let x=g.x0;x<=g.x1;x++){
+  /* Le défilé descend jusqu'à la porte de la Forge : en sortant du portail, on
+     n'a qu'à marcher tout droit. */
+  for(let y=Y0-6;y<=CENDRE.forge.y0;y++)for(let x=g.x0;x<=g.x1;x++){
     putS(x,y,y<Y0?S.TERRE:S.CENDRE); putO(x,y,O.RIEN); putE(x,y,0);
   }
   /* le portail barre le défilé, côté vallée */
   for(let x=g.x0;x<=g.x1;x++) putO(x,Y0-3,O.PORTAIL);
   panneaux.push({x:36*TS+8,y:(Y0-6)*TS+8,txt:"LES TERRES DE CENDRE. LA CHALEUR MONTE DU SUD."});
+  panneaux.push({x:33*TS+8,y:(Y0+4)*TS+8,txt:"LA FORGE NOIRE, DROIT DEVANT. LE MARTEAU Y DORT."});
+  /* deux files de torches bordent le défilé : on suit la lumière */
+  for(let y=Y0+1;y<CENDRE.forge.y0;y+=3){ putO(g.x0,y,O.TORCHE); putO(g.x1,y,O.TORCHE); }
 
   /* une salle = un sol de basalte encadré de murs, avec ses torches */
   const salle=(s,tapis)=>{
@@ -1710,10 +1719,28 @@ function genererCendres(){
     while(y!==y2){ y+=Math.sign(y2-y); poser(); }
     while(x!==x2){ x+=Math.sign(x2-x); poser(); }
   };
+  /* Les deux salles suivantes se rejoignent depuis la sortie de la Forge, et
+     leurs chemins sont jalonnés de torches : sans elles, on cherchait au hasard
+     dans une étendue de cendre sans repère. */
   const centre=s=>[s.x0+(s.w>>1),s.y0];
+  const depart=[CENDRE.forge.x0+(CENDRE.forge.w>>1),CENDRE.forge.y0+CENDRE.forge.h+1];
+  const jalonner=(x1,y1,x2,y2)=>{
+    let x=x1,y=y1,n=0;
+    const marque=()=>{ if(++n%5===0&&Obj(x,y)===O.RIEN&&Sol(x,y)!==S.LAVE
+                          &&Sol(x,y)!==S.BRAISE) putO(x,y,O.TORCHE); };
+    while(y!==y2){ y+=Math.sign(y2-y); marque(); }
+    while(x!==x2){ x+=Math.sign(x2-x); marque(); }
+  };
   chemin(36,Y0+6,...centre(CENDRE.forge));
-  chemin(36,Y0+6,...centre(CENDRE.falaises));
-  chemin(36,Y0+6,...centre(CENDRE.arene));
+  chemin(...depart,...centre(CENDRE.falaises));
+  chemin(...depart,...centre(CENDRE.arene));
+  jalonner(...depart,...centre(CENDRE.falaises));
+  jalonner(...depart,...centre(CENDRE.arene));
+  /* une sortie au sud de la Forge, pour rejoindre la suite */
+  {const s=CENDRE.forge, cx=s.x0+(s.w>>1);
+   for(let k=-1;k<=1;k++){ putO(cx+k,s.y0+s.h-1,O.RIEN); putS(cx+k,s.y0+s.h-1,S.BASALTE); }}
+  panneaux.push({x:depart[0]*TS+8,y:(depart[1]+1)*TS+8,
+    txt:"À L'EST, LES FALAISES ARDENTES. PLEIN SUD, L'ANTRE."});
 
   /* La roche noire bouche la brèche même des Falaises : posée devant, on la
      contournait simplement par la cendre alentour. */
@@ -1912,9 +1939,10 @@ function objectifCourant(){
   if(coffres[2].verrou) return 'BATS LE GARDIEN DE PIERRE';
   if(!coffres[2].ouvert) return 'PRENDS LA TROISIÈME ÉTOILE';
   /* --- Terres de Cendre --- */
-  if(!coffres[3].ouvert) return 'LA FORGE NOIRE : PRENDS LE MARTEAU';
-  if(!coffres[4].ouvert) return 'FALAISES ARDENTES : BRISE LA ROCHE NOIRE';
-  if(coffres[5].verrou) return 'ANTRE : BATS LE COEUR DE CENDRE';
+  if(!Q.portailOuvert) return 'LE PORTAIL DE CENDRE, AU SUD DE LA VALLÉE';
+  if(!coffres[3].ouvert) return 'FRANCHIS LE PORTAIL : LA FORGE EST DROIT DEVANT';
+  if(!coffres[4].ouvert) return "À L'EST : BRISE LA ROCHE NOIRE AU MARTEAU";
+  if(coffres[5].verrou) return 'PLEIN SUD : BATS LE COEUR DE CENDRE';
   return 'PRENDS LA DERNIÈRE BRAISE';
 }
 

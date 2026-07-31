@@ -50,6 +50,23 @@ module.exports = {
       };
       const atteint = (vus, co) => !!vus[Math.floor(co.y/TS)*MW + Math.floor(co.x/TS)];
 
+      /* On doit tomber sur la Forge en marchant droit devant : elle était
+         auparavant à l'écart, dans une étendue de cendre sans repère, et
+         restait introuvable. */
+      {
+        const g = CENDRE.gorge, f = CENDRE.forge;
+        const cxGorge = (g.x0 + g.x1) >> 1, cxForge = f.x0 + (f.w >> 1);
+        out.alignee = cxForge >= g.x0 && cxForge <= g.x1;
+        let y = Y_CENDRE, pas = 0, bloque = false;
+        while (y < f.y0 && pas < 40) {
+          y++; pas++;
+          const o = Obj(cxGorge, y);
+          if (Sol(cxGorge, y) === S.LAVE || (o && DUR_O[o] && o !== O.PORTAIL)) { bloque = true; break; }
+        }
+        out.marcheDroit = !bloque && y === f.y0;
+        out.pasJusquALaForge = pas;
+      }
+
       let a = joignable();
       out.cendresFermees = !atteint(a, coffres[3]);
       out.valleeOk = !!a[14*MW+15] && !!a[45*MW+30];   // bois du nord et village
@@ -121,6 +138,10 @@ module.exports = {
     v('les trois étoiles ouvrent le portail', r.portail && r.etoiles === 3,
       `ouvert=${r.portail} étoiles=${r.etoiles}`);
     v('la Forge Noire est atteignable', r.forgeOk, 'injoignable');
+    v('la Forge est alignée sur le défilé', r.alignee, 'décalée : on peut la manquer');
+    v('ON TOMBE SUR LA FORGE EN MARCHANT DROIT DEVANT',
+      r.marcheDroit, 'le chemin tout droit ne mène pas à sa porte');
+    v('elle est proche du portail', r.pasJusquALaForge <= 12, `${r.pasJusquALaForge} tuiles`);
     v('la roche noire ne se contourne pas', r.falaisesBloquees, 'passage libre');
     v('le marteau est obtenu', r.marteau && r.braises1 === 1, `${r.marteau}/${r.braises1}`);
     v('le marteau ouvre les Falaises', r.falaisesOuvertes, 'toujours bloqué');

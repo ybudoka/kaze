@@ -242,6 +242,14 @@ rangées 80-159 et s'ouvre une fois les **trois étoiles** réunies.
 - **Progression** : portail (3 étoiles) → Forge Noire (**marteau**, brise la
   roche noire) → Falaises Ardentes (**bottes**, les braises ne brûlent plus) →
   Antre (**Cœur de Cendre**) → dernière braise → victoire.
+- **Lisibilité du parcours** : la Forge était à cinq tuiles à l'ouest et neuf au
+  sud du portail, au milieu d'une étendue de cendre sans repère — **introuvable
+  en pratique**. Elle est désormais **alignée sur le défilé et posée à sa
+  sortie** : on entre dedans en marchant droit devant. Le défilé est bordé de
+  torches, des panneaux annoncent chaque étape, et des jalons lumineux mènent
+  aux deux salles suivantes. Les objectifs affichés donnent la direction
+  (« FRANCHIS LE PORTAIL : LA FORGE EST DROIT DEVANT », « À L'EST… », « PLEIN
+  SUD… »). Un contrôle vérifie qu'on atteint sa porte en marchant tout droit.
 - **Nouveaux monstres** : `braise` (bondissant), `golem` (n'est entamé que par le
   marteau), `spectre` (traverse les murs, ne se touche que matérialisé).
 - Le sol `BRAISE` blesse tant qu'on n'a pas les bottes ; `LAVE` bloque comme
