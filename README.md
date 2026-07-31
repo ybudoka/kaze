@@ -34,6 +34,12 @@ ton épée.
 **Les Terres de Cendre** — les trois étoiles ouvrent le portail du sud. Marteau,
 bottes de cendre, et le Cœur de Cendre au bout.
 
+## Gemmes
+
+Les monstres et les buissons lâchent trois pierres : **rubis vert** (1),
+**saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les
+Terres de Cendre, plus dures, en lâchent davantage.
+
 ## Sauvegardes
 
 Trois emplacements nommés. Le bouton **SAUVEGARDES** exporte les trois en un
@@ -47,7 +53,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 119 contrôles, ~11 s
+npm test                          # 129 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

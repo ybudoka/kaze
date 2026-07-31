@@ -1466,11 +1466,19 @@ function bakeDecors(){
   });
 
   /* objets ramassables */
-  for(let f=0;f<4;f++) faireSprite(`rubis${f}`,14,16,g=>{
-    const w=[8,5,2,5][f], x=7-w/2;
-    rc(g,x,2,w,11,'#18a05a'); rc(g,x,2,Math.max(1,w/2),8,'#4fe08a');
-    rc(g,x,10,w,3,'#0e6a3a'); rc(g,x+1,3,1,3,'#c8ffe0');
-  });
+  /* Les trois gemmes partagent la taille du rubis vert : seules les teintes
+     changent, pour qu'on les distingue d'un coup d'œil sans les confondre. */
+  const GEMMES={
+    rubis: ['#18a05a','#4fe08a','#0e6a3a','#c8ffe0'],   // vert  — 1
+    saphir:['#1a5fd0','#5aa0ff','#0e3a86','#d0e8ff'],   // bleu  — 5
+    grenat:['#c02038','#ff6a80','#7e1024','#ffd8de']    // rouge — 20
+  };
+  for(const [nom,[base,clair,ombre,eclat]] of Object.entries(GEMMES))
+    for(let f=0;f<4;f++) faireSprite(`${nom}${f}`,14,16,g=>{
+      const w=[8,5,2,5][f], x=7-w/2;
+      rc(g,x,2,w,11,base); rc(g,x,2,Math.max(1,w/2),8,clair);
+      rc(g,x,10,w,3,ombre); rc(g,x+1,3,1,3,eclat);
+    });
   faireSprite('coeur',16,14,g=>{
     rc(g,2,2,5,3,'#d02a4a'); rc(g,9,2,5,3,'#d02a4a');
     rc(g,1,4,14,4,'#d02a4a'); rc(g,3,8,10,3,'#a01a34'); rc(g,6,11,4,2,'#a01a34');
@@ -2258,9 +2266,20 @@ function mourir(){
   sauverPointDeReprise();          // la progression est mise à l'abri
 }
 
+/* Valeur en rubis de chaque gemme. Le grenat est rare : c'est lui qui rend
+   les créatures des Cendres payantes. */
+const VALEUR_GEMME={rubis:1,saphir:5,grenat:20};
 function larguer(x,y,z){
   const r=rnd();
-  if(r<.30) butins.push({x,y,z,vz:1.6,type:'rubis',t:0});
+  /* Les Terres de Cendre lâchent de plus belles pierres : la région est plus
+     dure, elle doit rapporter davantage. */
+  const riche=enCendre(y);
+  if(r<.30){
+    const g=rnd();
+    const type = riche ? (g<.18?'grenat':g<.55?'saphir':'rubis')
+                       : (g<.04?'grenat':g<.24?'saphir':'rubis');
+    butins.push({x,y,z,vz:1.6,type,t:0});
+  }
   else if(r<.44) butins.push({x,y,z,vz:1.6,type:'coeur',t:0});
   else if(r<.55&&J.objets.includes('bombe')) butins.push({x,y,z,vz:1.6,type:'bombe',t:0});
   else if(r<.66&&J.objets.includes('arc')) butins.push({x,y,z,vz:1.6,type:'fleche',t:0});
@@ -2415,7 +2434,15 @@ function majJoueur(){
   for(let i=butins.length-1;i>=0;i--){
     const o=butins[i];
     if(Math.hypot(o.x-J.x,o.y-J.y)<13&&Math.abs(o.z-J.z)<20){
-      if(o.type==='rubis'){ J.rubis=Math.min(999,J.rubis+1); SFX.rubis(); }
+      if(VALEUR_GEMME[o.type]){
+        const val=VALEUR_GEMME[o.type];
+        J.rubis=Math.min(999,J.rubis+val); SFX.rubis();
+        // les belles pierres se signalent : son plus riche et éclat
+        if(val>1){ son(880+val*8,.10,'triangle',.05,260,.05);
+                   particules(o.x,o.y,o.z+8,val>5?10:6,
+                              val>5?'#ff9aae':'#8fc4ff',1.8,20);
+                   dire(val>5?'GRENAT ! +'+val+' RUBIS':'SAPHIR ! +'+val+' RUBIS',110); }
+      }
       if(o.type==='coeur'){ J.pv=Math.min(J.pvmax,J.pv+2); SFX.coeur(); }
       if(o.type==='bombe'){ J.bombes=Math.min(20,J.bombes+2); SFX.rubis(); }
       if(o.type==='fleche'){ J.fleches=Math.min(60,J.fleches+5); SFX.rubis(); }
@@ -3271,7 +3298,7 @@ function rendreMonde(){
         }
         else if(t==='butin'){
           ombre(X,o.x,o.y,o.z,3.5);
-          const nom=o.type==='rubis'?'rubis'+(Math.floor(tick/7)%4)
+          const nom=VALEUR_GEMME[o.type]?o.type+(Math.floor(tick/7)%4)
                    :o.type==='coeur'?'coeur':o.type==='bombe'?'bombeItem'
                    :o.type==='champi'?'champi':o.type==='cle'?'cle':'fleche';
           if(o.type==='cle'){
