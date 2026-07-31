@@ -3211,7 +3211,31 @@ function redim(){
   const pad=document.getElementById('pad'), aide=document.getElementById('aide');
   const padVisible=pad&&!document.body.classList.contains('sanspad');
   const flottant=plein;
-  let hPad=(padVisible&&!flottant)?pad.offsetHeight+14:0;
+  // La manette a des tailles fixes ; sur un écran étroit son contenu dépasse la
+  // largeur du viewport (boutons rognés, page qui paraît « zoomée/bloquée »).
+  // On la met à l'échelle d'un bloc pour qu'elle tienne toujours en largeur.
+  let ps=1;
+  if(pad){
+    pad.style.transform='';                       // repartir du transform CSS (plein écran)
+    if(padVisible&&!plein){
+      // Étendue réelle du contenu : les boutons/gâchettes sont en position
+      // absolue, donc scrollWidth les sous-estime — on mesure les enfants.
+      // Le contenu est asymétrique (il déborde plus à droite), donc on met à
+      // l'échelle d'après le côté le plus éloigné du centre du pavé.
+      let lo=Infinity,hi=-Infinity;
+      for(const el of pad.querySelectorAll('*')){
+        const r=el.getBoundingClientRect();
+        if(r.width&&r.height){ if(r.left<lo)lo=r.left; if(r.right>hi)hi=r.right; }
+      }
+      if(hi>lo){
+        const pr=pad.getBoundingClientRect(), pcx=(pr.left+pr.right)/2;
+        const demi=Math.max(pcx-lo,hi-pcx);
+        ps=clamp((window.innerWidth/2-6)/demi,0.4,1);
+        if(ps<1){ pad.style.transformOrigin='top center'; pad.style.transform='scale('+ps+')'; }
+      }
+    }
+  }
+  let hPad=(padVisible&&!flottant)?pad.offsetHeight*ps+14:0;
   let hAide=(aide&&getComputedStyle(aide).display!=='none')?aide.offsetHeight+10:0;
   const vw=Math.max(240,window.innerWidth-(plein?0:14));
   const vh=Math.max(180,window.innerHeight-hPad-hAide-(plein?0:12));
