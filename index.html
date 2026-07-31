@@ -2576,6 +2576,17 @@ function dessinerEnnemi(g,e){
 }
 
 /* ============================ RENDU MONDE ============================ */
+/* Les salles closes du jeu, murs compris : on ne montre ce qui s'y trouve
+   qu'une fois le héros à l'intérieur. */
+const SALLES=[
+  {x0:13,y0:66,x1:21,y1:72},        // la ruine du lac
+  {x0:66,y0:46,x1:78,y1:58}         // l'arène du gardien
+];
+function salleDe(px,py){
+  const tx=Math.floor(px/TS), ty=Math.floor(py/TS);
+  for(const s of SALLES) if(tx>=s.x0&&tx<=s.x1&&ty>=s.y0&&ty<=s.y1) return s;
+  return null;
+}
 const glowCV=document.createElement('canvas'); glowCV.width=glowCV.height=96;
 (function(){ const g=glowCV.getContext('2d');
   const gr=g.createRadialGradient(48,48,0,48,48,48);
@@ -2602,8 +2613,13 @@ function rendreMonde(){
   const bacs=new Map();
   const add=(o,t)=>{ const r=clamp(Math.floor(o.y/TS),0,MH-1);
     if(!bacs.has(r)) bacs.set(r,[]); bacs.get(r).push({o,t}); };
-  for(const e of ennemis) add(e,'e');
-  if(boss) add(boss,'e');
+  /* Vue de dessus oblige, un monstre posté au fond d'une salle se projette
+     au-dessus du mur qui le sépare du héros : il reste donc visible de
+     l'extérieur alors que rien ne devrait le laisser voir. On garde les
+     occupants d'une salle fermée cachés tant qu'on n'y est pas entré. */
+  const salleJoueur=salleDe(J.x,J.y);
+  for(const e of ennemis){ const s=salleDe(e.x,e.y); if(s&&s!==salleJoueur) continue; add(e,'e'); }
+  if(boss){ const s=salleDe(boss.x,boss.y); if(!s||s===salleJoueur) add(boss,'e'); }
   for(const o of butins) add(o,'butin');
   for(const b of bombes) add(b,'bombe');
   for(const p of tirs) add(p,'tir');
