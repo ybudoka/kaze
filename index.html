@@ -3128,8 +3128,11 @@ function optionsFin(gagne){
   return o;
 }
 function dessinerMenu(opts,cx,y,largeur){
+  // On cumule la hauteur de chaque entrée (une entrée avec sous-ligne occupe
+  // 20 px, sinon 14) au lieu de multiplier l'index : sinon la sous-ligne de
+  // « CONTINUER » chevauchait l'entrée suivante.
+  let yy=y;
   opts.forEach((o,i)=>{
-    const yy=y+i*(o.sous?20:14);
     if(i===menuSel){
       X.fillStyle='rgba(40,52,92,.75)';
       X.fillRect(cx-largeur/2,yy-3,largeur,o.sous?19:13);
@@ -3139,6 +3142,7 @@ function dessinerMenu(opts,cx,y,largeur){
     }
     texteCentre(X,o.txt,cx,yy,i===menuSel?'#ffffff':'#8f9cc4','#0a0c18');
     if(o.sous) texteCentre(X,o.sous,cx,yy+10,i===menuSel?'#9fe0b8':'#5f6a90','#0a0c18');
+    yy+=o.sous?20:14;
   });
 }
 function naviguerMenu(opts,onChoix){
