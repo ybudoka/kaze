@@ -22,6 +22,8 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 | **L/R** changer d'objet | **START** carte · **SELECT** journal |
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
+Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre —
+et chaque gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
@@ -59,7 +61,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 145 contrôles, ~11 s
+npm test                          # 154 contrôles, ~11 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

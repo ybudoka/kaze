@@ -28,13 +28,34 @@ module.exports = {
       out.la4 = Math.round(hauteur('A4'));
       out.do3 = Math.round(hauteur('C3'));
 
-      // le thème suit la situation
+      // le thème suit la situation, du plus impérieux au plus général
+      const au = (x, y) => { J.x = x * TS + 8; J.y = y * TS + 8; return themeVoulu(); };
       etat = 'titre'; out.auTitre = themeVoulu();
+      etat = 'victoire'; out.aLaVictoire = themeVoulu();
+      etat = 'mort'; out.aLaMort = themeVoulu();
       etat = 'jeu'; boss = null;
-      J.y = 45 * TS; out.enVallee = themeVoulu();
-      J.y = (Y_CENDRE + 20) * TS; out.enCendre = themeVoulu();
-      boss = { type: 'coeur' }; out.avecBoss = themeVoulu();
-      boss = null; J.y = 45 * TS;
+
+      out.enVallee = au(50, 30);                    // pleine campagne
+      out.auVillage = au(35, 45);                   // refuge
+      out.dansLaRuine = au(17, 69);                 // salle close
+      // en plein air dans les Cendres : hors de la Forge (30-44 × 90-100),
+      // des Falaises et de l'Antre — sinon on obtiendrait « donjon »
+      out.enCendre = au(20, Y_CENDRE + 38);
+      out.enCendreHorsSalle = !salleDe(20 * TS + 8, (Y_CENDRE + 38) * TS + 8);
+      out.dansLaForge = au(CENDRE.forge.x0 + 5, CENDRE.forge.y0 + 5);
+      au(50, 30);
+      boss = { type: 'boss' }; out.gardienDePierre = themeVoulu();
+      boss = { type: 'coeur' }; out.coeurDeCendre = themeVoulu();
+      // un gardien l'emporte même sur un lieu particulier
+      au(17, 69); out.bossPrimeSurLeLieu = themeVoulu();
+      boss = null; au(50, 30);
+
+      // le silence de la mort coupe réellement la musique
+      lancerMusique('vallee');
+      etat = 'mort'; majMusique();
+      out.silenceALaMort = themeMus === null;
+      etat = 'jeu'; majMusique();
+      out.reprendApres = themeMus;
 
       // le séquenceur programme réellement des notes
       let jouees = 0;
@@ -58,16 +79,27 @@ module.exports = {
     });
 
     v('le contexte audio existe', r.contexte, 'absent');
-    v('les quatre morceaux sont définis',
-      r.themes.length === 4 && r.themes.includes('vallee') && r.themes.includes('cendre')
-      && r.themes.includes('boss') && r.themes.includes('titre'), r.themes.join(','));
+    v('tous les morceaux sont définis',
+      ['vallee', 'cendre', 'boss', 'titre', 'village', 'donjon', 'coeurBoss', 'victoire']
+        .every(t => r.themes.includes(t)), r.themes.join(','));
     v('toutes les notes des partitions sont valides', r.pistesValides,
       'une piste contient une note inconnue');
     v('les hauteurs sont justes', r.la4 === 440 && r.do3 === 131, `A4=${r.la4} C3=${r.do3}`);
     v('l\'écran-titre a son thème', r.auTitre === 'titre', r.auTitre);
-    v('la vallée a le sien', r.enVallee === 'vallee', r.enVallee);
+    v('la victoire a le sien', r.aLaVictoire === 'victoire', r.aLaVictoire);
+    v('la mort se joue en silence', r.aLaMort === null, r.aLaMort);
+    v('la vallée a son morceau', r.enVallee === 'vallee', r.enVallee);
+    v('LE VILLAGE EN A UN AUTRE', r.auVillage === 'village', r.auVillage);
+    v('UNE SALLE CLOSE EN A UN AUTRE', r.dansLaRuine === 'donjon', r.dansLaRuine);
+    v('le point d\'essai des Cendres est bien en plein air', r.enCendreHorsSalle, 'dans une salle');
     v('les Terres de Cendre changent de morceau', r.enCendre === 'cendre', r.enCendre);
-    v('un gardien impose son thème', r.avecBoss === 'boss', r.avecBoss);
+    v('une salle des Cendres bascule aussi', r.dansLaForge === 'donjon', r.dansLaForge);
+    v('LES DEUX GARDIENS ONT CHACUN LE LEUR',
+      r.gardienDePierre === 'boss' && r.coeurDeCendre === 'coeurBoss',
+      `${r.gardienDePierre} / ${r.coeurDeCendre}`);
+    v('un gardien l\'emporte sur le lieu', r.bossPrimeSurLeLieu === 'coeurBoss', r.bossPrimeSurLeLieu);
+    v('la musique se tait vraiment à la mort', r.silenceALaMort, 'elle continue');
+    v('et repart ensuite', r.reprendApres === 'vallee', r.reprendApres);
     v('LE SÉQUENCEUR JOUE VRAIMENT DES NOTES', r.notesJouees > 0, `${r.notesJouees} notes`);
     v('le morceau en cours est celui demandé', r.themeCourant === 'vallee', r.themeCourant);
     v('la musique sort par son propre volume', r.volumeAllume > 0, r.volumeAllume);

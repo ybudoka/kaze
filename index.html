@@ -660,7 +660,39 @@ const MUSIQUES={
     {t:'triangle',v:.06,n:p(`A4 = = = C5 = = =  E5 = = = C5 = = =
                              G4 = = = B4 = = =  D5 = = = B4 = = =`)},
     {t:'sine',v:.05,n:p(`A2 = = = = = = =  F2 = = = = = = =
-                         G2 = = = = = = =  E2 = = = = = = =`)}]}
+                         G2 = = = = = = =  E2 = = = = = = =`)}]},
+  /* les refuges — village, grève du pêcheur, bosquet : on souffle */
+  village:{bpm:92,pistes:[
+    {t:'triangle',v:.055,n:p(`C5 = E5 = G5 = E5 =  F5 = E5 = D5 = = =
+                              D5 = F5 = A5 = F5 =  E5 = D5 = C5 = = =
+                              A4 = C5 = E5 = C5 =  D5 = C5 = B4 = = =
+                              G4 = B4 = D5 = G5 =  E5 = D5 = C5 = = =`)},
+    {t:'sine',v:.055,n:p(`C3 = = = G2 = = =  F2 = = = G2 = = =
+                          D3 = = = A2 = = =  G2 = = = C3 = = =
+                          A2 = = = E2 = = =  G2 = = = D3 = = =
+                          G2 = = = D3 = = =  C3 = = = = = = =`)}]},
+  /* les salles closes — sanctuaire, ruine, forge, falaises : sur ses gardes */
+  donjon:{bpm:80,pistes:[
+    {t:'square',v:.04,n:p(`A4 = = = - - D5 =  - - A4 = = = - -
+                           G4 = = = - - C5 =  - - G4 = = = - -
+                           F4 = = = - - B4 =  - - F4 = = = - -
+                           E4 = = = G4 = B4 =  A4 = = = = = = =`)},
+    {t:'sine',v:.05,n:p(`A1 = = = = = = =  = = = = = = = =
+                         G1 = = = = = = =  = = = = = = = =
+                         F1 = = = = = = =  = = = = = = = =
+                         E1 = = = = = = =  = = = = = = = =`)}]},
+  /* le Cœur de Cendre — plus pressant encore que le Gardien */
+  coeurBoss:{bpm:168,pistes:[
+    {t:'sawtooth',v:.05,n:p(`D4 D4 A4 D4 F4 A4 D5 C5  D4 D4 A4 D4 F4 A4 C5 A#4
+                             C4 C4 G4 C4 E4 G4 C5 A#4  D4 F4 A4 D5 F5 D5 A4 F4`)},
+    {t:'square',v:.04,n:p(`D2 = A#1 = D2 = A#1 =  D2 = A#1 = D2 = C2 =
+                           C2 = G1 = C2 = G1 =  D2 = D2 = F2 = A2 =`)}]},
+  /* la victoire */
+  victoire:{bpm:120,pistes:[
+    {t:'square',v:.06,n:p(`C5 = E5 = G5 = C6 =  G5 = C6 = E6 = = = = =
+                           A5 = = = G5 = = =  F5 = E5 = D5 = C5 = = =`)},
+    {t:'triangle',v:.055,n:p(`C3 = = = G3 = = =  C3 = = = E3 = = =
+                              F3 = = = G3 = = =  C3 = = = = = = = =`)}]}
 };
 let musiqueOn=true, themeMus=null, pasMus=0, tempsMus=0, horlogeMus=null, gainMus=null;
 try{ musiqueOn=localStorage.getItem('kaze-musique')!=='0'; }catch(e){}
@@ -708,13 +740,29 @@ function lancerMusique(nom){
   themeMus=nom; pasMus=0; tempsMus=AC.currentTime+.08;
   if(!horlogeMus) horlogeMus=setInterval(tickMusique,60);
 }
-/* le morceau suit la situation : titre, région, gardien */
+/* Le morceau suit la situation, du plus impérieux au plus général :
+   un gardien couvre tout, puis les lieux particuliers (salles closes,
+   refuges), et enfin la région. La mort se joue en silence — c'est plus
+   fort que n'importe quel morceau. */
 function themeVoulu(){
   if(etat==='titre'||etat==='nom') return 'titre';
-  if(boss) return 'boss';
+  if(etat==='victoire') return 'victoire';
+  if(etat==='mort') return null;                       // silence
+  if(boss) return boss.type==='coeur'?'coeurBoss':'boss';
+  if(salleDe(J.x,J.y)) return 'donjon';                // ruine, arène, forge, antre…
+  if(dansRefuge(J.x,J.y)) return 'village';            // village, grève, bosquet
   return enCendre(J.y)?'cendre':'vallee';
 }
-function majMusique(){ if(AC) lancerMusique(themeVoulu()); }
+function arreterMusique(){
+  themeMus=null;
+  if(horlogeMus){ clearInterval(horlogeMus); horlogeMus=null; }
+}
+function majMusique(){
+  if(!AC) return;
+  const voulu=themeVoulu();
+  if(!voulu){ if(themeMus) arreterMusique(); return; }
+  lancerMusique(voulu);
+}
 function basculerMusique(){
   musiqueOn=!musiqueOn; volumeMusique();
   try{ localStorage.setItem('kaze-musique',musiqueOn?'1':'0'); }catch(e){}
