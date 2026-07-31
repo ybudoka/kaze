@@ -1429,11 +1429,25 @@ function genererVillage(){
   for(let y=49;y<53;y++)for(let x=15;x<21;x++){ putO(x,y,O.RIEN); putE(x,y,0); if(Sol(x,y)!==S.EAU) putS(x,y,S.SABLE); }
   putO(58,31,O.TORCHE); putO(62,31,O.TORCHE);
 
-  /* --- les huit lucioles d'or, posées comme des repères visibles --- */
+  /* --- les huit lucioles d'or, posées comme des repères visibles ---
+     Dégager la seule tuile centrale ne suffisait pas : le décor généré
+     (rochers, buissons, souches) pouvait entasser jusqu'à dix obstacles
+     autour d'une luciole et la masquer entièrement. On ouvre donc une
+     petite clairière de 5x5, et deux torches en diagonale servent de
+     repère visible de loin. On ne touche pas au relief : abaisser les
+     tuiles voisines isolerait la luciole sur un pilier inaccessible. */
   lucioles=[
     [9,8],[50,6],[78,14],[6,45],[80,36],[10,76],[44,74],[76,70]
   ].map(([tx,ty])=>{
-    if(dansCarte(tx,ty)){ putO(tx,ty,O.RIEN); if(Sol(tx,ty)===S.EAU) putS(tx,ty,S.SABLE); }
+    for(let y=ty-2;y<=ty+2;y++)for(let x=tx-2;x<=tx+2;x++){
+      if(!dansCarte(x,y)) continue;
+      if(Obj(x,y)!==O.FLEUR) putO(x,y,O.RIEN);      // on garde les fleurs
+      if(Sol(x,y)===S.EAU) putS(x,y,S.SABLE);
+    }
+    for(const [dx,dy] of [[-2,-2],[2,2]]){
+      const x=tx+dx, y=ty+dy;
+      if(dansCarte(x,y)&&Sol(x,y)!==S.EAU) putO(x,y,O.TORCHE);
+    }
     return {x:tx*TS+8,y:ty*TS+8,e:Etg(tx,ty),pris:false,ph:rnd()*6};
   });
 
