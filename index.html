@@ -2859,11 +2859,15 @@ function ecranTitre(){
   }
   texteCentre(X,'& LES TROIS ÉTOILES',W/2,yK+7*sc+6,'#e8b0c0','#0a0c18');
 
-  const opts=optionsTitre();
-  const yM=hor+Math.round((H-hor)*.22);
+  const opts=optionsEcranTitre();
+  // trois emplacements tiennent plus de place qu'une entrée « CONTINUER » :
+  // on mesure le menu et on le remonte s'il déborderait sur l'aide du bas.
+  const hMenu=opts.reduce((a,o)=>a+(o.sous?20:14),0)+10;
+  const larg=Math.min(W-12,212);
+  const yM=clamp(hor+Math.round((H-hor)*.22),hor+10,H-52-hMenu);
   X.fillStyle='rgba(8,11,24,.55)';
-  X.fillRect(W/2-92,yM-8,184,opts.reduce((a,o)=>a+(o.sous?20:14),0)+10);
-  dessinerMenu(opts,W/2,yM,180);
+  X.fillRect(Math.round(W/2-larg/2),yM-8,larg,hMenu);
+  dessinerMenu(opts,W/2,yM,larg-4);
   if(!persistant()) texteCentre(X,'SAUVEGARDE NON PERSISTANTE ICI',W/2,H-46,'#a08a6a','#0a0c18');
   texteCentre(X,'B EPEE   A SAUT   Y OBJET   X BOUCLIER',W/2,H-34,'#93a0cc','#0a0c18');
   texteCentre(X,'START CARTE   SELECT JOURNAL   B PARLER',W/2,H-22,'#7f8ab8','#0a0c18');
@@ -2919,7 +2923,7 @@ function ecranCarte(){
   texteCentre(X,'START REVENIR    Y SAUVEGARDER',W/2,H-12,'#8b96b4');
   texte(X,persistant()?'STOCKAGE : OK':'STOCKAGE : INDISPONIBLE',10,bas+30,
         persistant()?'#7de0a0':'#e0a06a');
-  if(sauveResume) texte(X,'DERNIÈRE : '+formatTemps(sauveResume.temps),W-Math.min(W-12,120),bas+20,'#8fa8d8');
+  if(resumeCourant()) texte(X,'DERNIÈRE : '+formatTemps(resumeCourant().temps),W-Math.min(W-12,120),bas+20,'#8fa8d8');
 }
 
 /* ============================ FINS ============================ */
@@ -2961,10 +2965,15 @@ function ecranFin(gagne){
    du héros, les drapeaux de quête et les différences du décor (buissons
    coupés, rochers détruits, portes ouvertes). Le reste est régénéré.
    ========================================================================== */
-const CLE_SAUVE='kaze-partie';
+const CLE_ANCIENNE='kaze-partie';   // sauvegarde unique d'avant les emplacements
+const NB_SLOTS=3;
+const cleSlot=i=>'kaze-partie-'+(i+1);
 const VERSION_SAUVE=1;
 let objsRef=null;                 // décor d'origine, pour calculer les différences
-let sauveResume=null;             // aperçu de la sauvegarde présente
+let emplacement=0;                // emplacement de sauvegarde actif (0..2)
+let nomPartie='KAZE';             // nom donné à la partie en cours
+const resumes=[null,null,null];   // aperçu de chaque emplacement
+const resumeCourant=()=>resumes[emplacement];
 let sauveEtat='', sauveEtatT=0;   // retour visuel
 let tempsJeu=0, dernierAuto=-9999;
 
@@ -2990,43 +2999,46 @@ function localDispo(){
   return localOK;
 }
 const persistant=()=>stockDispo()||localDispo();
-let sauveMemoire=null;            // dernier repli : la mémoire vive
+const memoire={};                 // dernier repli : la mémoire vive, une entrée par clé
 
 let dernierMotif='';
-async function stockEcrire(v){
+async function ecrireCle(cle,v){
   const t=JSON.stringify(v);
-  sauveMemoire=t;                                   // toujours un double en mémoire
+  memoire[cle]=t;                                   // toujours un double en mémoire
   if(stockDispo()){
     try{
-      const r=await window.storage.set(CLE_SAUVE,t,false);   // « shared » explicite
+      const r=await window.storage.set(cle,t,false);          // « shared » explicite
       if(r!==null){ dernierMotif=''; return 'disque'; }
       dernierMotif='refus du stockage';
     }catch(e){ dernierMotif=String(e&&e.message||e).slice(0,40); }
   }
   if(localDispo()){
-    try{ window.localStorage.setItem(CLE_SAUVE,t); dernierMotif=''; return 'disque'; }
+    try{ window.localStorage.setItem(cle,t); dernierMotif=''; return 'disque'; }
     catch(e){ dernierMotif='stockage local plein'; }
   }
   if(!dernierMotif) dernierMotif='pas de stockage';
   return 'memoire';
 }
-async function stockLire(){
+async function lireCle(cle){
   if(stockDispo()){
     try{
-      const r=await window.storage.get(CLE_SAUVE,false);
+      const r=await window.storage.get(cle,false);
       if(r&&r.value) return JSON.parse(r.value);
     }catch(e){}
   }
   if(localDispo()){
-    try{ const t=window.localStorage.getItem(CLE_SAUVE); if(t) return JSON.parse(t); }catch(e){}
+    try{ const t=window.localStorage.getItem(cle); if(t) return JSON.parse(t); }catch(e){}
   }
-  try{ return sauveMemoire?JSON.parse(sauveMemoire):null; }catch(e){ return null; }
+  try{ return memoire[cle]?JSON.parse(memoire[cle]):null; }catch(e){ return null; }
 }
-async function stockEffacer(){
-  if(stockDispo()){ try{ await window.storage.delete(CLE_SAUVE,false); }catch(e){} }
-  if(localDispo()){ try{ window.localStorage.removeItem(CLE_SAUVE); }catch(e){} }
-  sauveMemoire=null;
+async function effacerCle(cle){
+  if(stockDispo()){ try{ await window.storage.delete(cle,false); }catch(e){} }
+  if(localDispo()){ try{ window.localStorage.removeItem(cle); }catch(e){} }
+  delete memoire[cle];
 }
+const stockEcrire=(v,s)=>ecrireCle(cleSlot(s),v);
+const stockLire  =s=>lireCle(cleSlot(s));
+const stockEffacer=s=>effacerCle(cleSlot(s));
 
 /* --- compactage du brouillard de carte : 1 bit par tuile --- */
 function bitsVers(arr){
@@ -3054,7 +3066,7 @@ function construireSauve(){
   const diff=[];
   if(objsRef) for(let i=0;i<objs.length;i++) if(objs[i]!==objsRef[i]) diff.push(i,objs[i]);
   return {
-    v:VERSION_SAUVE, date:Date.now(), temps:tempsJeu,
+    v:VERSION_SAUVE, date:Date.now(), temps:tempsJeu, nom:nomPartie,
     Q:Object.assign({},Q),
     J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,rubis:J.rubis,
        bombes:J.bombes,fleches:J.fleches,fragments:J.fragments,
@@ -3067,8 +3079,8 @@ function construireSauve(){
 async function sauver(silencieux){
   const d=construireSauve();
   sauveEtat='SAUVEGARDE...'; sauveEtatT=90;
-  const ou=await stockEcrire(d);
-  sauveResume={temps:d.temps,fragments:d.J.fragments,lucioles:d.Q.lucioles,date:d.date};
+  const ou=await stockEcrire(d,emplacement);
+  resumes[emplacement]=apercu(d);
   sauveEtat=(ou==='disque')?'PARTIE SAUVEGARDÉE':'SAUVEGARDE TEMPORAIRE';
   if(!silencieux) SFX.coffre(); else son(880,.05,'square',.03);
   sauveEtatT=110;
@@ -3079,25 +3091,40 @@ function autoSauver(){
 }
 
 /* ------------------------------ LECTURE ------------------------------ */
-async function verifierSauve(){
-  const d=await stockLire();
-  sauveResume=(d&&d.v===VERSION_SAUVE)
-    ? {temps:d.temps||0,fragments:(d.J&&d.J.fragments)||0,
-       lucioles:(d.Q&&d.Q.lucioles)||0,date:d.date}
-    : null;
-  return sauveResume;
+function apercu(d){
+  if(!d||d.v!==VERSION_SAUVE) return null;
+  return {nom:(d.nom||'SANS NOM'),temps:d.temps||0,
+          fragments:(d.J&&d.J.fragments)||0,
+          lucioles:(d.Q&&d.Q.lucioles)||0,date:d.date};
+}
+/* Les parties d'avant les emplacements sont reprises telles quelles dans le
+   premier emplacement, pour ne perdre aucune progression. */
+async function reprendreAncienne(){
+  if(resumes[0]) return;
+  const d=await lireCle(CLE_ANCIENNE);
+  if(!apercu(d)) return;
+  if(!d.nom) d.nom='KAZE';
+  await ecrireCle(cleSlot(0),d);
+  await effacerCle(CLE_ANCIENNE);
+  resumes[0]=apercu(d);
+}
+async function verifierSauves(){
+  for(let i=0;i<NB_SLOTS;i++) resumes[i]=apercu(await stockLire(i));
+  await reprendreAncienne();
+  return resumes;
 }
 let occupe=false;
-async function charger(){
+async function charger(slot){
   if(occupe) return false;
   occupe=true;
-  try{ return await chargerInterne(); }
+  try{ return await chargerInterne(slot==null?emplacement:slot); }
   catch(e){ sauveEtat='SAUVEGARDE ILLISIBLE'; sauveEtatT=110; return false; }
   finally{ occupe=false; }
 }
-async function chargerInterne(){
-  const d=await stockLire();
+async function chargerInterne(slot){
+  const d=await stockLire(slot);
   if(!d||d.v!==VERSION_SAUVE) return false;
+  emplacement=slot; nomPartie=d.nom||'KAZE';
 
   razQuetes(); dial=null; boutique=null; journal=false;
   genererMonde();
@@ -3133,21 +3160,94 @@ function menuFleche(){
   if(axe.y>.5){ menuTempo=12; return 1; }
   return 0;
 }
+/* Stats d'un emplacement. La ligne complète ne tient pas sur les écrans les
+   plus étroits (l'affichage interne descend jusqu'à 200 px), on la raccourcit. */
+function statsResume(r){
+  return (W>=250)
+    ? 'ÉTOILES '+r.fragments+'/3   LUCIOLES '+r.lucioles+'/8   '+formatTemps(r.temps)
+    : 'ÉTOILES '+r.fragments+'/3   '+formatTemps(r.temps);
+}
+let modeEffacer=false;
 function optionsTitre(){
   const o=[];
-  if(sauveResume) o.push({id:'continuer',
-    txt:'CONTINUER',
-    sous:'ÉTOILES '+sauveResume.fragments+'/3   '+formatTemps(sauveResume.temps)});
-  o.push({id:'nouvelle',txt:'NOUVELLE PARTIE'});
-  if(sauveResume) o.push({id:'effacer',txt:'EFFACER LA SAUVEGARDE'});
+  for(let i=0;i<NB_SLOTS;i++){
+    const r=resumes[i];
+    o.push({id:'slot'+i,
+      txt:(i+1)+'  '+(r?r.nom:'- VIDE -'),
+      sous:r?statsResume(r):null});
+  }
+  if(resumes.some(Boolean)) o.push({id:'effacer',txt:'EFFACER UNE PARTIE'});
   return o;
 }
+function optionsEffacer(){
+  const o=[];
+  for(let i=0;i<NB_SLOTS;i++) if(resumes[i]) o.push({id:'eff'+i,txt:'EFFACER '+(i+1)+'  '+resumes[i].nom});
+  o.push({id:'retour',txt:'RETOUR'});
+  return o;
+}
+const optionsEcranTitre=()=>modeEffacer?optionsEffacer():optionsTitre();
 function optionsFin(gagne){
   const o=[];
-  if(sauveResume) o.push({id:'continuer',txt:'REPRENDRE LA SAUVEGARDE'});
+  if(resumeCourant()) o.push({id:'continuer',txt:'REPRENDRE LA SAUVEGARDE'});
   o.push({id:'nouvelle',txt:gagne?'REJOUER':'NOUVELLE PARTIE'});
   return o;
 }
+/* ---------------------- SAISIE DU NOM DE LA PARTIE ---------------------- */
+const ALPHABET=['ABCDEFGHIJ','KLMNOPQRST','UVWXYZ0123','456789 -.'];
+const NOM_MAX=10;
+let nomSaisi='', nomCx=0, nomCy=0, nomSlot=0, grilleTempo=0;
+function ouvrirSaisieNom(slot){
+  nomSlot=slot; nomSaisi=''; nomCx=0; nomCy=0; grilleTempo=10; etat='nom';
+}
+function fleche2(){
+  if(grilleTempo>0){ grilleTempo--; return null; }
+  let dx=0,dy=0;
+  if(axe.x<-.5)dx=-1; else if(axe.x>.5)dx=1;
+  if(axe.y<-.5)dy=-1; else if(axe.y>.5)dy=1;
+  if(!dx&&!dy) return null;
+  grilleTempo=11; return {dx,dy};
+}
+function ecranNom(){
+  X.fillStyle='#0a0c18'; X.fillRect(0,0,W,H);
+  const cw=12,ch=13;
+  const hBloc=62+ALPHABET.length*ch+24;          // du titre à la dernière aide
+  const y0=Math.max(0,Math.round((H-hBloc)/2));  // bloc centré verticalement
+  texteCentre(X,'EMPLACEMENT '+(nomSlot+1),W/2,y0+10,'#8f9cc4','#0a0c18');
+  texteCentre(X,'NOM DE LA PARTIE',W/2,y0+24,'#ffe06a','#0a0c18');
+  // le champ saisi
+  const champ=nomSaisi+(tick%40<20?'_':' ');
+  panneau(X,Math.round(W/2-(NOM_MAX*6)/2)-6,y0+38,NOM_MAX*6+12,15);
+  texteCentre(X,champ||' ',W/2,y0+42,'#ffffff','#0a0c18');
+  // la grille de lettres
+  const gx=Math.round(W/2-ALPHABET[0].length*cw/2)+3, gy=y0+62;
+  ALPHABET.forEach((ligne,y)=>{
+    for(let x=0;x<ligne.length;x++){
+      const sel=(x===nomCx&&y===nomCy);
+      if(sel){ X.fillStyle='rgba(40,52,92,.9)'; X.fillRect(gx+x*cw-3,gy+y*ch-3,cw,ch); }
+      texte(X,ligne[x],gx+x*cw,gy+y*ch,sel?'#ffe06a':'#a8b4dc','#0a0c18');
+    }
+  });
+  const yb=gy+ALPHABET.length*ch+6;
+  texteCentre(X,'B AJOUTER   Y EFFACER',W/2,yb,'#8f9cc4','#0a0c18');
+  texteCentre(X,'START VALIDER   X RETOUR',W/2,yb+12,'#8f9cc4','#0a0c18');
+}
+function naviguerNom(){
+  const d=fleche2();
+  if(d){
+    if(d.dy) nomCy=(nomCy+d.dy+ALPHABET.length)%ALPHABET.length;
+    const len=ALPHABET[nomCy].length;
+    if(d.dx) nomCx=(nomCx+d.dx+len)%len;
+    if(nomCx>=len) nomCx=len-1;
+    SFX.menu();
+  }
+  if(appui('B')){ pris('B');
+    if(nomSaisi.length<NOM_MAX){ nomSaisi+=ALPHABET[nomCy][nomCx]; SFX.menu(); } else SFX.erreur(); }
+  if(appui('Y')){ pris('Y'); nomSaisi=nomSaisi.slice(0,-1); SFX.menu(); }
+  if(appui('X')){ pris('X'); etat='titre'; menuSel=0; SFX.menu(); }
+  if(appui('Start')){ pris('Start');
+    SFX.coffre(); nouvellePartie(nomSaisi.trim()||'KAZE',nomSlot); }
+}
+
 function dessinerMenu(opts,cx,y,largeur){
   // On cumule la hauteur de chaque entrée (une entrée avec sous-ligne occupe
   // 20 px, sinon 14) au lieu de multiplier l'index : sinon la sous-ligne de
@@ -3178,8 +3278,10 @@ function naviguerMenu(opts,onChoix){
 }
 
 /* ============================ PARTIE ============================ */
-function nouvellePartie(){
+function nouvellePartie(nom,slot){
   if(occupe) return;
+  if(slot!=null) emplacement=clamp(slot|0,0,NB_SLOTS-1);
+  if(nom) nomPartie=String(nom).slice(0,10);
   razQuetes(); dial=null; boutique=null; journal=false;
   genererMonde(); prerendreSol(); construireMini(); poserCoffres(); peupler();
   Object.assign(J,{x:35*TS+8,y:45*TS+8,z:0,vz:0,dir:2,pv:6,pvmax:6,rubis:0,bombes:0,
@@ -3191,6 +3293,7 @@ function nouvellePartie(){
   annonce('VAL-DES-SAULES');
   dire("PARLE À LA DOYENNE, AU CENTRE DU VILLAGE.",260);
   etat='jeu';
+  sauver(true);            // l'emplacement est occupé dès le départ
 }
 
 /* ============================ BOUCLE ============================ */
@@ -3200,13 +3303,24 @@ function boucle(){
 
   if(etat==='titre'){
     ecranTitre();
-    naviguerMenu(optionsTitre(),id=>{
-      if(id==='continuer'){ SFX.coffre(); charger(); }
-      else if(id==='nouvelle'){ SFX.menu(); nouvellePartie(); }
-      else if(id==='effacer'){ SFX.erreur(); stockEffacer().then(()=>{ sauveResume=null; menuSel=0; }); }
+    naviguerMenu(optionsEcranTitre(),id=>{
+      if(id==='effacer'){ SFX.menu(); modeEffacer=true; menuSel=0; return; }
+      if(id==='retour'){ SFX.menu(); modeEffacer=false; menuSel=0; return; }
+      if(id.startsWith('eff')){
+        const s=+id.slice(3); SFX.erreur();
+        stockEffacer(s).then(()=>{
+          resumes[s]=null; menuSel=0;
+          if(!resumes.some(Boolean)) modeEffacer=false;
+        });
+        return;
+      }
+      const s=+id.slice(4);
+      if(resumes[s]){ SFX.coffre(); charger(s); }
+      else { SFX.menu(); ouvrirSaisieNom(s); }
     });
     return;
   }
+  if(etat==='nom'){ ecranNom(); naviguerNom(); return; }
   if(etat==='mort'||etat==='victoire'){
     const gagne=(etat==='victoire');
     ecranFin(gagne);
@@ -3350,8 +3464,8 @@ const padEl=document.getElementById('pad');
 
 [0,60,250,700].forEach(t=>setTimeout(redim,t)); redim();
 /* le stockage de l'hôte peut apparaître avec un léger retard */
-verifierSauve();
-[300,900,2000,4000].forEach(t=>setTimeout(()=>{ if(!sauveResume) verifierSauve(); },t));
+verifierSauves();
+[300,900,2000,4000].forEach(t=>setTimeout(()=>{ if(!resumes.some(Boolean)) verifierSauves(); },t));
 
 genererMonde(); prerendreSol(); construireMini(); poserCoffres(); peupler();
 boucle();
