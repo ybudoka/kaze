@@ -540,3 +540,67 @@ le trésor **injoignable à pied** et **joignable au grappin**.
 Vérifié dans `13-enigmes.js` : appuyer sur **Y** avec le marteau met `J.slam > 0`
 et **laisse `J.atk` à zéro** (c'est un *slam*, pas un coup d'épée), et la roche
 noire ne cède qu'**à l'impact**.
+
+---
+
+## 13. Les Sables du Mirage (cinquième région) et le bracelet de force
+
+Le monde passe de quatre régions à **cinq** : les Sables du Mirage occupent les
+rangées 320 à 399, `MH` passe de 320 à 400. Comme les précédentes, la région est
+ajoutée **en dessous** — les index de tuiles du haut ne bougent pas, les
+sauvegardes restent valables. Tous les bornages `Y_LAGON..MH` (fin de la
+génération du Lagon, faune, révélation de carte) ont été ramenés à `Y_SABLES`,
+et `enLagon()` ne répond plus vrai que **dans** le Lagon.
+
+### 13.1 Le bracelet de force : soulever, jeter, combler
+
+Nouvel outil (`Y`) : `brasBracelet` **soulève** le `BLOCLOURD` posé devant soi
+(`J.porte='lourd'`), puis, pressé de nouveau, le **jette** (`majBlocLourd`). Le
+bloc jeté :
+
+- **comble** une mare de `SABLEMOU` (elle redevient du désert ferme) ;
+- sinon se **pose** sur la dernière case sèche et libre — donc **récupérable**,
+  jamais perdu sur un raté ;
+- frappe au passage ce qu'il touche.
+
+Les bras chargés, on ralentit, on ne saute pas, on n'attaque pas et on ne change
+pas d'objet — comme il se doit.
+
+### 13.2 L'arène gardée par les sables mouvants — mesuré, pas supposé
+
+L'unique accès à l'Arène du Colosse est un **couloir d'une case**, muré des deux
+côtés, barré de trois `SABLEMOU`, avec quatre blocs lourds en réserve juste
+avant. Un parcours à blanc (vraies collisions) trouve l'arène **injoignable**
+tant qu'on ne comble pas le gué, et **joignable** une fois comblé.
+
+> Deux pièges chiffrés puis corrigés :
+> - le couloir laissait un **détour** par le désert ouvert : il est désormais
+>   entièrement muré, aligné sur l'unique brèche de l'arène ;
+> - un **fragment de fresque** posé contre le mur sud de l'arène y perçait un
+>   trou (le dégagement de sa clairière effaçait la muraille) : les fragments
+>   ont été éloignés des salles ;
+> - le traceur de sentier **vidait** la réserve de blocs et le gué : la vanne
+>   est posée **en dernier**, après toutes les voies.
+
+### 13.3 Le Colosse de Grès : on lui renvoie ses propres blocs
+
+Le Colosse est **cuirassé** : `frapper` renvoie tout, sauf un bloc lourd
+(`'lourd'`) ou une bombe (`'explosion'`). Il **jette** des blocs qui atterrissent
+en `BLOCLOURD` près du héros ; ramassés au bracelet et **renvoyés**, ils
+l'entament. Vérifié dans `14-sables.js` : l'épée ricoche, le bloc porte.
+
+### 13.4 Les trois monstres armés
+
+- le **scarabée-bombe** roule vers le héros et **explose** de près — et explose
+  aussi quand on l'abat (`scarabeeBoom`, avec un garde anti-double `e.boomed`) ;
+- le **lancier d'os** lance son **javelot** à distance ;
+- le **djinn de sable** dérive, traverse tout et **s'efface** par intermittence
+  (on ne le touche que matérialisé, comme le spectre et la méduse).
+
+### 13.5 Compatibilité des sauvegardes
+
+`Q.inter` (l'état des interrupteurs à bascule) passe de quatre à **cinq**
+entrées. Au chargement, une vieille sauvegarde est **complétée** sans être
+réinitialisée (`while(Q.inter.length<5) Q.inter.push(0)`) : on ne perd pas les
+bascules déjà actionnées. Les outils gagnés (`Q.bracelet`) sont **rééquipés** au
+chargement s'ils manquent du sac.

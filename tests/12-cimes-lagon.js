@@ -22,7 +22,7 @@ module.exports = {
 
       // ---- les sols propres à chaque biome ----
       const cnt = (y0, y1) => { const c = {}; for (let y = y0; y < y1; y++) for (let x = 0; x < MW; x++) { const s = Sol(x, y); c[s] = (c[s] || 0) + 1; } return c; };
-      const sc = cnt(Y_CIMES, Y_LAGON), sl = cnt(Y_LAGON, MH);
+      const sc = cnt(Y_CIMES, Y_LAGON), sl = cnt(Y_LAGON, Y_SABLES);
       out.solsCimes = [sc[S.NEIGE] || 0, sc[S.GLACE] || 0, sc[S.ROCHE] || 0];
       out.solsLagon = [sl[S.EAUPROF] || 0, sl[S.CORAIL] || 0, sl[S.SABLE] || 0];
 
@@ -184,7 +184,7 @@ module.exports = {
       return out;
     });
 
-    v('quatre régions de 80 rangées', r.MH === 320
+    v('cinq régions de 80 rangées', r.MH === 400
       && r.bornes.join() === '80,160,240', `${r.MH} / ${r.bornes.join()}`);
     v('chaque bande a sa région', r.regions.join() === 'vallee,cendre,cimes,lagon', r.regions.join());
     v('les trois sols des Cimes existent',

@@ -23,17 +23,17 @@ restent valables à chaque ajout).
 | 2 | **Terres de Cendre** | cendre, lave, basalte | marteau, bottes, épée de Cendre | Cœur de Cendre | deux caisses, deux plaques |
 | 3 | **Cimes Gelées** | neige, glace, granit | **boomerang** | Roi Yéti | briser la glace, cloches |
 | 4 | **Lagon d'Azur** | mer, corail, hauts-fonds | **palmes** | Léviathan | nage, courants, récifs |
-| 5 | **Sables du Mirage** | désert, dunes, ruines | **bracelet de force** | Colosse de Grès | blocs lourds, miroirs de lumière |
+| 5 | **Sables du Mirage** ✅ | désert, dunes, sables mouvants | **bracelet de force** | Colosse de Grès | blocs lourds, sables mouvants à combler |
 | 6 | **Marais des Murmures** | tourbière, ronces, brume | **lanterne** | Reine des Lucioles Noires | lumière/ombre, séquences |
 | 7 | **Cité des Nues** | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
 | 8 | **La Faille** | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
 
-Les quatre premières lignes sont **jouables aujourd'hui**. Les quatre suivantes
-sont le plan.
+Les **cinq premières lignes** (✅) sont **jouables aujourd'hui**. Les trois
+suivantes sont le plan.
 
 ---
 
-## Mondes 1 à 4 — déjà en jeu (rappel)
+## Mondes 1 à 5 — déjà en jeu (rappel)
 
 - **Vallée** : trois étoiles (sanctuaire, ruine, arène). Lucioles d'or → épée
   longue. **Énigmes d'apprentissage** : pousser une caisse sur une plaque
@@ -46,10 +46,13 @@ sont le plan.
   cloches). Roi Yéti scellé derrière des blocs de glace. Quête des cloches.
 - **Lagon d'Azur** : les palmes (nage), le Temple Englouti, le Léviathan. Quête
   des perles du naufragé.
+- **Sables du Mirage** : le bracelet de force (soulève et jette les blocs
+  lourds), le Temple du Bracelet, le Colosse de Grès (on lui renvoie ses blocs),
+  les sables mouvants à combler, la quête des fresques de Nefa.
 
 ---
 
-## Monde 5 — Les Sables du Mirage
+## Monde 5 — Les Sables du Mirage ✅ *(en jeu)*
 
 *Désert de dunes, ruines ensablées, soleil écrasant. On y descend depuis le
 Lagon par un oued asséché.*

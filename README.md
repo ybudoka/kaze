@@ -23,14 +23,15 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
 Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
-Cimes Gelées, Lagon d'Azur — et chaque gardien a son thème.
+Cimes Gelées, Lagon d'Azur, Sables du Mirage — et chaque gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
 
-Le monde compte **quatre régions superposées**, chacune plus au sud que la
-précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur.
+Le monde compte **cinq régions superposées**, chacune plus au sud que la
+précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur,
+les Sables du Mirage.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
@@ -51,11 +52,19 @@ route.
 profonde. Chausse les **palmes** trouvées sur la **Grève aux Palmes** pour
 **nager** au large, plonger au **Temple Englouti** et affronter le **Léviathan**.
 Attention aux **crabes cuirassés** (l'épée ricoche, le boomerang les sonne), aux
-**tritons** qui lancent leur trident et aux **méduses** qui s'effacent.
+**tritons** qui lancent leur trident et aux **méduses** qui s'effacent. Un **oued**
+asséché descend ensuite vers le désert.
+
+**Les Sables du Mirage** — le désert : dunes, ruines de grès, champs de **sables
+mouvants**. Le **bracelet de force** dort au **Temple du Bracelet** : avec **Y**
+il **soulève et jette les blocs lourds** — pour **combler les sables mouvants**
+qui barrent l'arène et pour **renvoyer ses propres blocs** au **Colosse de Grès**,
+que rien d'autre n'entame. Prends garde aux **scarabées-bombes**, aux **lanciers
+d'os** et aux **djinns de sable**.
 
 ## Quêtes annexes
 
-Sept quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+Huit quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
 l'état de chacune ; les objets à trouver clignotent sur la carte.
 
 | Quête | Où | Récompense |
@@ -67,6 +76,7 @@ l'état de chacune ; les objets à trouver clignotent sur la carte.
 | **Les brasiers éteints** | Terres de Cendre | carte des Cendres révélée, 120 rubis |
 | **Les cloches de givre** | Cimes Gelées | carte des Cimes révélée, cœur de cristal |
 | **Les perles du naufragé** | Lagon d'Azur | 150 rubis et une potion |
+| **Les fresques de Nefa** | Sables du Mirage | 150 rubis et une potion |
 
 **La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
 fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
@@ -101,6 +111,9 @@ Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée l
 - **Le grappin** — vise une **ancre** et appuie sur **Y** : il t'y tire, par-dessus
   l'eau ou un gouffre qu'aucune autre traversée ne franchit. On le gagne dans la
   première salle d'énigme de la vallée.
+- **Le bracelet de force** — **Y** soulève un **bloc lourd** devant toi, **Y** le
+  jette. Jeté dans les **sables mouvants**, il les **comble** ; posé sur un sol
+  sec, il reste **récupérable** ; renvoyé au Colosse de Grès, il l'**entame**.
 
 Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
 et s'abat** droit devant, avec une onde de choc au sol.
@@ -134,7 +147,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 259 contrôles, ~19 s
+npm test                          # 282 contrôles, ~22 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 
