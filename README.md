@@ -22,23 +22,59 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 | **L/R** changer d'objet | **START** carte · **SELECT** journal |
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
-Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre —
-et chaque gardien a son thème.
+Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
+Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures — et chaque
+gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
+
+Le monde compte **six régions superposées**, chacune plus au sud que la
+précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur,
+les Sables du Mirage, le Marais des Murmures.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
 ton épée.
 
 **Les Terres de Cendre** — les trois étoiles ouvrent le portail du sud. Marteau,
-bottes de cendre, et le Cœur de Cendre au bout.
+bottes de cendre, et le Cœur de Cendre au bout. Un **col** descend ensuite vers
+la montagne.
+
+**Les Cimes Gelées** — neige, lacs de glace et arêtes de granit. Le **boomerang**
+dort au fond du **Temple de Givre** : lancé avec **Y**, il part droit devant,
+ralentit, revient dans ta main, **brise la glace** et ramasse au passage. Il faut
+en briser les blocs qui scellent l'**Arène du Sommet** pour y défier le **Roi
+Yéti**. **Harpies**, **piquiers de givre** et **loups des neiges** te barrent la
+route.
+
+**Le Lagon d'Azur** — la mer : grèves, hauts-fonds, récifs de corail et eau
+profonde. Chausse les **palmes** trouvées sur la **Grève aux Palmes** pour
+**nager** au large, plonger au **Temple Englouti** et affronter le **Léviathan**.
+Attention aux **crabes cuirassés** (l'épée ricoche, le boomerang les sonne), aux
+**tritons** qui lancent leur trident et aux **méduses** qui s'effacent. Un **oued**
+asséché descend ensuite vers le désert.
+
+**Les Sables du Mirage** — le désert : dunes, ruines de grès, champs de **sables
+mouvants**. Le **bracelet de force** dort au **Temple du Bracelet** : avec **Y**
+il **soulève et jette les blocs lourds** — pour **combler les sables mouvants**
+qui barrent l'arène et pour **renvoyer ses propres blocs** au **Colosse de Grès**,
+que rien d'autre n'entame. Prends garde aux **scarabées-bombes**, aux **lanciers
+d'os** et aux **djinns de sable**.
+
+**Le Marais des Murmures** — la tourbière : vase, eau croupie, ronces et **nuit
+permanente**. Le **fanal** dort au **Bosquet du Fanal** : équipé, il **éclaire**
+un halo dans le noir, **brûle les ronces** qui barrent les chemins et **rallume
+les veilleuses**. Il faut brûler le **rideau de ronces** qui scelle le **Cœur du
+Marais** pour y affronter la **Reine des Lucioles Noires**, qui **éteint ton
+fanal par vagues** — on se bat alors dans le noir jusqu'à ce qu'il se rallume.
+Méfie-toi des **feux follets** en essaim, des **crapauds-catapultes** qui
+crachent du venin, et des **ombres** que l'on ne touche **que dans la lumière**.
 
 ## Quêtes annexes
 
-Cinq quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+Neuf quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
 l'état de chacune ; les objets à trouver clignotent sur la carte.
 
 | Quête | Où | Récompense |
@@ -48,6 +84,10 @@ l'état de chacune ; les objets à trouver clignotent sur la carte.
 | La prime de la garde | quinze monstres | 60 rubis et 5 bombes |
 | **La lanterne du pêcheur** | vallée **puis** Terres de Cendre | **épée de Cendre** (+1 dégât) |
 | **Les brasiers éteints** | Terres de Cendre | carte des Cendres révélée, 120 rubis |
+| **Les cloches de givre** | Cimes Gelées | carte des Cimes révélée, cœur de cristal |
+| **Les perles du naufragé** | Lagon d'Azur | 150 rubis et une potion |
+| **Les fresques de Nefa** | Sables du Mirage | 150 rubis et une potion |
+| **Les sept veilleuses** | Marais des Murmures | carte du marais révélée, cœur de cristal |
 
 **La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
 fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
@@ -61,12 +101,46 @@ basalte en portent — et forge l'**épée de Cendre**, qui ajoute un point de d
 coup d'épée y fait jaillir l'étincelle. Les trois rallumés, la région entière
 apparaît sur la carte et Durn paie 120 rubis.
 
+**Les cloches de givre** — trois cloches de glace pendent aux parvis des Cimes.
+**Seul le boomerang** les fait sonner. Les trois sonnées, la carte des Cimes se
+révèle et un cœur de cristal apparaît au Temple de Givre.
+
+**Les perles du naufragé** — échoué sur la grève, un naufragé a perdu sa bourse
+de **cinq perles**, éparpillées dans les coraux du Lagon. Ramène-les-lui, palmes
+aux pieds, contre 150 rubis et une potion.
+
+## Énigmes
+
+Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée les
+**enseigne** une à une ; les régions suivantes les **combinent**.
+
+- **La caisse et la plaque** — pousse une **caisse** (avance dans sa direction)
+  sur une **dalle de pression** pour ouvrir une porte à mécanisme. Aux Cendres,
+  il faut couvrir **deux dalles à la fois** : une seule caisse ne suffit plus.
+- **L'interrupteur** — frappe le **cristal** (épée, flèche ou boomerang) pour
+  **abaisser les blocs bleus** et lever les orange, et inversement.
+- **Le grappin** — vise une **ancre** et appuie sur **Y** : il t'y tire, par-dessus
+  l'eau ou un gouffre qu'aucune autre traversée ne franchit. On le gagne dans la
+  première salle d'énigme de la vallée.
+- **Le bracelet de force** — **Y** soulève un **bloc lourd** devant toi, **Y** le
+  jette. Jeté dans les **sables mouvants**, il les **comble** ; posé sur un sol
+  sec, il reste **récupérable** ; renvoyé au Colosse de Grès, il l'**entame**.
+- **Le fanal** — **Y** éclaire un **halo** dans la nuit du marais, **brûle les
+  ronces** qui barrent les chemins et **rallume les veilleuses**. L'**ombre** ne
+  se laisse frapper que dans sa lumière.
+
+Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
+et s'abat** droit devant, avec une onde de choc au sol.
+
+Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les six
+en jeu et les deux à venir, jusqu'au boss final et à sa fin.
+
 ## Gemmes
 
 Un **coup d'épée ramasse** ce qu'il touche — inutile de marcher pile dessus.
 Les monstres et les buissons lâchent trois pierres : **rubis vert** (1),
-**saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les
-Terres de Cendre, plus dures, en lâchent davantage.
+**saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les régions
+du sud, plus dures (Cendres, Cimes, Lagon), en lâchent davantage.
 
 ## La colporteuse
 
@@ -87,7 +161,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 172 contrôles, ~11 s
+npm test                          # 282 contrôles, ~22 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

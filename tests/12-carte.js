@@ -82,8 +82,12 @@ module.exports = {
         // 3) aucun texte ne mord sur la carte
         const surCarte = carte ? textes.filter(t => chev(t, carte) > 0).map(t => t.s) : ['carte absente'];
 
-        // 4) la carte reste lisible : elle occupe une vraie part de l'écran
-        const partCarte = carte ? (carte.w * carte.h) / (W * H) : 0;
+        // 4) la carte reste lisible : elle remplit la hauteur disponible.
+        //    On mesure la part de la HAUTEUR, pas de la surface : avec six
+        //    régions empilées (88×480), la carte est haute et fine, sa largeur
+        //    est bridée par la hauteur, et une part de surface ne mesurerait
+        //    plus que ses proportions. La hauteur, elle, doit rester pleine.
+        const partCarte = carte ? carte.h / H : 0;
 
         // le témoin ne doit rien recouvrir non plus, ni sortir de l'écran
         const tT = avecTemoin.filter(b => b.t === 'texte');
@@ -105,13 +109,12 @@ module.exports = {
         r.collisions.length === 0, r.collisions.join(' · '));
       v(`${nom} : aucun texte ne mord sur la carte`,
         r.surCarte.length === 0, r.surCarte.join(' · '));
-      /* La carte est en 88×160 tuiles : sur un canvas presque carré, sa hauteur
-         est la contrainte, et elle ne peut pas remplir la largeur sans une
-         échelle fractionnaire — que le pixel art ne supporte pas. Le seuil
-         attrape un effondrement (carte reléguée au 1/6 de l'écran), pas les
-         proportions. */
+      /* La carte est en 88×480 tuiles (six régions empilées) : haute et fine,
+         sa hauteur est la contrainte. Le seuil attrape un effondrement (carte
+         reléguée dans un coin), en mesurant qu'elle remplit bien la hauteur
+         laissée entre le titre et le pied de page. */
       v(`${nom} : la carte occupe une vraie part de l'écran`,
-        r.partCarte > 0.22, `${(r.partCarte * 100).toFixed(0)} %`);
+        r.partCarte > 0.5, `${(r.partCarte * 100).toFixed(0)} % de la hauteur`);
       v(`${nom} : les statistiques sont toutes là`,
         ['ÉTOILES', 'RUBIS', 'BOMBES', 'FLÈCHES', 'LUCIOLES']
           .every(m => r.textes.some(t => t.startsWith(m))),

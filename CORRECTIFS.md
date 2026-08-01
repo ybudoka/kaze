@@ -497,3 +497,263 @@ donne un `Ω` : il doit le voir) et une couverture du français majuscule.
 > Il interroge maintenant la table `GLYPHES`, comme le faisait déjà
 > `10-colporteuse.js`.
 
+
+---
+
+## 13. Les Cimes Gelées et le Lagon d'Azur (deux régions de plus)
+
+Le monde passe de deux régions à **quatre**, empilées du nord au sud : vallée,
+Terres de Cendre, **Cimes Gelées** (rangées 160-239), **Lagon d'Azur**
+(rangées 240-319). `MH` passe de 160 à 320. Comme pour les Cendres, chaque
+région est ajoutée **en dessous** : les index de tuiles des régions du haut ne
+bougent pas, et une sauvegarde d'avant l'ajout retrouve sa vallée et ses Cendres
+intactes (les nouveaux champs de quête prennent leur valeur par défaut, le
+brouillard des nouvelles rangées reste noir).
+
+### 13.1 Une région bornée à sa bande, pas à `MH`
+
+`genererCendres()` remplissait « du haut de la région jusqu'à `MH` ». Avec deux
+régions de plus, ce `MH` recouvrait les Cimes et le Lagon de cendre et de lave.
+Chaque génération, chaque peuplement, chaque révélation de carte est désormais
+**bornée à sa propre bande** (`Y_CENDRE`→`Y_CIMES`, etc.), et `enCendre()` ne
+répond vrai que **dans** les Cendres — plus « partout au sud ».
+
+### 13.2 Atteignable à pied, à la nage — mesuré, jamais supposé
+
+Comme au § 9, un parcours à blanc rejoue les **vraies collisions** :
+
+- le **col** des Cendres descend bien dans les Cimes, la **Grève aux Palmes** et
+  le boomerang s'atteignent **à pied** ;
+- l'**Arène du Sommet** reste **scellée par des blocs de glace** tant qu'on n'a
+  pas le boomerang pour les briser ;
+- le **Large** et le **Temple Englouti** sont **cernés d'eau profonde** :
+  injoignables sans les palmes, joignables avec.
+
+> Piège évité : le traceur de sentier rouvrait la grille de glaçons du Sommet
+> qu'on venait de poser (il dégageait la tuile de la brèche). On pose donc les
+> **grilles après** les sentiers, et le sentier s'arrête une tuile avant le mur.
+
+### 13.3 Le boomerang, une arme qui revient
+
+Nouvelle arme (`Y`) : un projectile qui part droit devant, **ralentit, revient**
+vers le héros et se range dans sa main ; en chemin il frappe les ennemis (une
+fois chacun), **brise les blocs de glace**, **sonne les cloches de givre**,
+déclenche l'œil de pierre et **ramasse les butins**. Un seul en vol à la fois.
+C'est la clé du **crabe cuirassé**, sur qui l'épée ricoche : le boomerang (ou une
+bombe) le **sonne**, et l'épée porte alors.
+
+### 13.4 Les palmes, ou nager sans casser les tests
+
+Les palmes rendent l'eau franchissable — `solide()` ne bloque plus `EAU`/
+`EAUPROF` **si `Q.palmes`**. Comme aucun test n'accorde les palmes par défaut,
+le comportement historique (le lac de la vallée reste infranchissable) est
+**inchangé**, et les parcours à blanc des autres tests le vérifient encore.
+
+### 13.5 Les objets de quête sont des butins persistants
+
+Boomerang, palmes et les cinq perles sont des **butins reposés par `peupler()`**
+tant que le drapeau de quête correspondant est faux — exactement comme la clé de
+pierre. Ils réapparaissent à la même place au rechargement, jusqu'à ce qu'on les
+ramasse ; les perles déjà prises ne reviennent pas. Les blocs de glace brisés et
+les cloches sonnées sont des **tuiles** : ils survivent par les différences de
+décor, sans champ de sauvegarde supplémentaire.
+
+Tout est vérifié dans `14-cimes-lagon.js` : biomes, six monstres armés, boomerang
+(vol/retour, glace, crabe), palmes (nage), les deux gardiens (Roi Yéti scellé,
+Léviathan cerné d'eau), quêtes annexes, musique, mini-carte, et rien de perdu au
+rechargement — le tout mesuré sur le vrai jeu.
+
+---
+
+## 14. Énigmes, grappin et un nouveau marteau
+
+### 14.1 Des briques d'énigme réutilisables
+
+Cinq pièces, posées d'un monde à l'autre, décrites en données (`PUZZLES`,
+`poserEnigmes`) et résolues par `majPuzzles` :
+
+- **`CAISSE`** — se pousse en avançant dans sa direction (`pousserCaisse`), si la
+  case au-delà est un sol libre ;
+- **`PLAQUE`** — une **dalle de pression** (un *sol*, pas un objet, pour qu'une
+  caisse puisse s'y poser) ; couverte par une caisse **ou** par le héros ;
+- **`PORTEP`** — une porte à mécanisme, ouverte quand **toutes** les plaques de
+  son énigme sont couvertes ;
+- **`INTER`** + **`BLOCB`/`BLOCO`** — un interrupteur frappé (épée, flèche,
+  boomerang) **bascule sa région** : les blocs bleus s'abaissent, les orange se
+  lèvent, et inversement. L'état vit dans `Q.inter[region]`, la solidité est
+  dynamique (`solide`), le rendu suit.
+
+La vallée **enseigne** chaque mécanique isolément ; les Cendres **combinent**
+(deux plaques à couvrir *en même temps* — une seule caisse ne suffit plus).
+
+> Pourquoi c'est robuste au rechargement : une caisse déplacée et une porte
+> ouverte sont des **changements de décor** (tableau `objs`), déjà sauvegardés
+> par les différences. Aucun champ de sauvegarde en plus. Les récompenses
+> uniques (grappin, cœurs de cristal) sont des **butins reposés par `peupler`**
+> tant qu'un drapeau `Q` dit qu'on ne les a pas — comme la clé de pierre.
+
+### 14.2 Le grappin, mesuré comme une vraie traversée
+
+Le **grappin** (`lancerGrappin`) accroche une **`ANCRE`** dans la direction du
+regard et tire le héros jusqu'à la case d'avant, **par-dessus l'eau** — un mur
+plein arrête la chaîne. La salle du gouffre le prouve : sa douve barre **toute**
+la hauteur intérieure, si bien qu'un parcours à blanc (vraies collisions) trouve
+le trésor **injoignable à pied** et **joignable au grappin**.
+
+> Piège évité : la première douve ne couvrait que le centre de la salle ; on la
+> contournait par la rangée du haut. Un test de reachability l'a chiffré, pas
+> supposé — la douve va maintenant d'un mur à l'autre.
+
+> Autre piège : les salles d'énigme, posées **après** le village, recouvraient
+> les clairières de deux lucioles d'or (n° 4 et 7) de leurs murs. Elles ont été
+> déplacées dans des poches vides ; le contrôle des lucioles (test 05) le
+> garantit.
+
+### 14.3 Le marteau ne balaie plus comme l'épée
+
+| | |
+|---|---|
+| **Avant** | Le marteau réutilisait l'animation du coup d'épée (`J.atk`) : même arc horizontal, on ne distinguait pas les deux armes. |
+| **Après** | Le marteau a son propre état (`J.slam`) : il **se lève au-dessus de la tête et s'abat** droit devant (`dessinerMarteau`), avec une **onde de choc** au sol et une secousse plus lourde. Le coup lui-même (`slamMarteau`) part **à l'impact** (`SLAM_IMPACT`), pas au déclenchement. |
+
+Vérifié dans `15-enigmes.js` : appuyer sur **Y** avec le marteau met `J.slam > 0`
+et **laisse `J.atk` à zéro** (c'est un *slam*, pas un coup d'épée), et la roche
+noire ne cède qu'**à l'impact**.
+
+---
+
+## 15. Les Sables du Mirage (cinquième région) et le bracelet de force
+
+Le monde passe de quatre régions à **cinq** : les Sables du Mirage occupent les
+rangées 320 à 399, `MH` passe de 320 à 400. Comme les précédentes, la région est
+ajoutée **en dessous** — les index de tuiles du haut ne bougent pas, les
+sauvegardes restent valables. Tous les bornages `Y_LAGON..MH` (fin de la
+génération du Lagon, faune, révélation de carte) ont été ramenés à `Y_SABLES`,
+et `enLagon()` ne répond plus vrai que **dans** le Lagon.
+
+### 15.1 Le bracelet de force : soulever, jeter, combler
+
+Nouvel outil (`Y`) : `brasBracelet` **soulève** le `BLOCLOURD` posé devant soi
+(`J.porte='lourd'`), puis, pressé de nouveau, le **jette** (`majBlocLourd`). Le
+bloc jeté :
+
+- **comble** une mare de `SABLEMOU` (elle redevient du désert ferme) ;
+- sinon se **pose** sur la dernière case sèche et libre — donc **récupérable**,
+  jamais perdu sur un raté ;
+- frappe au passage ce qu'il touche.
+
+Les bras chargés, on ralentit, on ne saute pas, on n'attaque pas et on ne change
+pas d'objet — comme il se doit.
+
+### 15.2 L'arène gardée par les sables mouvants — mesuré, pas supposé
+
+L'unique accès à l'Arène du Colosse est un **couloir d'une case**, muré des deux
+côtés, barré de trois `SABLEMOU`, avec quatre blocs lourds en réserve juste
+avant. Un parcours à blanc (vraies collisions) trouve l'arène **injoignable**
+tant qu'on ne comble pas le gué, et **joignable** une fois comblé.
+
+> Deux pièges chiffrés puis corrigés :
+> - le couloir laissait un **détour** par le désert ouvert : il est désormais
+>   entièrement muré, aligné sur l'unique brèche de l'arène ;
+> - un **fragment de fresque** posé contre le mur sud de l'arène y perçait un
+>   trou (le dégagement de sa clairière effaçait la muraille) : les fragments
+>   ont été éloignés des salles ;
+> - le traceur de sentier **vidait** la réserve de blocs et le gué : la vanne
+>   est posée **en dernier**, après toutes les voies.
+
+### 15.3 Le Colosse de Grès : on lui renvoie ses propres blocs
+
+Le Colosse est **cuirassé** : `frapper` renvoie tout, sauf un bloc lourd
+(`'lourd'`) ou une bombe (`'explosion'`). Il **jette** des blocs qui atterrissent
+en `BLOCLOURD` près du héros ; ramassés au bracelet et **renvoyés**, ils
+l'entament. Vérifié dans `16-sables.js` : l'épée ricoche, le bloc porte.
+
+### 15.4 Les trois monstres armés
+
+- le **scarabée-bombe** roule vers le héros et **explose** de près — et explose
+  aussi quand on l'abat (`scarabeeBoom`, avec un garde anti-double `e.boomed`) ;
+- le **lancier d'os** lance son **javelot** à distance ;
+- le **djinn de sable** dérive, traverse tout et **s'efface** par intermittence
+  (on ne le touche que matérialisé, comme le spectre et la méduse).
+
+### 15.5 Compatibilité des sauvegardes
+
+`Q.inter` (l'état des interrupteurs à bascule) passe de quatre à **cinq**
+entrées. Au chargement, une vieille sauvegarde est **complétée** sans être
+réinitialisée (`while(Q.inter.length<5) Q.inter.push(0)`) : on ne perd pas les
+bascules déjà actionnées. Les outils gagnés (`Q.bracelet`) sont **rééquipés** au
+chargement s'ils manquent du sac.
+
+---
+
+## 16. Compatibilité des sauvegardes (aucun bloquant après un ajout)
+
+Chaque niveau ou fonctionnalité est ajouté **sans jamais casser une partie déjà
+enregistrée**. Le contrat, vérifié par `17-compat.js` sur de vraies sauvegardes
+d'époque :
+
+- **On ne change pas `VERSION_SAUVE`** tant que l'ancien format reste lisible.
+  Le monde est déterministe et régénéré au chargement ; on ne conserve que
+  l'état du héros, les drapeaux de quête, les différences de décor (`diff`,
+  indexées par `y*MW+x` — et **`MW` ne change jamais**), les coffres, les
+  lucioles et le brouillard.
+- **Les nouveaux drapeaux de quête** prennent leur valeur par défaut :
+  `razQuetes()` les pose tous *avant* `Object.assign(Q, d.Q)`, si bien qu'une
+  vieille sauvegarde qui les ignore les laisse à zéro.
+- **`Q.inter`** (bascules) est **complété** à une entrée par région sans être
+  réinitialisé (`while(Q.inter.length<6) push(0)`) — on ne perd pas les bascules
+  d'époque.
+- **Les outils gagnés** (`Q.boomerang`/`grappin`/`bracelet`) sont **rééquipés**
+  au chargement s'ils manquent du sac.
+- **Le brouillard** trop court est complété par des zéros (zones neuves = non
+  explorées) sans erreur ; un **tableau de coffres** trop court laisse les
+  coffres neufs fermés ; une **position héritée** d'une carte plus petite est
+  bornée puis `degager()` la sort de tout obstacle.
+- **Le rattrapage du portail** reste : une partie à trois étoiles d'avant les
+  Cendres trouve le portail ouvert.
+
+Le test recharge trois sauvegardes — une d'avant les Cendres (trois coffres,
+pas de brouillard), une de l'ère « quatre régions » (palmes et boomerang, aucun
+champ des Sables), une posée au bord — et prouve à chaque fois : **pas de crash,
+héros jamais coincé, progression intacte, et la suite du monde reste
+atteignable** (le portail, puis l'oued des Sables).
+
+---
+
+## 17. Le Marais des Murmures (sixième région)
+
+Une sixième bande de 80 rangées s'ajoute **sous** les Sables (`MH` passe de 400
+à 480, `Y_MARAIS = 400`). Comme toujours, on n'ajoute qu'en dessous : les
+indices de tuiles des régions existantes ne bougent pas, et une vieille
+sauvegarde reste lisible (voir § 16).
+
+- **Un nouvel outil, le fanal.** Ramassé au Bosquet du Fanal, il s'équipe seul
+  (`Q.fanal`, ajouté au sac et sélectionné). Il **éclaire** la nuit du marais,
+  **brûle les trois ronces** d'un rideau (`O.RONCE`, infranchissable autrement)
+  et **rallume les veilleuses** (`O.VEILLEUSE → O.VEILLEUSEVIVE`, une lumière de
+  plus).
+- **Une nuit qui se voit.** `voileMarais()` peint un voile sombre
+  (`darkCV`, composé en `destination-out`) percé de trous de lumière autour du
+  fanal, des veilleuses vives, des torches et des follets. Le voile se lève le
+  temps que la Reine éteint le fanal — c'est là tout le danger.
+- **Trois créatures armées.** Le **follet** (harcèle en essaim), le
+  **crapaud-catapulte** (crache des billes de venin), et l'**ombre** : elle
+  **n'est touchable que dans la lumière** (`e.fondu` converge vers 1 dans le
+  noir → coups renvoyés), mais **blesse même dans le noir**.
+- **La gardienne : la Reine des Lucioles Noires.** Entrer dans le Cœur du Marais
+  (l'arène, gardée par le rideau de ronces) la réveille (`boss.type==='reine'`,
+  32 pv, phases *attente / voile / gerbe / appel* — la phase *voile* éteint le
+  fanal et fait le noir). Vaincue, elle **révèle la carte** du marais et laisse
+  un **cœur maximum**.
+- **Une énigme de progression.** Le Cœur du Marais n'est atteignable qu'en
+  **brûlant le rideau de ronces** — corridor d'une case, muré, barré de trois
+  `O.RONCE` qui ne cèdent qu'au fanal. La quête annexe des **sept veilleuses**
+  (rallumées) ouvre la carte et dépose un cœur au Bosquet.
+- **Compatibilité.** `razQuetes()` pose `fanal:false, veilleuses:0,
+  reineTue:false` (et `Q.inter` gagne une sixième bascule) *avant*
+  `Object.assign(Q, d.Q)` : une sauvegarde d'avant le Marais les laisse à zéro,
+  le fanal est rééquipé s'il manque du sac, et `17-compat.js` prouve qu'aucune
+  vieille partie n'est bloquée. `18-marais.js` mesure sur le vrai jeu :
+  atteignabilité (fanal, veilleuses, arène barrée puis ouverte par le feu),
+  immunité de l'ombre hors lumière, réveil et chute de la Reine, journal,
+  mini-carte, et rechargement sans perte.
