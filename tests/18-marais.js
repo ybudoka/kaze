@@ -149,7 +149,7 @@ module.exports = {
       return out;
     });
 
-    v('six régions, le Marais en sixième', r.MH === 480
+    v('sept régions, le Marais en sixième', r.MH === 560
       && r.bornes.join() === '80,160,240,320,400' && r.regions.join() === 'sables,marais',
       `${r.MH} / ${r.bornes.join()} / ${r.regions.join()}`);
     v('les sprites du Marais sont fabriqués', r.spritesManquants.length === 0, `manquants: ${r.spritesManquants.join()}`);

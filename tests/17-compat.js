@@ -121,7 +121,7 @@ module.exports = {
       r.old.objets.join() === 'arc,bombe' && r.old.parle && r.old.lucioles === 5,
       `${r.old.objets.join()} parle=${r.old.parle}`);
     v('les nouveaux champs prennent des valeurs sûres',
-      r.old.interLen === 6 && !r.old.bracelet && !r.old.palmes && !r.old.grappin,
+      r.old.interLen === 7 && !r.old.bracelet && !r.old.palmes && !r.old.grappin,
       `inter=${r.old.interLen} bracelet=${r.old.bracelet}`);
     v('les six coffres existent même avec un vieux tableau de trois',
       r.old.coffresTotal === 6, `${r.old.coffresTotal}`);
@@ -133,8 +133,8 @@ module.exports = {
     v('ses outils restent équipés (grappin réajouté au sac)',
       r.inter.objetsGrappin && r.inter.objetsBoomerang && r.inter.palmes,
       `grappin=${r.inter.objetsGrappin} boomerang=${r.inter.objetsBoomerang}`);
-    v('son interrupteur d\'époque est complété à six sans être perdu',
-      r.inter.interLen === 6 && r.inter.interPreserve, `len=${r.inter.interLen} garde=${r.inter.interPreserve}`);
+    v('son interrupteur d\'époque est complété à sept sans être perdu',
+      r.inter.interLen === 7 && r.inter.interPreserve, `len=${r.inter.interLen} garde=${r.inter.interPreserve}`);
     v('les champs des Sables sont par défaut',
       !r.inter.bracelet && r.inter.fresques === 0 && !r.inter.colosse, 'champs Sables hérités à tort');
     v('elle atteint l\'oued vers les Sables (à la nage)', r.inter.atteintOued && r.inter.pasCoince, 'oued injoignable');

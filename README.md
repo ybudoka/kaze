@@ -23,16 +23,16 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
 Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
-Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures — et chaque
-gardien a son thème.
+Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures, Cité des
+Nues — et chaque gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
 
-Le monde compte **six régions superposées**, chacune plus au sud que la
+Le monde compte **sept régions superposées**, chacune plus au sud que la
 précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur,
-les Sables du Mirage, le Marais des Murmures.
+les Sables du Mirage, le Marais des Murmures, la Cité des Nues.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
@@ -72,9 +72,19 @@ fanal par vagues** — on se bat alors dans le noir jusqu'à ce qu'il se rallume
 Méfie-toi des **feux follets** en essaim, des **crapauds-catapultes** qui
 crachent du venin, et des **ombres** que l'on ne touche **que dans la lumière**.
 
+**La Cité des Nues** — les ruines flottantes, très haut au-dessus des nuages :
+des îles de **nuage** séparées par le **vide** bleu du ciel. La **cape des
+courants** dort sur son socle : équipée, elle fait **planer** par-dessus le vide
+d'une île à l'autre (elle refuse s'il n'y a pas de vide à franchir). Il faut
+planer depuis un **pas de vent** pour rejoindre l'**arène cernée de vide** où
+veille la **Sentinelle du Ciel**, un automate **intouchable pendant ses rafales**
+qu'on ne frappe qu'**entre deux**. Prends garde aux **tourbillons** qui
+repoussent, aux **aigles de foudre** qui fondent en piqué, et aux
+**golems-nuages** que **seul le marteau** disperse.
+
 ## Quêtes annexes
 
-Neuf quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+Dix quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
 l'état de chacune ; les objets à trouver clignotent sur la carte.
 
 | Quête | Où | Récompense |
@@ -88,6 +98,7 @@ l'état de chacune ; les objets à trouver clignotent sur la carte.
 | **Les perles du naufragé** | Lagon d'Azur | 150 rubis et une potion |
 | **Les fresques de Nefa** | Sables du Mirage | 150 rubis et une potion |
 | **Les sept veilleuses** | Marais des Murmures | carte du marais révélée, cœur de cristal |
+| **Les huit carillons** | Cité des Nues | carte des Nues révélée, cœur de cristal |
 
 **La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
 fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
@@ -128,12 +139,15 @@ Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée l
 - **Le fanal** — **Y** éclaire un **halo** dans la nuit du marais, **brûle les
   ronces** qui barrent les chemins et **rallume les veilleuses**. L'**ombre** ne
   se laisse frapper que dans sa lumière.
+- **La cape des courants** — **Y** fait **planer** en ligne droite par-dessus le
+  **vide** du ciel, d'une île à l'autre, jusqu'à la première terre ferme (elle
+  refuse s'il n'y a pas de vide à franchir). Un **tremplin** te renvoie en l'air.
 
 Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
 et s'abat** droit devant, avec une onde de choc au sol.
 
-Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les six
-en jeu et les deux à venir, jusqu'au boss final et à sa fin.
+Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les sept
+en jeu et le dernier à venir, jusqu'au boss final et à sa fin.
 
 ## Gemmes
 

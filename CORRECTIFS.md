@@ -777,3 +777,40 @@ Vérifié dans `19-frontieres.js` : sur chaque frontière interne, un ennemi pla
 juste à côté avec le héros de l'autre côté ne la franchit **jamais** (poursuite
 vers le bas comme vers le haut, créatures au sol comme volantes), tout en
 continuant d'avancer vers le héros tant qu'ils partagent une région.
+
+---
+
+## 19. La Cité des Nues (septième région) et la cape des courants
+
+Une septième bande de 80 rangées s'ajoute **sous** le Marais (`MH` passe de 480
+à 560, `Y_NUES = 480`). Des **ruines flottantes** séparées par le **VIDE** bleu
+du ciel : `S.VIDE` bloque la marche comme la lave, `S.NUAGE` porte, `S.VENT`
+est un pas d'envol.
+
+- **Un nouvel outil, la cape des courants.** Ramassée sur son socle, elle
+  s'équipe seule (`Q.cape`). Appuyée sur **Y**, elle fait **planer en ligne
+  droite par-dessus le vide** jusqu'à la première terre ferme (`capeAction` :
+  refusée s'il n'y a pas de vide à franchir *ou* pas d'île à rejoindre — on ne
+  tombe jamais). C'est une glissade scriptée, comme le grappin, mais sans ancre.
+- **Trois créatures armées.** Le **tourbillon** (orbite et repousse d'une
+  bourrasque), l'**aigle de foudre** (fond en piqué, décharge un éclair), et le
+  **golem-nuage** (`nuee`) : dense comme l'orage, **seul le marteau le
+  disperse** (comme le Colosse ne cède qu'à ses blocs).
+- **La gardienne : la Sentinelle du Ciel.** Un automate à trois cœurs. Elle
+  alterne des **RAFALES** où elle est **intouchable** (`B.invincible`, et
+  repousse le héros) et de courtes **FRAPPES** où elle se découvre : `frapper`
+  la renvoie tant qu'elle souffle, on ne la touche qu'entre deux rafales.
+  Vaincue, elle **révèle la carte** et laisse un **cœur maximum**.
+- **Une énigme de vide.** L'arène est une île **cernée de vide** : le seul
+  passage est un **saut plané** depuis un pas de vent, par-dessus une douve que
+  rien d'autre ne franchit. La quête annexe des **huit carillons du vent** (au
+  boomerang, comme les cloches) ouvre la carte et dépose un cœur au socle.
+- **Une graine figée pour ne rien remanier.** En grandissant, `MH` décalait la
+  portée des semis de décor de la vallée (`rnd()*(MH-6)`), et donc la graine que
+  voyaient TOUTES les régions du sud — leur décor se remaniait, coupant parfois
+  un chemin de quête (les brasiers des Cendres devenaient injoignables). La
+  portée de ces semis est désormais **figée à `Y_NUES`** : ajouter une région
+  sous les autres les laisse **identiques au bit**. Vérifié par `20-nues.js`
+  (atteignabilité, arène cernée puis ouverte en planant, immunité du golem-nuage,
+  rafales de la Sentinelle, journal, mini-carte, rechargement) et par la reprise
+  verte des tests des six régions précédentes.

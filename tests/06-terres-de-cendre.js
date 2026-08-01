@@ -167,7 +167,7 @@ module.exports = {
       return out;
     });
 
-    v('la carte compte six régions', r.MH === 480 && r.Y === 80, `${r.MH}/${r.Y}`);
+    v('la carte compte sept régions', r.MH === 560 && r.Y === 80, `${r.MH}/${r.Y}`);
     v('six coffres au total', r.coffres === 6, r.coffres);
     v('les quatre sols du biome existent',
       r.sols.every(n => n > 100), `cendre/lave/braise/basalte = ${r.sols.join('/')}`);

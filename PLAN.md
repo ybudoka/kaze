@@ -25,11 +25,11 @@ restent valables à chaque ajout).
 | 4 | **Lagon d'Azur** | mer, corail, hauts-fonds | **palmes** | Léviathan | nage, courants, récifs |
 | 5 | **Sables du Mirage** ✅ | désert, dunes, sables mouvants | **bracelet de force** | Colosse de Grès | blocs lourds, sables mouvants à combler |
 | 6 | **Marais des Murmures** ✅ | tourbière, ronces, brume | **fanal** | Reine des Lucioles Noires | lumière/ombre, ronces |
-| 7 | **Cité des Nues** | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
+| 7 | **Cité des Nues** ✅ | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
 | 8 | **La Faille** | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
 
-Les **six premières lignes** (✅) sont **jouables aujourd'hui**. Les deux
-suivantes sont le plan.
+Les **sept premières lignes** (✅) sont **jouables aujourd’hui**. La dernière
+est le plan.
 
 ---
 
@@ -97,7 +97,7 @@ Lagon par un oued asséché.*
   - **dur** : affronter l'ombre et la Reine en jouant de l'alternance
     lumière/obscurité (l'ombre n'est vulnérable que dans le halo).
 
-## Monde 7 — La Cité des Nues
+## Monde 7 — La Cité des Nues ✅ *(en jeu)*
 
 *Ruines flottantes reliées par des courants d'air, très haut au-dessus des
 nuages. On y monte par une tour en spirale.*

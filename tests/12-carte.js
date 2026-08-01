@@ -109,7 +109,7 @@ module.exports = {
         r.collisions.length === 0, r.collisions.join(' · '));
       v(`${nom} : aucun texte ne mord sur la carte`,
         r.surCarte.length === 0, r.surCarte.join(' · '));
-      /* La carte est en 88×480 tuiles (six régions empilées) : haute et fine,
+      /* La carte est en 88×560 tuiles (sept régions empilées) : haute et fine,
          sa hauteur est la contrainte. Le seuil attrape un effondrement (carte
          reléguée dans un coin), en mesurant qu'elle remplit bien la hauteur
          laissée entre le titre et le pied de page. */

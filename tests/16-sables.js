@@ -144,7 +144,7 @@ module.exports = {
       return out;
     });
 
-    v('six régions, les Sables en cinquième', r.MH === 480
+    v('sept régions, les Sables en cinquième', r.MH === 560
       && r.bornes.join() === '80,160,240,320' && r.regions.join() === 'lagon,sables',
       `${r.MH} / ${r.bornes.join()} / ${r.regions.join()}`);
     v('les sols du désert existent', r.sols.every(n => n > 80),
