@@ -88,6 +88,59 @@ module.exports = {
          croiser doivent tous exister — c'est le filet pour les textes à venir. */
       out.francais = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ÀÂÇÉÈÊËÎÏÔÖÙÛÜ.,:;!?\'()[]/-'].
         filter(c => !GLYPHES[c]).join('');
+
+      /* ---------- la table est-elle bien formée ? ----------
+         Une chaîne mal découpée ne lève rien : le glyphe est simplement
+         dessiné de travers, ou pas du tout. */
+      out.malformes = Object.entries(GLYPHES)
+        .filter(([, g]) => { const r = g.split('/');
+                             return r.length !== 7 || r.some(l => l.length !== 5
+                                    || /[^#.]/.test(l)); })
+        .map(([c]) => c);
+      // un glyphe entièrement vide serait invisible à l'écran
+      out.vides = Object.entries(GLYPHES)
+        .filter(([c, g]) => c !== ' ' && !g.includes('#')).map(([c]) => c);
+      // deux caractères ne doivent jamais partager le même dessin
+      {
+        const vus = new Map(), d = [];
+        for (const [c, g] of Object.entries(GLYPHES)) {
+          if (c === ' ') continue;
+          if (vus.has(g)) d.push(`${c}=${vus.get(g)}`); else vus.set(g, c);
+        }
+        out.doublons = d;
+      }
+
+      /* ---------- les accents se voient-ils VRAIMENT ? ----------
+         Un accent qui n'ajoute aucun pixel visible laisserait le joueur lire
+         « GRACE » pour « GRÂCE ». On compare les DESSINS RENDUS, pas les
+         chaînes de la table : c'est ce que l'écran montre qui compte. */
+      const ACCENTS = { 'À': 'A', 'Â': 'A', 'Ä': 'A', 'Ç': 'C',
+                        'É': 'E', 'È': 'E', 'Ê': 'E', 'Ë': 'E',
+                        'Î': 'I', 'Ï': 'I', 'Ô': 'O', 'Ö': 'O',
+                        'Ù': 'U', 'Û': 'U', 'Ü': 'U' };
+      const rendu = s => {
+        const c = document.createElement('canvas');
+        c.width = Math.max(8, largeurTexte(s) + 4); c.height = 12;
+        const g = c.getContext('2d');
+        texte(g, s, 2, 2, '#ffffff', null);          // sans ombre : le dessin nu
+        return c.toDataURL();
+      };
+      out.invisibles = Object.entries(ACCENTS)
+        .filter(([a, b]) => rendu(a) === rendu(b)).map(([a]) => a);
+      // deux accents de la même lettre doivent aussi se distinguer l'un de l'autre
+      {
+        const parLettre = {}, confus = [];
+        for (const [a, b] of Object.entries(ACCENTS)) (parLettre[b] = parLettre[b] || []).push(a);
+        for (const groupe of Object.values(parLettre)) {
+          const images = groupe.map(rendu);
+          if (new Set(images).size !== groupe.length) confus.push(groupe.join(''));
+        }
+        out.confus = confus;
+      }
+      // et la différence survit dans une vraie phrase du jeu
+      out.phraseAccentuee =
+        rendu('LA ROUTE EST PLUS SÛRE GRÂCE À TOI.') !==
+        rendu('LA ROUTE EST PLUS SURE GRACE A TOI.');
       return out;
     });
 
@@ -97,6 +150,16 @@ module.exports = {
       r.manquants.length === 0, r.manquants.join(' | '));
     v('LA POLICE COUVRE LE FRANÇAIS MAJUSCULE ET SA PONCTUATION',
       r.francais === '', `absents : ${r.francais}`);
+    v('chaque glyphe est bien formé (7 lignes de 5)',
+      r.malformes.length === 0, r.malformes.join(' '));
+    v('aucun glyphe n\'est vide', r.vides.length === 0, r.vides.join(' '));
+    v('aucun caractère n\'en copie un autre', r.doublons.length === 0, r.doublons.join(' '));
+    v('CHAQUE ACCENT SE VOIT À L\'ÉCRAN',
+      r.invisibles.length === 0, `identiques à leur lettre nue : ${r.invisibles.join(' ')}`);
+    v('les accents d\'une même lettre se distinguent entre eux',
+      r.confus.length === 0, r.confus.join(' '));
+    v('une phrase accentuée ne se dessine pas comme sa version nue',
+      r.phraseAccentuee, 'GRÂCE se dessine comme GRACE');
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },

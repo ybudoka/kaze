@@ -497,6 +497,28 @@ donne un `Ω` : il doit le voir) et une couverture du français majuscule.
 > Il interroge maintenant la table `GLYPHES`, comme le faisait déjà
 > `10-colporteuse.js`.
 
+### 12.1 Vérifier qu'un glyphe existe ne dit pas qu'il se voit
+
+Les glyphes ajoutés ci-dessus avaient été écrits à la main **sans jamais être
+regardés**. Ils ont donc été rendus à l'écran, agrandis, et quatre propriétés
+ont été ajoutées au contrôle :
+
+- chaque glyphe est **bien formé** : 7 lignes de 5, sans caractère étranger ;
+- aucun glyphe n'est **vide** (il serait invisible sans rien signaler) ;
+- aucun caractère n'en **copie** un autre ;
+- chaque accentuée se **dessine différemment** de sa lettre nue, et les accents
+  d'une même lettre se distinguent entre eux — comparaison des **images
+  rendues**, pas des chaînes de la table.
+
+Ce contrôle a trouvé un défaut resté dans la police depuis le début : le glyphe
+du **cœur** contenait un `//`. La ligne vide décalait le dessin d'une rangée vers
+le bas et lui coupait la pointe. Corrigé.
+
+> Note sur la lisibilité : la cellule fait 5×7 pixels. Un accent ne peut pas se
+> poser *au-dessus* d'une capitale pleine hauteur — il occupe la première rangée
+> et le corps de la lettre se décale. C'est net sur E, I, O, C ; plus discret sur
+> A et U, dont le sommet est déjà chargé. Les trois accents d'une même lettre
+> restent distincts, ce que le contrôle vérifie.
 
 ---
 
