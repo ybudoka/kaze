@@ -1229,9 +1229,108 @@ const PS={
   neant:'#0b0713', neantC:'#3a2350',
   fracture:['#241a33','#2e2242','#3a2b52'], fractureO:'#160f22', fractureC:'#9a6ae0'
 };
-const solCV=document.createElement('canvas');
-solCV.width=MW*TS; solCV.height=MH*TS;
-const solG=solCV.getContext('2d');
+/* ====================== LE SOL, EN BANDES ======================
+   Le sol était pré-rendu d'un bloc : un canvas de MW*TS × MH*TS, soit
+   1408 × 10240 px — 14,4 mégapixels, ~55 Mo de mémoire vidéo — et 720 ms de
+   gel à chaque génération ET à chaque chargement de partie. À huit régions,
+   c'est intenable sur téléphone : iOS refuse purement et simplement les canvas
+   au-delà de ~16 Mpx.
+
+   Il est désormais découpé en BANDES d'une région (80 rangées), construites à
+   la demande et par tranches, avec une marge haute et basse pour le relief
+   (une tuile surélevée déborde vers le haut, une face de falaise vers le bas).
+   Seules les bandes proches du héros sont gardées en mémoire. */
+const HB=80, DEBORD=32;                       // rangées par bande, marge en pixels
+const NB_BANDES=Math.ceil(MH/HB);
+const RESIDENTES=4;                          // bandes gardées en mémoire
+const bandes=new Array(NB_BANDES).fill(null);
+let horlogeBande=0;                          // pour évincer la moins récemment vue
+const bandeDe=wy=>clamp(Math.floor(wy/(HB*TS)),0,NB_BANDES-1);
+
+/* Les toiles sont RECYCLÉES. En créer une (1408 × 1312, ~7 Mo) et la laisser
+   au ramasse-miettes coûtait jusqu'à 40 ms — un à-coup net à chaque frontière
+   de région. Le jeu n'en garde qu'une poignée, réutilisées à l'infini. */
+const toilesLibres=[];
+function prendreToile(){
+  const cv=toilesLibres.pop()||document.createElement('canvas');
+  if(cv.width!==MW*TS){ cv.width=MW*TS; cv.height=HB*TS+DEBORD*2; }
+  const g=cv.getContext('2d');
+  g.imageSmoothingEnabled=false;
+  g.fillStyle='#0d1018'; g.fillRect(0,0,cv.width,cv.height);
+  return {cv,g};
+}
+function neuveBande(i){
+  const {cv,g}=prendreToile();
+  return {cv,g,oy:i*HB*TS-DEBORD,y0:i*HB,ligne:i*HB-2,passe:0,pret:false,vue:0};
+}
+function libererBandesLointaines(){
+  const vivantes=bandes.map((b,i)=>b?[i,b.vue]:null).filter(Boolean);
+  if(vivantes.length<=RESIDENTES) return;
+  vivantes.sort((a,b)=>a[1]-b[1]);
+  for(let k=0;k<vivantes.length-RESIDENTES;k++){
+    const i=vivantes[k][0];
+    toilesLibres.push(bandes[i].cv);        // la toile repart au pot commun
+    bandes[i]=null;
+  }
+}
+/* Construit au plus `budget` rangées de la bande, et dit si elle est finie.
+   Deux passes : les sols d'abord, les falaises et leurs ombres ensuite — une
+   face de falaise déborde sur la rangée du dessous, elle doit donc être posée
+   après tous les sols. */
+function batirBande(i,budget){
+  const b=bandes[i]||(bandes[i]=neuveBande(i));
+  if(b.pret) return true;
+  const yA=i*HB-2, yB=(i+1)*HB+1;
+  let n=0;
+  while(n<budget&&!b.pret){
+    const y=b.ligne;
+    if(y>=0&&y<MH){
+      if(b.passe===0){
+        for(let x=0;x<MW;x++){
+          const t=sol[y*MW+x], e=etage[y*MW+x];
+          const sx=x*TS, sy=y*TS-e*EH-b.oy;
+          fondTuile(b.g,t,sx,sy,x,y);
+          if(t===S.EAU||t===S.EAUPROF) rives(b.g,sx,sy,x,y); else bordures(b.g,t,sx,sy,x,y);
+        }
+      } else {
+        for(let x=0;x<MW;x++){
+          const e=etage[y*MW+x];
+          if(e){
+            const sx=x*TS, sy=y*TS-e*EH-b.oy;
+            if(Etg(x,y+1)<e && Sol(x,y+1)!==S.RAMPE) faceFalaise(b.g,sx,sy+TS,x,y);
+            if(Etg(x-1,y)<e){ b.g.fillStyle=PS.rocC; b.g.fillRect(sx,sy,3,TS);
+              b.g.fillStyle=PS.rocD; b.g.fillRect(sx,sy,1,TS); }
+            if(Etg(x+1,y)<e){ b.g.fillStyle=PS.rocC; b.g.fillRect(sx+TS-3,sy,3,TS);
+              b.g.fillStyle=PS.rocD; b.g.fillRect(sx+TS-1,sy,1,TS); }
+            if(Etg(x,y-1)<e){ b.g.fillStyle='rgba(0,0,0,.22)'; b.g.fillRect(sx,sy,TS,2); }
+          } else if(Etg(x,y-1)>0 && Sol(x,y)!==S.RAMPE && Sol(x,y)!==S.EAU){
+            const sy=y*TS-b.oy;
+            b.g.fillStyle='rgba(10,12,24,.30)'; b.g.fillRect(x*TS,sy,TS,4);
+            b.g.fillStyle='rgba(10,12,24,.16)'; b.g.fillRect(x*TS,sy+4,TS,3);
+          }
+        }
+      }
+      n++;
+    }
+    if(++b.ligne>yB){
+      if(b.passe===0){ b.passe=1; b.ligne=yA; } else b.pret=true;
+    }
+  }
+  return b.pret;
+}
+/* Blit d'un rectangle de sol, en allant chercher la ou les bandes qui le
+   couvrent. Une bande absente ou inachevée laisse le fond nu — le temps
+   qu'elle se construise. */
+function dessinerSol(g,sx,sy,w,h){
+  const i0=bandeDe(sy), i1=bandeDe(sy+h-1);
+  for(let i=i0;i<=i1;i++){
+    const b=bandes[i]; if(!b) continue;
+    b.vue=++horlogeBande;
+    const y0=Math.max(sy,i*HB*TS-DEBORD), y1=Math.min(sy+h,(i+1)*HB*TS+DEBORD);
+    if(y1<=y0) continue;
+    g.drawImage(b.cv,sx,y0-b.oy,w,y1-y0,sx,y0,w,y1-y0);
+  }
+}
 
 function dither(g,x,y,w,h,col,motif){
   g.fillStyle=col;
@@ -1422,45 +1521,47 @@ function reliefRangee(g,ty,x0,x1){
     while(fin+1<=x1&&Etg(fin+1,ty)===e) fin++;
     const sx=tx*TS, w=(fin-tx+1)*TS;
     const sy=ty*TS-e*EH, sy0=Math.max(0,sy);
-    const h=Math.min(solCV.height-sy0,TS+EH-(sy0-sy));
-    if(h>0) g.drawImage(solCV,sx,sy0,w,h,sx,sy0,w,h);
+    const h=Math.min(MH*TS-sy0,TS+EH-(sy0-sy));
+    if(h>0) dessinerSol(g,sx,sy0,w,h);
     tx=fin+1;
   }
 }
 
+/* Jette toutes les bandes : le décor a changé. Celle où se tient le héros est
+   rebâtie tout de suite — on ne veut pas d'un trou sous ses pieds — les autres
+   se construiront en chemin. */
 function prerendreSol(){
-  solG.clearRect(0,0,solCV.width,solCV.height);
-  solG.fillStyle='#0d1018'; solG.fillRect(0,0,solCV.width,solCV.height);
-  // 1) les sols, décalés selon l'étage
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
-    const t=sol[y*MW+x], e=etage[y*MW+x];
-    const sx=x*TS, sy=y*TS-e*EH;
-    fondTuile(solG,t,sx,sy,x,y);
-    if(t===S.EAU||t===S.EAUPROF) rives(solG,sx,sy,x,y); else bordures(solG,t,sx,sy,x,y);
+  for(let i=0;i<NB_BANDES;i++) if(bandes[i]){ toilesLibres.push(bandes[i].cv); bandes[i]=null; }
+  batirBande(bandeDe(J.y),1e9);
+}
+/* Avance la construction des bandes, un peu à chaque image. Le budget est
+   TOUJOURS plafonné : une construction d'un bloc coûtait jusqu'à 44 ms, soit
+   deux images sautées et un à-coup net. On anticipe donc la bande d'à côté
+   bien avant d'y arriver, plutôt que de la bâtir en catastrophe au moment de
+   franchir la frontière. */
+const ROWS_VUE=26, ROWS_AVANCE=10;
+function majBandes(){
+  const i0=bandeDe(cam.y), i1=bandeDe(cam.y+H);
+  for(let i=i0;i<=i1;i++){
+    if(bandes[i]&&bandes[i].pret) continue;
+    batirBande(i,ROWS_VUE); return;
   }
-  // 2) les faces de falaise (après tous les sols)
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
-    const e=etage[y*MW+x];
-    if(e===0) continue;
-    const sx=x*TS, sy=y*TS-e*EH;
-    if(Etg(x,y+1)<e && Sol(x,y+1)!==S.RAMPE) faceFalaise(solG,sx,sy+TS,x,y);
-    if(Etg(x-1,y)<e){ solG.fillStyle=PS.rocC; solG.fillRect(sx,sy,3,TS);
-      solG.fillStyle=PS.rocD; solG.fillRect(sx,sy,1,TS); }
-    if(Etg(x+1,y)<e){ solG.fillStyle=PS.rocC; solG.fillRect(sx+TS-3,sy,3,TS);
-      solG.fillStyle=PS.rocD; solG.fillRect(sx+TS-1,sy,1,TS); }
-    if(Etg(x,y-1)<e){ solG.fillStyle='rgba(0,0,0,.22)'; solG.fillRect(sx,sy,TS,2); }
+  /* Anticipation : dès que le héros s'approche à moins de 24 rangées d'une
+     frontière, la bande suivante se prépare. */
+  const ty=Math.floor(J.y/TS), iJ=bandeDe(J.y);
+  const versLeBas=(iJ+1)*HB-ty<24, versLeHaut=ty-iJ*HB<24;
+  for(const i of [versLeBas?iJ+1:-1, versLeHaut?iJ-1:-1, i1+1, i0-1]){
+    if(i<0||i>=NB_BANDES) continue;
+    if(bandes[i]&&bandes[i].pret) continue;
+    batirBande(i,ROWS_AVANCE); return;
   }
-  // 3) ombres portées des falaises sur le sol du bas
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
-    if(Etg(x,y)===0 && Etg(x,y-1)>0 && Sol(x,y)!==S.RAMPE && Sol(x,y)!==S.EAU){
-      solG.fillStyle='rgba(10,12,24,.30)'; solG.fillRect(x*TS,y*TS,TS,4);
-      solG.fillStyle='rgba(10,12,24,.16)'; solG.fillRect(x*TS,y*TS+4,TS,3);
-    }
-  }
+  libererBandesLointaines();
 }
 function rafraichirTuile(x,y){
-  const t=sol[y*MW+x], e=etage[y*MW+x], sx=x*TS, sy=y*TS-e*EH;
-  fondTuile(solG,t,sx,sy,x,y); bordures(solG,t,sx,sy,x,y);
+  const b=bandes[bandeDe(y*TS)];
+  if(!b||!b.pret) return;                    // pas encore bâtie : rien à rafraîchir
+  const t=sol[y*MW+x], e=etage[y*MW+x], sx=x*TS, sy=y*TS-e*EH-b.oy;
+  fondTuile(b.g,t,sx,sy,x,y); bordures(b.g,t,sx,sy,x,y);
 }
 
 /* ====================== ATLAS DE SPRITES (contour auto) ====================== */
@@ -6695,6 +6796,7 @@ function voileMarais(ox,oy){
 
 function rendreMonde(){
   majCamera();
+  majBandes();                 // le sol se construit par tranches, jamais d'un bloc
   const sk=secousse>0?secousse:0;
   const ox=sk?Math.round((rnd()-.5)*sk):0, oy=sk?Math.round((rnd()-.5)*sk):0;
 
@@ -6704,8 +6806,8 @@ function rendreMonde(){
   const x0=Math.max(0,(cam.x/TS|0)-1), x1=Math.min(MW-1,((cam.x+W)/TS|0)+1);
   const y0=Math.max(0,(cam.y/TS|0)-2), y1=Math.min(MH-1,((cam.y+H)/TS|0)+3);
 
-  const syA=Math.max(0,cam.y-EH), syB=Math.min(solCV.height,cam.y+H+4);
-  X.drawImage(solCV,cam.x,syA,W,syB-syA,cam.x,syA,W,syB-syA);
+  const syA=Math.max(0,cam.y-EH), syB=Math.min(MH*TS,cam.y+H+4);
+  dessinerSol(X,cam.x,syA,W,syB-syA);
   eauAnimee(X,x0,x1,y0,y1);
   laveAnimee(X,x0,x1,y0,y1);
 

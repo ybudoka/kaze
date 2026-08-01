@@ -314,6 +314,9 @@ Autres pièges rencontrés en construisant la région :
 - **Tout est dans une seule portée JavaScript** : deux `function` de même nom
   s'écrasent silencieusement, la dernière l'emportant (cf. `ouvrirCoffre`).
   Vérifier qu'un nouveau nom de fonction est libre avant de l'employer.
+- **Ne jamais pré-rendre à la taille du monde** : un canvas de la taille de la
+  carte gèle le chargement et dépasse la limite des navigateurs mobiles (~16 Mpx
+  sur iOS). Découper, construire à la demande, recycler (cf. 15).
 - **Les listes construites une fois à la génération ne suivent pas les tuiles
   modifiées** : `torches` (l'éclairage) doit être refaite à chaque changement de
   décor **et après application des différences au chargement** (cf. 9.3). Même
@@ -911,4 +914,68 @@ ouvrent maintenant la route des Cimes, et la fin attend le Rongeur.
 `20-nues-faille.js` et `21-fin.js` mesurent tout cela sur le vrai jeu : chute et
 vol plané, colonnes avec et sans cape, carillons à l'épée puis au boomerang,
 sceaux, paliers du Rongeur, parcours réel de la caméra et morceaux traversés.
+
+---
+
+## 15. ⚠️ Performance : le sol pré-rendu d'un seul bloc
+
+| | |
+|---|---|
+| **Symptôme** | « Il y a des gros problèmes de performance. » |
+| **Cause** | Le sol était pré-rendu sur **un seul canvas de la taille du monde** : `MW*TS × MH*TS`, soit **1408 × 10240 px — 14,4 Mpx, ~55 Mo**. Il était reconstruit intégralement à chaque génération **et à chaque chargement de partie**. |
+| **Mesuré** | `prerendreSol()` : **720 ms de gel**. En marchant à travers les régions : **58 images sur 419 au-dessus de 20 ms**, la pire à **103 ms**. |
+
+Ce n'était pas seulement lent : **iOS refuse les canvas au-delà d'environ
+16 Mpx**. À 14,4 Mpx, une région de plus et le jeu ne s'affichait plus du tout.
+
+### Le correctif : des bandes construites en chemin
+
+Le sol est découpé en **bandes d'une région** (80 rangées), chacune
+1408 × 1312 px (1,8 Mpx), avec une marge haute et basse pour le relief — une
+tuile surélevée déborde vers le haut, une face de falaise vers le bas.
+
+- **Chargement** : seule la bande où se tient le héros est bâtie. Les autres
+  attendent.
+- **En jeu** : `majBandes()` avance la construction d'un nombre **plafonné** de
+  rangées par image. Jamais de bloc, donc jamais d'à-coup.
+- **Anticipation** : dès que le héros s'approche à moins de 24 rangées d'une
+  frontière, la bande suivante se prépare — elle est prête avant qu'il n'y
+  arrive.
+- **Recyclage** : au plus quatre bandes en mémoire, et les toiles évincées
+  repartent dans un **pot commun**. En créer une et la laisser au ramasse-miettes
+  coûtait jusqu'à 40 ms.
+
+### Résultat mesuré
+
+| | avant | après |
+|---|---|---|
+| Pré-rendu au chargement | 720 ms | **91 ms** |
+| Mémoire de sol | 55 Mo | **7 Mo** (14 Mo au plus) |
+| Plus grande toile | 14,4 Mpx | **1,8 Mpx** |
+| Images > 20 ms (traversée des 8 régions) | 58 / 419 | **1 / 419** |
+| Pire image | 103 ms | **35 ms** |
+| p99 | 28,5 ms | **17,8 ms** |
+
+### Vérifié
+
+Le rendu du sol a été comparé **pixel à pixel** avec l'ancien, sur onze lieux
+répartis dans les huit régions : **identique partout**.
+
+> Le premier essai comparait 9 lieux sur 11 seulement. Les deux qui différaient
+> — les Sables et le Marais — n'étaient pas des bugs : le pré-rendu **fige les
+> sols animés** (sables mouvants, vase) à l'instant de la cuisson, et les deux
+> versions ne cuisaient pas à la même image. En fixant `tick`, l'égalité est
+> parfaite. Une différence d'image n'est pas toujours une régression.
+
+`22-performance.js` garde ces gains. Il ne mesure pas « c'est rapide » — une
+machine d'intégration n'est pas un téléphone — mais des propriétés
+**structurelles** : taille des toiles, nombre bâti au chargement, plafond réel
+par image, recyclage effectif, et le fait que traverser les huit régions
+**n'alloue plus rien**.
+
+> Piège du contrôle lui-même : la première version mesurait `batirBande()`
+> appelée à la main, et restait verte alors qu'on avait retiré le plafond de
+> `majBandes()` — c'est-à-dire de ce qu'une image fait réellement. Elle mesure
+> désormais `majBandes()`, et la médiane des images de construction plutôt que
+> la première, qui paie seule l'achat de la toile.
 
