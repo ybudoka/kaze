@@ -483,3 +483,60 @@ Tout est vérifié dans `12-cimes-lagon.js` : biomes, six monstres armés, boome
 (vol/retour, glace, crabe), palmes (nage), les deux gardiens (Roi Yéti scellé,
 Léviathan cerné d'eau), quêtes annexes, musique, mini-carte, et rien de perdu au
 rechargement — le tout mesuré sur le vrai jeu.
+
+---
+
+## 12. Énigmes, grappin et un nouveau marteau
+
+### 12.1 Des briques d'énigme réutilisables
+
+Cinq pièces, posées d'un monde à l'autre, décrites en données (`PUZZLES`,
+`poserEnigmes`) et résolues par `majPuzzles` :
+
+- **`CAISSE`** — se pousse en avançant dans sa direction (`pousserCaisse`), si la
+  case au-delà est un sol libre ;
+- **`PLAQUE`** — une **dalle de pression** (un *sol*, pas un objet, pour qu'une
+  caisse puisse s'y poser) ; couverte par une caisse **ou** par le héros ;
+- **`PORTEP`** — une porte à mécanisme, ouverte quand **toutes** les plaques de
+  son énigme sont couvertes ;
+- **`INTER`** + **`BLOCB`/`BLOCO`** — un interrupteur frappé (épée, flèche,
+  boomerang) **bascule sa région** : les blocs bleus s'abaissent, les orange se
+  lèvent, et inversement. L'état vit dans `Q.inter[region]`, la solidité est
+  dynamique (`solide`), le rendu suit.
+
+La vallée **enseigne** chaque mécanique isolément ; les Cendres **combinent**
+(deux plaques à couvrir *en même temps* — une seule caisse ne suffit plus).
+
+> Pourquoi c'est robuste au rechargement : une caisse déplacée et une porte
+> ouverte sont des **changements de décor** (tableau `objs`), déjà sauvegardés
+> par les différences. Aucun champ de sauvegarde en plus. Les récompenses
+> uniques (grappin, cœurs de cristal) sont des **butins reposés par `peupler`**
+> tant qu'un drapeau `Q` dit qu'on ne les a pas — comme la clé de pierre.
+
+### 12.2 Le grappin, mesuré comme une vraie traversée
+
+Le **grappin** (`lancerGrappin`) accroche une **`ANCRE`** dans la direction du
+regard et tire le héros jusqu'à la case d'avant, **par-dessus l'eau** — un mur
+plein arrête la chaîne. La salle du gouffre le prouve : sa douve barre **toute**
+la hauteur intérieure, si bien qu'un parcours à blanc (vraies collisions) trouve
+le trésor **injoignable à pied** et **joignable au grappin**.
+
+> Piège évité : la première douve ne couvrait que le centre de la salle ; on la
+> contournait par la rangée du haut. Un test de reachability l'a chiffré, pas
+> supposé — la douve va maintenant d'un mur à l'autre.
+
+> Autre piège : les salles d'énigme, posées **après** le village, recouvraient
+> les clairières de deux lucioles d'or (n° 4 et 7) de leurs murs. Elles ont été
+> déplacées dans des poches vides ; le contrôle des lucioles (test 05) le
+> garantit.
+
+### 12.3 Le marteau ne balaie plus comme l'épée
+
+| | |
+|---|---|
+| **Avant** | Le marteau réutilisait l'animation du coup d'épée (`J.atk`) : même arc horizontal, on ne distinguait pas les deux armes. |
+| **Après** | Le marteau a son propre état (`J.slam`) : il **se lève au-dessus de la tête et s'abat** droit devant (`dessinerMarteau`), avec une **onde de choc** au sol et une secousse plus lourde. Le coup lui-même (`slamMarteau`) part **à l'impact** (`SLAM_IMPACT`), pas au déclenchement. |
+
+Vérifié dans `13-enigmes.js` : appuyer sur **Y** avec le marteau met `J.slam > 0`
+et **laisse `J.atk` à zéro** (c'est un *slam*, pas un coup d'épée), et la roche
+noire ne cède qu'**à l'impact**.

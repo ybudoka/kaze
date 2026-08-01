@@ -88,6 +88,26 @@ révèle et un cœur de cristal apparaît au Temple de Givre.
 de **cinq perles**, éparpillées dans les coraux du Lagon. Ramène-les-lui, palmes
 aux pieds, contre 150 rubis et une potion.
 
+## Énigmes
+
+Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée les
+**enseigne** une à une ; les régions suivantes les **combinent**.
+
+- **La caisse et la plaque** — pousse une **caisse** (avance dans sa direction)
+  sur une **dalle de pression** pour ouvrir une porte à mécanisme. Aux Cendres,
+  il faut couvrir **deux dalles à la fois** : une seule caisse ne suffit plus.
+- **L'interrupteur** — frappe le **cristal** (épée, flèche ou boomerang) pour
+  **abaisser les blocs bleus** et lever les orange, et inversement.
+- **Le grappin** — vise une **ancre** et appuie sur **Y** : il t'y tire, par-dessus
+  l'eau ou un gouffre qu'aucune autre traversée ne franchit. On le gagne dans la
+  première salle d'énigme de la vallée.
+
+Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
+et s'abat** droit devant, avec une onde de choc au sol.
+
+Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les quatre
+en jeu et les quatre à venir, jusqu'au boss final et à sa fin.
+
 ## Gemmes
 
 Un **coup d'épée ramasse** ce qu'il touche — inutile de marcher pile dessus.
@@ -114,7 +134,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 243 contrôles, ~18 s
+npm test                          # 259 contrôles, ~19 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

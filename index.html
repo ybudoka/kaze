@@ -244,6 +244,9 @@ const enCimes  = py => py >= Y_CIMES*TS  && py < Y_LAGON*TS;
 const enLagon  = py => py >= Y_LAGON*TS;
 /* La région d'un point, du nom des morceaux et des libellés de carte. */
 const regionDe = py => enLagon(py)?'lagon':enCimes(py)?'cimes':enCendre(py)?'cendre':'vallee';
+/* Indice de région (0-3) d'une RANGÉE de tuiles — pour les interrupteurs, dont
+   l'état est propre à chaque région, une énigme de bascule par région. */
+const regionIdx = ty => ty>=Y_LAGON?3:ty>=Y_CIMES?2:ty>=Y_CENDRE?1:0;
 
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -821,23 +824,25 @@ function basculerMusique(){
 const S = {HERBE:0,TERRE:1,EAU:2,SABLE:3,DALLE:4,RAMPE:5,TAPIS:6,
            CENDRE:7,LAVE:8,BRAISE:9,BASALTE:10,
            /* Cimes Gelées */ NEIGE:11,GLACE:12,ROCHE:13,
-           /* Lagon d'Azur */ EAUPROF:14,CORAIL:15};                // sol
+           /* Lagon d'Azur */ EAUPROF:14,CORAIL:15,
+           /* énigmes : plaque de pression, au sol */ PLAQUE:16};   // sol
 const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNEAU:8,
            SOUCHE:9,FLEUR:10,BLOC:11,PORTE:12,GRILLE:13,OEIL:14,FISSURE:15,
            ROCNOIR:16,PORTAIL:17,CRISTAL:18,BRASIER:19,BRASIERVIF:20,LANTERNE:21,
            /* Cimes */ GLACON:22,SAPIN:23,CAIRN:24,CLOCHE:25,
-           /* Lagon */ PALMIER:26,CORAILO:27};
+           /* Lagon */ PALMIER:26,CORAILO:27,
+           /* énigmes */ CAISSE:28,INTER:29,BLOCB:30,BLOCO:31,ANCRE:32,PORTEP:33};
 
-/*                index 0  1  2 3  4  5  6  7  8 9 10 11 12 13 14 15  16 17 18  19 20 21  22 23 24 25  26 27 */
-const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16];
-const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1];
+/*                index 0  1  2 3  4  5  6  7  8 9 10 11 12 13 14 15  16 17 18  19 20 21  22 23 24 25  26 27  28 29 30 31 32 33 */
+const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16,  14,18,16,16,28,20];
+const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  1,1,0,0,1,1];
 /* Ce qu'un saut permet réellement d'enjamber. Tout le reste — murs, portes,
    grilles, murs fissurés, piliers, statues, arbres, maisons — reste infranchissable
    quelle que soit la hauteur atteinte, sinon le saut annulerait toute la progression. */
 /* La roche noire ne s'enjambe pas : elle ne cède qu'au marteau. Le bloc de
    glace non plus : il ne cède qu'au boomerang. La cloche de givre, elle, se
    franchit — c'est un simple carillon que le boomerang fait sonner. */
-const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0];
+const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0,  0,0,0,0,0,0];
 
 const sol   = new Uint8Array(MW*MH);
 const objs  = new Uint8Array(MW*MH);
@@ -876,7 +881,7 @@ let torches=[], panneaux=[];
 function genererMonde(){
   _s=987654321;
   sol.fill(S.HERBE); objs.fill(O.RIEN); etage.fill(0); vu.fill(0);
-  torches=[]; panneaux=[];
+  torches=[]; panneaux=[]; PUZZLES=[];
 
   /* --- falaise-frontière --- */
   rectO(0,0,MW,3,O.MUR); rectO(0,MH-3,MW,3,O.MUR);
@@ -975,6 +980,9 @@ function genererMonde(){
   genererCimes();
   genererLagon();
 
+  /* --- les énigmes, semées dans les quatre régions --- */
+  poserEnigmes();
+
   inventorierTorches();
 
   objsRef=objs.slice();          // état de référence pour les sauvegardes
@@ -1002,6 +1010,8 @@ function baseSol(px,py){
   }
   return Etg(tx,ty)*EH;
 }
+/* État de l'interrupteur à bascule d'une région (0 ou 1). */
+function etatInter(ty){ return (Q.inter&&Q.inter[regionIdx(ty)])?1:0; }
 function solide(px,py,z){
   const tx=Math.floor(px/TS), ty=Math.floor(py/TS);
   if(!dansCarte(tx,ty)) return true;
@@ -1011,6 +1021,9 @@ function solide(px,py,z){
   if((st===S.EAU||st===S.EAUPROF)&&!Q.palmes) return true;
   const o=Obj(tx,ty);
   if(o===O.PORTAIL) return !Q.portailOuvert;          // franchissable une fois ouvert
+  // blocs à bascule : le bleu est plein quand l'interrupteur est éteint, l'orange l'inverse
+  if(o===O.BLOCB) return etatInter(ty)===0;
+  if(o===O.BLOCO) return etatInter(ty)===1;
   if(o&&DUR_O[o]){
     if(!FRANCH_O[o]) return true;                     // obstacle plein : jamais franchissable
     return z <= Etg(tx,ty)*EH + HAUT_O[o]-3;          // buisson, rocher, souche
@@ -1092,6 +1105,13 @@ function fondTuile(g,t,sx,sy,x,y){
   if(t===S.EAU){ g.fillStyle=PS.eauP; g.fillRect(sx,sy,TS,TS); return; }
   if(t===S.LAVE){ g.fillStyle=PS.laveP; g.fillRect(sx,sy,TS,TS); return; }
   if(t===S.EAUPROF){ g.fillStyle=PS.eauprofP; g.fillRect(sx,sy,TS,TS); return; }
+  if(t===S.PLAQUE){                              // plaque de pression (énigme)
+    g.fillStyle=PS.dalle[1]; g.fillRect(sx,sy,TS,TS);
+    g.fillStyle=PS.dalleO; g.fillRect(sx+2,sy+2,TS-4,TS-4);
+    g.fillStyle='#6a7290'; g.fillRect(sx+3,sy+3,TS-6,TS-6);
+    g.fillStyle='#c8d0e8'; g.fillRect(sx+6,sy+6,4,4);          // repère central
+    return;
+  }
   const pal = t===S.TERRE?PS.terre : t===S.SABLE?PS.sable : t===S.DALLE?PS.dalle
             : t===S.TAPIS?PS.tapis : t===S.RAMPE?PS.terre
             : t===S.CENDRE?PS.cendre : t===S.BASALTE?PS.basalte
@@ -1792,6 +1812,13 @@ function bakeDecors(){
     rc(g,5,4,3,6,'#eaf6ff'); rc(g,5,4,6,3,'#eaf6ff');
     rc(g,11,4,2,2,'#5a9ec8');
   });
+  faireSprite('grappinItem',14,14,g=>{               // dans la boîte d'objet
+    rc(g,2,6,7,2,'#8a8f9e');                          // chaîne
+    rc(g,3,7,5,1,'#c8cede');
+    rc(g,8,3,3,8,'#6a6f80');                          // crochet
+    rc(g,8,3,4,2,'#9aa0b0'); rc(g,10,9,3,2,'#9aa0b0');
+    rc(g,8,3,2,2,'#c8cede');
+  });
   faireSprite('fleur1',14,12,g=>{
     rc(g,6,5,2,7,'#2f7a38'); rc(g,3,7,3,1,'#2f7a38'); rc(g,8,6,3,1,'#2f7a38');
     rc(g,4,2,6,4,'#e8607a'); rc(g,5,1,4,2,'#f090a4'); rc(g,6,3,2,2,'#ffe06a');
@@ -1837,7 +1864,10 @@ function razQuetes(){
     prime:0,primeRendue:false,feeVue:false,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false,
     /* Cimes Gelées */ boomerang:false,cloches:0,yetiTue:false,
-    /* Lagon d'Azur */ palmes:false,perles:0,perlesRendues:false,naufrageParle:false,leviathanTue:false});
+    /* Lagon d'Azur */ palmes:false,perles:0,perlesRendues:false,naufrageParle:false,leviathanTue:false,
+    /* énigmes : le grappin, les interrupteurs à bascule, et les trésors uniques */
+    grappin:false,inter:[0,0,0,0],
+    tresorInter:false,tresorGouffre:false,tresorCendre:false});
 }
 
 /* ---------------------------- SPRITES DE QUÊTE ---------------------------- */
@@ -2378,6 +2408,70 @@ const LAGON={
 const PALMES_POS=[43,251];             // sur la grève, avant l'eau profonde
 const NAUFRAGE_POS=[38,249];           // le naufragé, sur la grève
 const PERLES_POS=[[13,274],[63,266],[27,304],[71,300],[46,262]];   // cinq perles
+
+/* ==========================================================================
+   LES ÉNIGMES — semées d'un monde à l'autre, de plus en plus retorses.
+   Vallée : on APPREND chaque mécanique (une plaque, un interrupteur, le
+   grappin) ; les régions suivantes les COMBINENT. Les salles sont posées dans
+   des poches vides, chacune close, avec une seule entrée.
+   ========================================================================== */
+/* Salles posées dans des poches vides, à l'écart des clairières de lucioles,
+   des structures et des sentiers de la vallée. */
+const ENIG={
+  caisse:{x0:55,y0:64,w:8,h:9},        // vallée : caisse → plaque → GRAPPIN
+  inter:{x0:73,y0:25,w:9,h:8},         // vallée : interrupteur → trésor
+  gouffre:{x0:3,y0:28,w:9,h:9},        // vallée : le grappin franchit l'eau
+  cendre:{x0:58,y0:118,w:11,h:10}      // Cendres : deux caisses, deux plaques
+};
+const GRAPPIN_POS  =[ENIG.caisse.x0+3, ENIG.caisse.y0+1];   // alcôve de la salle de la caisse
+const TRESOR_INTER =[ENIG.inter.x0+5,  ENIG.inter.y0+1];
+const TRESOR_GOUFFRE=[ENIG.gouffre.x0+7,ENIG.gouffre.y0+2];
+const TRESOR_CENDRE=[ENIG.cendre.x0+5, ENIG.cendre.y0+1];
+function poserEnigmes(){
+  const salle=s=>{
+    rectS(s.x0,s.y0,s.w,s.h,S.DALLE); rectE(s.x0,s.y0,s.w,s.h,0); rectO(s.x0,s.y0,s.w,s.h,O.RIEN);
+    cadreO(s.x0,s.y0,s.w,s.h,O.MUR);
+    putO(s.x0+1,s.y0+1,O.TORCHE); putO(s.x0+s.w-2,s.y0+1,O.TORCHE);
+  };
+  const entree=(s,cx)=>{ for(const x of [cx,cx+1]){ putO(x,s.y0+s.h-1,O.RIEN); putS(x,s.y0+s.h-1,S.DALLE); } };
+
+  /* --- Vallée 1 : la caisse et la plaque, qui délivre le GRAPPIN --- */
+  {const s=ENIG.caisse, cx=s.x0+3, wy=s.y0+3; salle(s); entree(s,cx);
+   for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,wy,O.MUR);      // mur intérieur : sépare l'alcôve
+   putO(cx,wy,O.PORTEP); putO(cx+1,wy,O.PORTEP);             // la porte à mécanisme
+   putO(cx,s.y0+1,O.RIEN); putO(cx+1,s.y0+1,O.RIEN);         // l'alcôve du grappin, dégagée
+   putO(cx,s.y0+6,O.CAISSE);                                 // la caisse, au-dessus de la plaque
+   putS(cx,s.y0+7,S.PLAQUE);
+   PUZZLES.push({plaques:[[cx,s.y0+7]],portes:[[cx,wy],[cx+1,wy]]});
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"POUSSE LA CAISSE SUR LA DALLE."});
+  }
+  /* --- Vallée 2 : l'interrupteur à bascule et les blocs bleus --- */
+  {const s=ENIG.inter, wy=s.y0+4; salle(s); entree(s,s.x0+3);
+   for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,wy,O.BLOCB);    // barrière bleue (pleine au repos)
+   putO(s.x0+1,s.y0+s.h-2,O.INTER);                          // l'interrupteur, en bas
+   putO(TRESOR_INTER[0],TRESOR_INTER[1],O.RIEN);
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"FRAPPE LE CRISTAL : LES BLOCS BLEUS S'ABAISSENT."});
+  }
+  /* --- Vallée 3 : le gouffre que seul le grappin franchit ---
+     La douve barre TOUTE la hauteur intérieure : aucun détour à pied. */
+  {const s=ENIG.gouffre; salle(s); entree(s,s.x0+2);
+   for(let y=s.y0+1;y<=s.y0+s.h-2;y++){ putS(s.x0+4,y,S.EAU); putO(s.x0+4,y,O.RIEN); }  // douve
+   putO(s.x0+6,s.y0+4,O.ANCRE);                              // l'ancre, de l'autre côté
+   putO(TRESOR_GOUFFRE[0],TRESOR_GOUFFRE[1],O.RIEN);
+   putO(s.x0+s.w-2,s.y0+1,O.TORCHE);                         // torche côté lointain
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"VISE L'ANCRE AVEC LE GRAPPIN."});
+  }
+  /* --- Cendres : deux caisses sur deux plaques en même temps --- */
+  {const s=ENIG.cendre, wy=s.y0+3; salle(s); entree(s,s.x0+4);
+   for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,wy,O.MUR);
+   putO(s.x0+5,wy,O.PORTEP); putO(s.x0+6,wy,O.PORTEP);
+   putO(TRESOR_CENDRE[0],TRESOR_CENDRE[1],O.RIEN);
+   putO(s.x0+2,s.y0+6,O.CAISSE); putS(s.x0+2,s.y0+7,S.PLAQUE);
+   putO(s.x0+8,s.y0+6,O.CAISSE); putS(s.x0+8,s.y0+7,S.PLAQUE);
+   PUZZLES.push({plaques:[[s.x0+2,s.y0+7],[s.x0+8,s.y0+7]],portes:[[s.x0+5,wy],[s.x0+6,wy]]});
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"DEUX DALLES, DEUX CAISSES, EN MÊME TEMPS."});
+  }
+}
 function genererLagon(){
   const Y0=Y_LAGON, Y1=MH;
   const PAS=6, NG=Math.ceil(MW/PAS)+2, MG=Math.ceil((Y1-Y0)/PAS)+2;
@@ -2717,6 +2811,86 @@ function ouvrirGrille(){
   SFX.coffre(); secousse=9; annonce('LA GRILLE SE LÈVE'); autoSauver();
 }
 
+/* ============================ ÉNIGMES ============================
+   Trois briques réutilisables d'un monde à l'autre :
+   - la CAISSE se pousse sur une PLAQUE de pression ;
+   - toutes les plaques d'une énigme couvertes, ses PORTES à mécanisme s'ouvrent ;
+   - un INTERRUPTEUR frappé bascule les blocs bleus/orange de sa région.
+   Les caisses déplacées et les portes ouvertes sont des changements de décor :
+   ils survivent au rechargement sans champ de sauvegarde en plus. */
+let PUZZLES=[];              // {plaques:[[x,y]…], portes:[[x,y]…], fini}
+
+function plaqueCouverte(x,y){
+  if(Obj(x,y)===O.CAISSE) return true;
+  return Math.floor(J.x/TS)===x&&Math.floor(J.y/TS)===y&&J.z<10;
+}
+function majPuzzles(){
+  for(const pz of PUZZLES){
+    if(pz.fini) continue;
+    if(pz.plaques.length&&pz.plaques.every(([x,y])=>plaqueCouverte(x,y))){
+      pz.fini=true;
+      let ouvert=false;
+      for(const [gx,gy] of pz.portes) if(Obj(gx,gy)===O.PORTEP){
+        putO(gx,gy,O.RIEN); rafraichirTuile(gx,gy); ouvert=true;
+        particules(gx*TS+8,gy*TS+8-Etg(gx,gy)*EH,Etg(gx,gy)*EH+8,10,'#cfe0ff',2.4,24);
+      }
+      if(ouvert){ SFX.coffre(); secousse=5; annonce('UN MÉCANISME CÈDE'); autoSauver(); }
+    }
+  }
+}
+/* Frappe un interrupteur (épée, flèche, boomerang) : bascule sa région. */
+function basculerInter(tx,ty){
+  if(Obj(tx,ty)!==O.INTER) return false;
+  const r=regionIdx(ty);
+  if(!Q.inter) Q.inter=[0,0,0,0];
+  Q.inter[r]=Q.inter[r]?0:1;
+  SFX.coffre(); secousse=5; son(660,.1,'square',.05,-120); son(990,.12,'square',.04,0,.06);
+  particules(tx*TS+8,ty*TS+6-Etg(tx,ty)*EH,Etg(tx,ty)*EH+10,14,'#a8f0ff',2.2,22);
+  // le héros qui se retrouverait dans un bloc devenu plein est dégagé
+  degager(J);
+  autoSauver();
+  return true;
+}
+/* Pousse la caisse devant le héros s'il appuie assez longtemps dans sa
+   direction et que la case au-delà est un sol libre. */
+function pousserCaisse(){
+  const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
+  const fx=Math.floor((J.x+vd[0]*11)/TS), fy=Math.floor((J.y+vd[1]*11)/TS);
+  if(Obj(fx,fy)!==O.CAISSE){ J.pousse=0; return; }
+  J.pousse=(J.pousseDir===J.dir)?J.pousse+1:1; J.pousseDir=J.dir;
+  if(J.pousse<12) return;
+  const nx=fx+vd[0], ny=fy+vd[1];
+  const solOk=[S.HERBE,S.TERRE,S.SABLE,S.DALLE,S.TAPIS,S.CENDRE,S.BASALTE,S.NEIGE,S.ROCHE,S.CORAIL,S.PLAQUE].includes(Sol(nx,ny));
+  if(dansCarte(nx,ny)&&Obj(nx,ny)===O.RIEN&&solOk&&Etg(nx,ny)===Etg(fx,fy)){
+    putO(fx,fy,O.RIEN); putO(nx,ny,O.CAISSE);
+    rafraichirTuile(fx,fy); rafraichirTuile(nx,ny);
+    J.x+=vd[0]*3; J.y+=vd[1]*3;                 // le héros suit la caisse
+    son(150,.12,'square',.05,-40); particules(fx*TS+8,fy*TS+12,Etg(fx,fy)*EH,4,'#a08050',1.2,14);
+    J.pousse=0;
+  }
+}
+/* Le GRAPPIN accroche une ANCRE dans la direction du regard et tire le héros
+   jusqu'à elle — par-dessus l'eau ou un gouffre qu'aucune autre traversée ne
+   franchit. Un mur plein arrête la chaîne. */
+const GRAP_RANGE=9;
+function lancerGrappin(){
+  if(J.grap) return;
+  const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
+  const cx=Math.floor(J.x/TS), cy=Math.floor(J.y/TS);
+  for(let k=1;k<=GRAP_RANGE;k++){
+    const tx=cx+vd[0]*k, ty=cy+vd[1]*k;
+    if(!dansCarte(tx,ty)) break;
+    const o=Obj(tx,ty);
+    if(o===O.ANCRE){                            // accrochée : on tire jusqu'à la case d'avant
+      const dtx=tx-vd[0], dty=ty-vd[1];
+      J.grap={sx:J.x,sy:J.y,ex:dtx*TS+8,ey:dty*TS+8,ax:tx*TS+8,ay:ty*TS+8,t:0,dur:Math.max(6,k*3)};
+      SFX.fleche(); son(320,.14,'square',.04,220); return;
+    }
+    if(o&&DUR_O[o]&&!FRANCH_O[o]) break;        // un mur plein stoppe la chaîne
+  }
+  SFX.erreur(); if(msgT<=0) dire("RIEN À ACCROCHER DEVANT.");
+}
+
 /* -------------------- JOURNAL (SELECT) -------------------- */
 function lignesJournal(){
   const f=b=>b?'[X] ':'[ ] ';
@@ -2768,8 +2942,8 @@ function lignesJournal(){
   if(Q.portailOuvert||J.objets.includes('marteau')||Q.bottes)
     L.push([(J.objets.includes('marteau')?'MARTEAU':'-')+'   '
            +(Q.bottes?'BOTTES DE CENDRE':'-'),'#e8b0a0']);
-  if(Q.boomerang||Q.palmes)
-    L.push([(Q.boomerang?'BOOMERANG':'-')+'   '+(Q.palmes?'PALMES':'-'),'#aee0ff']);
+  if(Q.boomerang||Q.palmes||Q.grappin)
+    L.push([(Q.boomerang?'BOOMERANG':'-')+'  '+(Q.palmes?'PALMES':'-')+'  '+(Q.grappin?'GRAPPIN':'-'),'#aee0ff']);
   L.push(['BOUCLIER '+(Q.bouclierFort?'RENFORCÉ':'DE BOIS')+'   POTIONS '+Q.potions,'#c8d0e8']);
   return L;
 }
@@ -2834,7 +3008,8 @@ const OBJETS=[
   {id:'bombe',nom:'BOMBE',spr:'bombeItem'},
   {id:'arc',  nom:'ARC',  spr:'fleche'},
   {id:'marteau',nom:'MARTEAU',spr:'marteauItem'},
-  {id:'boomerang',nom:'BOOMERANG',spr:'boomerangItem'}
+  {id:'boomerang',nom:'BOOMERANG',spr:'boomerangItem'},
+  {id:'grappin',nom:'GRAPPIN',spr:'grappinItem'}
 ];
 
 const J={
@@ -2842,7 +3017,8 @@ const J={
   pv:6, pvmax:6, rubis:0, bombes:0, fleches:0, fragments:0,
   objets:[], objSel:0,
   atk:0, charge:0, spin:0, invuln:0, bouclier:false, kx:0, ky:0,
-  animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0
+  animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
+  slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null
 };
 
 function dire(t,duree=200){ message=t; msgT=duree; }
@@ -2894,6 +3070,7 @@ function peupler(){
     if(x>65&&x<80&&y>44&&y<64) continue;                 // arène réservée
     if(x>10&&x<21&&y>9&&y<19) continue;                  // clairière du chef
     if(x>11&&x<23&&y>63&&y<78) continue;                 // rive de la ruine
+    if(salleDe(x*TS+8,y*TS+8)) continue;                 // jamais dans une salle d'énigme
     const r=rnd();
     pondre(r<.34?'gluant':r<.62?'pieuvre':r<.82?'chauve':'squel',x,y);
     n++;
@@ -2914,6 +3091,7 @@ function peupler(){
     if(!libre(x,y)) continue;
     const a=CENDRE.arene;
     if(x>a.x0-1&&x<a.x0+a.w+1&&y>a.y0-1&&y<a.y0+a.h+1) continue;   // l'Antre reste vide
+    if(salleDe(x*TS+8,y*TS+8)) continue;                 // ni dans la salle d'énigme
     const r=rnd();
     pondre(r<.44?'braise':r<.76?'spectre':'golem',x,y);
     nc++;
@@ -2966,6 +3144,14 @@ function peupler(){
   // les perles restantes de la quête du naufragé
   for(let k=Q.perles;k<5;k++){ const [px,py]=PERLES_POS[k];
     butins.push({x:px*TS+8,y:py*TS+8,z:Etg(px,py)*EH,vz:0,type:'perle2',t:0}); }
+
+  /* --- récompenses des énigmes, reposées tant qu'on ne les a pas prises --- */
+  const tresor=(cond,pos,type,uf)=>{ if(cond) return;
+    butins.push({x:pos[0]*TS+8,y:pos[1]*TS+8,z:Etg(pos[0],pos[1])*EH,vz:0,type,uf,t:0}); };
+  tresor(Q.grappin,GRAPPIN_POS,'grappin');
+  tresor(Q.tresorInter,TRESOR_INTER,'coeurmax','tresorInter');
+  tresor(Q.tresorGouffre,TRESOR_GOUFFRE,'coeurmax','tresorGouffre');
+  tresor(Q.tresorCendre,TRESOR_CENDRE,'coeurmax','tresorCendre');
 }
 
 function reveillerBoss(){
@@ -2978,6 +3164,37 @@ function reveillerBoss(){
 }
 
 /* ============================ COMBAT ============================ */
+/* ---- le marteau : une chute verticale, pas un balayage ----
+   Le coup d'épée décrit un arc horizontal ; le marteau, lui, se lève au-dessus
+   de la tête et s'abat droit devant. L'onde de choc frappe au sol, en avant. */
+const SLAM_DUR=22;          // durée totale de l'animation
+const SLAM_IMPACT=11;       // à cette frame, la tête percute et le coup part
+function slamMarteau(){
+  const p=18, ox=[0,-p,0,p][J.dir], oy=[-p,0,p,0][J.dir];
+  const cx=J.x+ox, cy=J.y+oy, tx=Math.floor(cx/TS), ty=Math.floor(cy/TS);
+  SFX.epee(); secousse=11; bruit(.3,.08); son(90,.34,'sawtooth',.07,-40);
+  // onde de choc au sol
+  particules(cx,cy,Etg(tx,ty)*EH,18,'#d8c4a0',3.2,26);
+  for(let k=0;k<10;k++){ const a=k/10*6.2832;
+    parts.push({x:cx,y:cy,z:Etg(tx,ty)*EH+2,vx:Math.cos(a)*2.6,vy:Math.sin(a)*1.4,vz:.6,
+      vie:16,vie0:16,col:'#e8dcc0',t:0}); }
+  // la roche noire cède sur trois cases de large
+  for(let k=-1;k<=1;k++){
+    const bx=tx+(J.dir===0||J.dir===2?k:0), by=ty+(J.dir===1||J.dir===3?k:0);
+    if(Obj(bx,by)===O.ROCNOIR){
+      putO(bx,by,O.RIEN); rafraichirTuile(bx,by);
+      particules(bx*TS+8,by*TS+8,Etg(bx,by)*EH+8,10,'#5d5570',2.2,22);
+      SFX.coffre(); autoSauver();
+    }
+  }
+  for(const e of ennemis){
+    if(Math.abs(e.x-cx)<22&&Math.abs(e.y-cy)<22&&Math.abs(e.z-J.z)<24){
+      if(e.type==='golem'&&e.stun<=0){ e.stun=110; eclat(e.x,e.y-10,e.z+8,'#ff8b3a'); }
+      frapper(e,3,J.x,J.y,'marteau');
+    }
+  }
+  if(boss&&Math.abs(boss.x-cx)<32&&Math.abs(boss.y-cy)<32) frapper(boss,3,J.x,J.y,'marteau');
+}
 function frapper(e,deg,sx,sy,type){
   if(e.flash>6) return false;
   // le colosse de basalte n'est entamé que par le marteau, ou pendant qu'il
@@ -3121,25 +3338,10 @@ function majJoueur(){
   if(appui('Y')&&J.objets.length){ pris('Y');
     const o=J.objets[J.objSel];
     if(o==='marteau'){
-      // frappe lourde devant soi : brise la roche noire et fait vaciller les colosses
-      const p=18, ox=[0,-p,0,p][J.dir], oy=[-p,0,p,0][J.dir];
-      const tx=Math.floor((J.x+ox)/TS), ty=Math.floor((J.y+oy)/TS);
-      SFX.epee(); secousse=6; J.atk=Math.max(J.atk,10);
-      for(let k=-1;k<=1;k++){
-        const bx=tx+(J.dir===0||J.dir===2?k:0), by=ty+(J.dir===1||J.dir===3?k:0);
-        if(Obj(bx,by)===O.ROCNOIR){
-          putO(bx,by,O.RIEN); rafraichirTuile(bx,by);
-          particules(bx*TS+8,by*TS+8,Etg(bx,by)*EH+8,10,'#5d5570',2.2,22);
-          SFX.coffre(); autoSauver();
-        }
-      }
-      for(const e of ennemis){
-        if(Math.abs(e.x-(J.x+ox))<20&&Math.abs(e.y-(J.y+oy))<20&&Math.abs(e.z-J.z)<24){
-          if(e.type==='golem'&&e.stun<=0){ e.stun=110; eclat(e.x,e.y-10,e.z+8,'#ff8b3a'); }
-          frapper(e,3,J.x,J.y,'marteau');
-        }
-      }
-      if(boss&&Math.abs(boss.x-(J.x+ox))<30&&Math.abs(boss.y-(J.y+oy))<30) frapper(boss,3,J.x,J.y,'marteau');
+      // on ARME le marteau : il monte au-dessus de la tête, puis s'abat. Le
+      // coup lui-même part à l'impact (voir slamMarteau), pas tout de suite.
+      if(J.slam<=0&&J.atk<=0&&J.spin<=0){ J.slam=SLAM_DUR; J.slamHit=false;
+        son(220,.12,'triangle',.04,80); }
     }
     else if(o==='bombe') poserBombe();
     else if(o==='arc'){
@@ -3159,6 +3361,21 @@ function majJoueur(){
         SFX.fleche(); son(520,.09,'triangle',.045,180);
       } else SFX.erreur();
     }
+    else if(o==='grappin') lancerGrappin();
+  }
+
+  /* --- le grappin tire le héros jusqu'à l'ancre : il glisse en ligne droite,
+     par-dessus l'eau et les gouffres, et l'on ne fait rien d'autre pendant --- */
+  if(J.grap){
+    const g=J.grap; g.t++;
+    const u=clamp(g.t/g.dur,0,1);
+    J.x=lerp(g.sx,g.ex,u); J.y=lerp(g.sy,g.ey,u); J.z=baseSol(J.x,J.y); J.vz=0; J.enAir=false;
+    J.invuln=Math.max(J.invuln,6);
+    if(g.t%2===0) particules(J.x,J.y,J.z+10,1,'#c8d8ff',.8,10);
+    if(u>=1){ J.grap=null; SFX.saut(); degager(J); }
+    if(J.invuln>0) J.invuln--;
+    J.animT++;
+    return;
   }
 
   /* --- bouclier --- */
@@ -3169,14 +3386,16 @@ function majJoueur(){
   const amp=Math.hypot(dx,dy);
   if(amp>.001){ const g=clamp(amp/.62,0,1); dx=dx/amp*g; dy=dy/amp*g; }
   const bouge=amp>.12;
-  if(bouge && J.atk<=0 && J.spin<=0){
+  if(bouge && J.atk<=0 && J.spin<=0 && J.slam<=0){
     if(Math.abs(dx)>Math.abs(dy)) J.dir=dx>0?3:1; else J.dir=dy>0?2:0;
   }
+  // pousser une caisse : on appuie dans sa direction sans attaquer
+  if(bouge && J.atk<=0 && J.spin<=0 && J.slam<=0 && !J.enAir) pousserCaisse(); else J.pousse=0;
   // à la nage, palmes aux pieds : on avance un peu moins vite, et l'on ne saute pas
   const solJ=Sol(Math.floor(J.x/TS),Math.floor(J.y/TS));
   const nage=Q.palmes&&(solJ===S.EAU||solJ===S.EAUPROF);
   let v=1.55;
-  if(J.atk>0) v=.45; else if(J.spin>0) v=.8; else if(J.bouclier) v=.85;
+  if(J.atk>0) v=.45; else if(J.slam>0) v=.15; else if(J.spin>0) v=.8; else if(J.bouclier) v=.85;
   if(nage) v*=.78;
   bouger(J,dx*v+J.kx,dy*v+J.ky);
   J.kx*=.80; J.ky*=.80;
@@ -3200,8 +3419,8 @@ function majJoueur(){
 
   /* --- épée : le coup peut s'enchaîner dans sa phase de retour --- */
   const SEUIL=34;
-  if(appui('B')&&J.atk<=5&&J.spin<=0){ pris('B'); J.atk=14; J.charge=0; SFX.epee(); }
-  if(presse('B')&&J.spin<=0){
+  if(appui('B')&&J.atk<=5&&J.spin<=0&&J.slam<=0){ pris('B'); J.atk=14; J.charge=0; SFX.epee(); }
+  if(presse('B')&&J.spin<=0&&J.slam<=0){
     J.charge++;
     if(J.charge===SEUIL) son(1200,.14,'triangle',.045);
   }
@@ -3231,6 +3450,11 @@ function majJoueur(){
     if(J.spin%3===0) zoneDegats(J.x,J.y,Q.epeeLongue?66:54,Q.epeeLongue?62:50,
                                 (Q.epeeLongue?3:2)+(Q.epeeCendre?1:0),'epee');
     if(J.spin%5===0) particules(J.x+(rnd()-.5)*30,J.y+(rnd()-.5)*26,J.z+10,2,'#dfe8ff',1.2,12);
+  }
+  // le marteau : le coup part à mi-course, quand la tête percute le sol
+  if(J.slam>0){
+    J.slam--;
+    if(!J.slamHit&&J.slam<=SLAM_IMPACT){ J.slamHit=true; slamMarteau(); }
   }
 
   if(J.invuln>0) J.invuln--;
@@ -3277,6 +3501,7 @@ function majJoueur(){
 
   /* --- verrous du monde --- */
   verifierVerrous();
+  majPuzzles();
 
   /* --- points de sauvegarde : le village, puis toutes les minutes --- */
   if(dansRefuge(J.x,J.y)&&tempsJeu-dernierAuto>1800) autoSauver();
@@ -3390,12 +3615,20 @@ function ramasserButin(o){
   if(o.type==='palmes'){ Q.palmes=true; SFX.coffre(); secousse=6;
     annonce('LES PALMES'); particules(o.x,o.y,o.z+10,22,'#57c9bf',2.6,32);
     dire("LES PALMES ! TU PEUX NAGER DANS L'EAU PROFONDE.",300); autoSauver(); }
+  if(o.type==='grappin'){ Q.grappin=true;
+    if(!J.objets.includes('grappin')) J.objets.push('grappin');
+    J.objSel=J.objets.indexOf('grappin');
+    SFX.coffre(); secousse=6; annonce('LE GRAPPIN');
+    particules(o.x,o.y,o.z+10,22,'#c8d8ff',2.6,32);
+    dire("LE GRAPPIN ! VISE UNE ANCRE ET APPUIE SUR Y : IL T'Y TIRE.",320); autoSauver(); }
   if(o.type==='perle2'){ Q.perles=Math.min(5,Q.perles+1); SFX.rubis();
     son(920,.1,'triangle',.05,240,.05);
     particules(o.x,o.y,o.z+8,8,'#e8f4ff',1.8,22);
     dire('PERLE DU LAGON : '+Q.perles+'/5',120); autoSauver(); }
   if(o.type==='coeurmax'){ J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
     SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
+  // trésor unique d'une énigme : on retient qu'il est pris, il ne repousse plus
+  if(o.uf){ Q[o.uf]=true; autoSauver(); }
 }
 /* La cloche de givre : seul le boomerang la fait sonner. Trois sonnées, la
    région se révèle et un cœur de cristal apparaît au Temple de Givre. */
@@ -3489,12 +3722,13 @@ function zoneDegats(cx,cy,w,h,deg,type){
       butins.push({x:tx*TS+8,y:ty*TS+8,z:Etg(tx,ty)*EH,vz:1.5,type:'champi',t:0});
     else if(rnd()<.5) larguer(tx*TS+8,ty*TS+8,Etg(tx,ty)*EH);
   }
-  /* Objets de quête du décor : un coup les atteint sur toute la zone balayée,
-     pas seulement sur la tuile du centre — sinon il fallait viser au pixel. */
+  /* Objets de quête et d'énigme du décor : un coup les atteint sur toute la
+     zone balayée, pas seulement sur la tuile du centre. */
   for(let y=Math.floor((cy-h/2)/TS);y<=Math.floor((cy+h/2)/TS);y++)
     for(let x=Math.floor((cx-w/2)/TS);x<=Math.floor((cx+w/2)/TS);x++){
       if(!dansCarte(x,y)||Math.abs(Etg(x,y)*EH-J.z)>26) continue;
-      if(!allumerBrasier(x,y)) ramasserLanterne(x,y);
+      // la cloche de givre reste réservée au boomerang ; l'interrupteur cède à tout
+      if(allumerBrasier(x,y)||ramasserLanterne(x,y)||basculerInter(x,y)) continue;
     }
 }
 
@@ -3983,6 +4217,8 @@ function boomerangSurTuile(p){
     SFX.bouclier(); son(300,.12,'triangle',.05,-140);
   } else if(o===O.CLOCHE){
     sonnerCloche(tx,ty);
+  } else if(o===O.INTER){
+    basculerInter(tx,ty);
   } else if(p.ami&&o===O.OEIL){
     ouvrirGrille(); eclat(p.x,p.y,p.z,'#ffe86a');
   }
@@ -4032,6 +4268,9 @@ function majDivers(){
     if(p.ami&&Obj(tx,ty)===O.OEIL){
       ouvrirGrille(); eclat(p.x,p.y-p.z,p.z,'#ffe86a'); tirs.splice(i,1); continue;
     }
+    if(p.ami&&Obj(tx,ty)===O.INTER){
+      basculerInter(tx,ty); eclat(p.x,p.y-p.z,p.z,'#a8f0ff'); tirs.splice(i,1); continue;
+    }
     const mur=!dansCarte(tx,ty)||(Obj(tx,ty)&&DUR_O[Obj(tx,ty)]&&p.z<Etg(tx,ty)*EH+HAUT_O[Obj(tx,ty)]-4)
              ||Etg(tx,ty)*EH>p.z+6||(!p.ami&&dansRefuge(p.x,p.y));
     if(p.vie<=0||mur){ particules(p.x,p.y,p.z,5,'#b0a890',1.6,14); tirs.splice(i,1); continue; }
@@ -4058,8 +4297,8 @@ function majDivers(){
     const bb=baseSol(o.x,o.y);
     o.vz-=.16; o.z+=o.vz;
     if(o.z<=bb){ o.z=bb; if(Math.abs(o.vz)>.6) o.vz=-o.vz*.42; else o.vz=0; }
-    // clé, boomerang, palmes, perles et cœurs de quête ne disparaissent jamais
-    if(o.t>760&&!['cle','boomerang','palmes','perle2','coeurmax'].includes(o.type))
+    // clé, outils et objets de quête ne disparaissent jamais
+    if(o.t>760&&!['cle','boomerang','palmes','grappin','perle2','coeurmax'].includes(o.type))
       butins.splice(i,1);
   }
   for(let i=parts.length-1;i>=0;i--){
@@ -4309,6 +4548,55 @@ function decorTuile(g,x,y){
     g.fillStyle='#ffffff'; g.globalAlpha=.4; g.fillRect(gx+6,t+4,1,10); g.globalAlpha=1;
     return;
   }
+  /* ---- pièces d'énigme ---- */
+  if(o===O.CAISSE){                              // caisse à pousser
+    const gx=x*TS, t=by-14;
+    g.fillStyle='#6b4a2a'; g.fillRect(gx+1,t,TS-2,14);
+    g.fillStyle='#8a6238'; g.fillRect(gx+2,t+1,TS-4,12);
+    g.fillStyle='#a07a48'; g.fillRect(gx+2,t+1,TS-4,2);
+    g.fillStyle='#5a3d20'; g.fillRect(gx+2,t+2,TS-4,1); g.fillRect(gx+2,t+11,TS-4,1);
+    g.fillRect(gx+7,t+1,2,12);                    // ferrures en croix
+    g.fillStyle='#3f2a15'; g.fillRect(gx+1,t+6,TS-2,2);
+    return;
+  }
+  if(o===O.INTER){                               // interrupteur cristal (frappe-le)
+    const gx=x*TS, t=by-16, on=etatInter(y)===1, v=Math.sin(tick*.08+h*6)*.5+.5;
+    g.fillStyle='#2a2f3e'; g.fillRect(gx+5,by-4,6,4);          // socle
+    g.fillStyle=on?'#c88a2a':'#2a6a8a'; g.fillRect(gx+6,t+2,4,12);
+    g.fillStyle=on?'#ffcf4a':'#5fd0ee'; g.fillRect(gx+7,t+4,2,8);
+    g.globalCompositeOperation='lighter'; g.globalAlpha=.3+v*.4;
+    g.fillStyle=on?'#ffe89a':'#a8f0ff'; g.fillRect(gx+7,t,2,4);
+    g.globalAlpha=1; g.globalCompositeOperation='source-over';
+    return;
+  }
+  if(o===O.BLOCB||o===O.BLOCO){                  // blocs à bascule bleu / orange
+    const bleu=(o===O.BLOCB), plein=bleu?etatInter(y)===0:etatInter(y)===1;
+    const gx=x*TS, hh=plein?16:5, t=by-hh;
+    const c=bleu?['#2a5a9a','#3f7fce','#6aa8ee']:['#9a5a1a','#ce7f2a','#eea86a'];
+    g.fillStyle=c[0]; g.fillRect(gx+1,t,TS-2,hh);
+    g.fillStyle=c[1]; g.fillRect(gx+2,t+1,TS-4,Math.max(2,hh-3));
+    g.fillStyle=c[2]; g.fillRect(gx+2,t+1,TS-4,2);
+    if(!plein){ g.globalAlpha=.5; g.fillStyle='#0a0d16'; g.fillRect(gx+1,by-2,TS-2,2); g.globalAlpha=1; }
+    return;
+  }
+  if(o===O.ANCRE){                               // ancre du grappin
+    const gx=x*TS, t=by-26;
+    g.fillStyle='#4a4e5e'; g.fillRect(gx+6,t+6,4,20);         // poteau
+    g.fillStyle='#6a6f80'; g.fillRect(gx+6,t+6,2,20);
+    g.fillStyle='#8a8f9e'; g.fillRect(gx+3,t+2,10,6);         // anneau
+    g.fillStyle='#2a2e3a'; g.fillRect(gx+5,t+4,6,2);
+    g.fillStyle='#b8bece'; g.fillRect(gx+3,t+2,10,1);
+    return;
+  }
+  if(o===O.PORTEP){                              // porte à mécanisme (plaques)
+    const gx=x*TS, t=by-20;
+    g.fillStyle='#3a4258'; g.fillRect(gx,t,TS,20);
+    g.fillStyle='#59627e'; g.fillRect(gx+1,t+1,TS-2,18);
+    g.fillStyle='#7a86a8'; for(let i=2;i<TS;i+=4) g.fillRect(gx+i,t+2,1,16);
+    g.fillStyle='#2a3145'; g.fillRect(gx,t+8,TS,2); g.fillRect(gx,t+15,TS,2);
+    g.fillStyle='#9aa6c8'; g.fillRect(gx+6,t+3,4,4);           // gemme du verrou
+    return;
+  }
 }
 
 /* ============================ EAU ANIMÉE ============================ */
@@ -4356,9 +4644,34 @@ function poseAtk(){ return J.atk>=12?0:J.atk>=10?1:J.atk>=8?2:J.atk>=5?3:4; }
 function sprHeros(){
   const lg=Q.epeeLongue;
   if(J.spin>0) return (lg?'hU':'hT')+(Math.floor((30-J.spin)/3.8)%8);
+  // le marteau garde le héros debout et ferme : la tête fait tout le travail
+  if(J.slam>0) return 'h'+J.dir+'m0';
   if(J.atk>0)  return 'h'+J.dir+(lg?'A':'a')+poseAtk();
   if(J.enAir)  return 'h'+J.dir+'s0';
   return 'h'+J.dir+'m'+J.animF;
+}
+/* Le marteau, dessiné à la volée : il se lève au-dessus de la tête puis s'abat
+   droit devant — une chute verticale, franchement différente de l'arc de l'épée. */
+function dessinerMarteau(g){
+  const hx=Math.round(J.x), hy=Math.round(J.y-J.z)-13;
+  const fwd=[-Math.PI/2,Math.PI,Math.PI/2,0][J.dir];   // vers la case visée
+  const raise=fwd-2.6;                                  // armé, au-dessus de l'épaule
+  const tt=clamp((SLAM_DUR-J.slam)/(SLAM_DUR-SLAM_IMPACT),0,1);
+  let ang=raise+(fwd-raise)*(tt*tt);                    // accélère en tombant
+  if(J.slam<SLAM_IMPACT) ang=fwd+0.16*(1-J.slam/SLAM_IMPACT);   // léger rebond au sol
+  g.save(); g.translate(hx,hy); g.rotate(ang);
+  rc(g,0,-1,15,3,'#7a5836'); rc(g,0,-1,15,1,'#9a7346');         // manche
+  rc(g,12,-6,9,13,'#4a4458'); rc(g,13,-5,7,11,'#5c5470');       // tête
+  rc(g,13,-5,7,3,'#8d84a4'); rc(g,13,4,7,2,'#332f3c');
+  g.restore();
+  // à l'impact : un anneau de poussière blanc sur la tuile frappée
+  if(J.slam>=SLAM_IMPACT-2&&J.slam<=SLAM_IMPACT){
+    const p=18, cx=hx+[0,-p,0,p][J.dir], cy=(hy+13)+[-p,0,p,0][J.dir];
+    g.globalCompositeOperation='lighter'; g.globalAlpha=.7;
+    g.strokeStyle='#fff4d8'; g.lineWidth=3;
+    g.beginPath(); g.arc(cx,cy,(SLAM_IMPACT-J.slam)*7+4,0,6.2832); g.stroke();
+    g.globalAlpha=1; g.globalCompositeOperation='source-over';
+  }
 }
 /* angle continu de la lame : lent à l'armé, très rapide au balayage */
 function angleLame(){
@@ -4432,6 +4745,13 @@ function dessinerJoueur(g){
   if(J.bouclier&&J.dir===0){ const [a,c]=posBouclier(); g.drawImage(SPR[Q.bouclierFort?'bouclierF0':'bouclier0'],a,c); }
   g.drawImage(s,px,py);
   if(J.bouclier&&J.dir!==0){ const [a,c]=posBouclier(); g.drawImage(SPR[(Q.bouclierFort?'bouclierF':'bouclier')+J.dir],a,c); }
+  if(J.slam>0) dessinerMarteau(g);
+  if(J.grap){                                    // la chaîne tendue vers l'ancre
+    const g0={x:Math.round(J.x),y:Math.round(J.y-J.z)-12};
+    g.strokeStyle='#b8bece'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(g0.x,g0.y); g.lineTo(J.grap.ax,J.grap.ay-10); g.stroke();
+    g.fillStyle='#9aa0b0'; g.fillRect(J.grap.ax-2,J.grap.ay-13,4,4);
+  }
 
   if(J.degatFlash>0&&(J.degatFlash%4)<2){
     g.globalCompositeOperation='lighter'; g.globalAlpha=.55;
@@ -4500,7 +4820,12 @@ const SALLES=[
      Le Large reste à ciel ouvert : ce n'est pas une salle fermée. */
   {x0:CIMES.temple.x0, y0:CIMES.temple.y0, x1:CIMES.temple.x0+CIMES.temple.w-1, y1:CIMES.temple.y0+CIMES.temple.h-1},
   {x0:CIMES.sommet.x0, y0:CIMES.sommet.y0, x1:CIMES.sommet.x0+CIMES.sommet.w-1, y1:CIMES.sommet.y0+CIMES.sommet.h-1},
-  {x0:LAGON.temple.x0, y0:LAGON.temple.y0, x1:LAGON.temple.x0+LAGON.temple.w-1, y1:LAGON.temple.y0+LAGON.temple.h-1}
+  {x0:LAGON.temple.x0, y0:LAGON.temple.y0, x1:LAGON.temple.x0+LAGON.temple.w-1, y1:LAGON.temple.y0+LAGON.temple.h-1},
+  /* les salles d'énigme : closes, sans monstres, on n'en voit pas l'intérieur du dehors */
+  {x0:ENIG.caisse.x0, y0:ENIG.caisse.y0, x1:ENIG.caisse.x0+ENIG.caisse.w-1, y1:ENIG.caisse.y0+ENIG.caisse.h-1},
+  {x0:ENIG.inter.x0,  y0:ENIG.inter.y0,  x1:ENIG.inter.x0+ENIG.inter.w-1,  y1:ENIG.inter.y0+ENIG.inter.h-1},
+  {x0:ENIG.gouffre.x0,y0:ENIG.gouffre.y0,x1:ENIG.gouffre.x0+ENIG.gouffre.w-1,y1:ENIG.gouffre.y0+ENIG.gouffre.h-1},
+  {x0:ENIG.cendre.x0, y0:ENIG.cendre.y0, x1:ENIG.cendre.x0+ENIG.cendre.w-1, y1:ENIG.cendre.y0+ENIG.cendre.h-1}
 ];
 function salleDe(px,py){
   const tx=Math.floor(px/TS), ty=Math.floor(py/TS);
@@ -4955,13 +5280,15 @@ function construireMini(){
           : s===S.LAVE?'#e0561c' : s===S.BRAISE?'#8a4630'
           : s===S.CENDRE?'#55505d' : s===S.BASALTE?'#3b3746'
           : s===S.NEIGE?'#dbe4f2' : s===S.GLACE?'#a9d6ee' : s===S.ROCHE?'#6a7183'
-          : s===S.EAUPROF?'#164a9e' : s===S.CORAIL?'#39b4b0'
+          : s===S.EAUPROF?'#164a9e' : s===S.CORAIL?'#39b4b0' : s===S.PLAQUE?'#6a7290'
           : (e?'#4f9a48':'#3f7f37');
     if(o===O.ARBRE||o===O.SAPIN) c='#1d5a2c';
-    if(o===O.MUR) c='#767b8b';
+    if(o===O.MUR||o===O.PORTEP) c='#767b8b';
     if(o===O.ROCNOIR) c='#241f2c';
     if(o===O.GLACON) c='#7fb4d8';
     if(o===O.PALMIER) c='#2f9a5a';
+    if(o===O.CAISSE) c='#8a6238';
+    if(o===O.ANCRE) c='#9aa0b0';
     if(o===O.PORTAIL) c='#ff8b3a';
     g.fillStyle=c; g.fillRect(x,y,1,1);
   }
@@ -5281,8 +5608,13 @@ async function chargerInterne(slot){
   peupler();
 
   Object.assign(J,{atk:0,charge:0,spin:0,invuln:60,bouclier:false,kx:0,ky:0,
-    vz:0,animT:0,animF:0,enAir:false,coyote:8,degatFlash:0},d.J||{});
+    vz:0,animT:0,animF:0,enAir:false,coyote:8,degatFlash:0,
+    slam:0,slamHit:false,pousse:0,pousseDir:-1,grap:null},d.J||{});
   if(!Array.isArray(J.objets)) J.objets=[];
+  if(!Array.isArray(Q.inter)) Q.inter=[0,0,0,0];
+  // les outils gagnés restent équipés : si un drapeau dit qu'on les a, ils sont dans le sac
+  for(const [drapeau,id] of [[Q.boomerang,'boomerang'],[Q.grappin,'grappin']])
+    if(drapeau&&!J.objets.includes(id)) J.objets.push(id);
   J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
 
   degager(J);                       // au cas où la sauvegarde daterait d'avant le correctif
