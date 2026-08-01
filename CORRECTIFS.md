@@ -418,3 +418,68 @@ quelque chose.
 > les deux dessins étaient identiques. Il ne lit désormais que **l'icône**.
 > Réinjection du bug d'origine : rouge.
 
+
+---
+
+## 11. Les Cimes Gelées et le Lagon d'Azur (deux régions de plus)
+
+Le monde passe de deux régions à **quatre**, empilées du nord au sud : vallée,
+Terres de Cendre, **Cimes Gelées** (rangées 160-239), **Lagon d'Azur**
+(rangées 240-319). `MH` passe de 160 à 320. Comme pour les Cendres, chaque
+région est ajoutée **en dessous** : les index de tuiles des régions du haut ne
+bougent pas, et une sauvegarde d'avant l'ajout retrouve sa vallée et ses Cendres
+intactes (les nouveaux champs de quête prennent leur valeur par défaut, le
+brouillard des nouvelles rangées reste noir).
+
+### 11.1 Une région bornée à sa bande, pas à `MH`
+
+`genererCendres()` remplissait « du haut de la région jusqu'à `MH` ». Avec deux
+régions de plus, ce `MH` recouvrait les Cimes et le Lagon de cendre et de lave.
+Chaque génération, chaque peuplement, chaque révélation de carte est désormais
+**bornée à sa propre bande** (`Y_CENDRE`→`Y_CIMES`, etc.), et `enCendre()` ne
+répond vrai que **dans** les Cendres — plus « partout au sud ».
+
+### 11.2 Atteignable à pied, à la nage — mesuré, jamais supposé
+
+Comme au § 9, un parcours à blanc rejoue les **vraies collisions** :
+
+- le **col** des Cendres descend bien dans les Cimes, la **Grève aux Palmes** et
+  le boomerang s'atteignent **à pied** ;
+- l'**Arène du Sommet** reste **scellée par des blocs de glace** tant qu'on n'a
+  pas le boomerang pour les briser ;
+- le **Large** et le **Temple Englouti** sont **cernés d'eau profonde** :
+  injoignables sans les palmes, joignables avec.
+
+> Piège évité : le traceur de sentier rouvrait la grille de glaçons du Sommet
+> qu'on venait de poser (il dégageait la tuile de la brèche). On pose donc les
+> **grilles après** les sentiers, et le sentier s'arrête une tuile avant le mur.
+
+### 11.3 Le boomerang, une arme qui revient
+
+Nouvelle arme (`Y`) : un projectile qui part droit devant, **ralentit, revient**
+vers le héros et se range dans sa main ; en chemin il frappe les ennemis (une
+fois chacun), **brise les blocs de glace**, **sonne les cloches de givre**,
+déclenche l'œil de pierre et **ramasse les butins**. Un seul en vol à la fois.
+C'est la clé du **crabe cuirassé**, sur qui l'épée ricoche : le boomerang (ou une
+bombe) le **sonne**, et l'épée porte alors.
+
+### 11.4 Les palmes, ou nager sans casser les tests
+
+Les palmes rendent l'eau franchissable — `solide()` ne bloque plus `EAU`/
+`EAUPROF` **si `Q.palmes`**. Comme aucun test n'accorde les palmes par défaut,
+le comportement historique (le lac de la vallée reste infranchissable) est
+**inchangé**, et les parcours à blanc des autres tests le vérifient encore.
+
+### 11.5 Les objets de quête sont des butins persistants
+
+Boomerang, palmes et les cinq perles sont des **butins reposés par `peupler()`**
+tant que le drapeau de quête correspondant est faux — exactement comme la clé de
+pierre. Ils réapparaissent à la même place au rechargement, jusqu'à ce qu'on les
+ramasse ; les perles déjà prises ne reviennent pas. Les blocs de glace brisés et
+les cloches sonnées sont des **tuiles** : ils survivent par les différences de
+décor, sans champ de sauvegarde supplémentaire.
+
+Tout est vérifié dans `12-cimes-lagon.js` : biomes, six monstres armés, boomerang
+(vol/retour, glace, crabe), palmes (nage), les deux gardiens (Roi Yéti scellé,
+Léviathan cerné d'eau), quêtes annexes, musique, mini-carte, et rien de perdu au
+rechargement — le tout mesuré sur le vrai jeu.

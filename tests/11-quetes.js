@@ -208,7 +208,7 @@ module.exports = {
         torches.some(t => Math.floor(t.x / TS) === x && Math.abs(t.y / TS - y) < 2));
       // la carte des Cendres est révélée
       out.cendresRevelees = (() => { let n = 0;
-        for (let y = Y_CENDRE; y < MH; y++) for (let x = 0; x < MW; x++) if (!vu[y * MW + x]) n++;
+        for (let y = Y_CENDRE; y < Y_CIMES; y++) for (let x = 0; x < MW; x++) if (!vu[y * MW + x]) n++;
         return n; })();
       out.durnRemercie = causer(durn).pages.join(' ');
 

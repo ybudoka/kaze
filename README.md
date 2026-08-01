@@ -22,23 +22,40 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 | **L/R** changer d'objet | **START** carte · **SELECT** journal |
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
-Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre —
-et chaque gardien a son thème.
+Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
+Cimes Gelées, Lagon d'Azur — et chaque gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
+
+Le monde compte **quatre régions superposées**, chacune plus au sud que la
+précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
 ton épée.
 
 **Les Terres de Cendre** — les trois étoiles ouvrent le portail du sud. Marteau,
-bottes de cendre, et le Cœur de Cendre au bout.
+bottes de cendre, et le Cœur de Cendre au bout. Un **col** descend ensuite vers
+la montagne.
+
+**Les Cimes Gelées** — neige, lacs de glace et arêtes de granit. Le **boomerang**
+dort au fond du **Temple de Givre** : lancé avec **Y**, il part droit devant,
+ralentit, revient dans ta main, **brise la glace** et ramasse au passage. Il faut
+en briser les blocs qui scellent l'**Arène du Sommet** pour y défier le **Roi
+Yéti**. **Harpies**, **piquiers de givre** et **loups des neiges** te barrent la
+route.
+
+**Le Lagon d'Azur** — la mer : grèves, hauts-fonds, récifs de corail et eau
+profonde. Chausse les **palmes** trouvées sur la **Grève aux Palmes** pour
+**nager** au large, plonger au **Temple Englouti** et affronter le **Léviathan**.
+Attention aux **crabes cuirassés** (l'épée ricoche, le boomerang les sonne), aux
+**tritons** qui lancent leur trident et aux **méduses** qui s'effacent.
 
 ## Quêtes annexes
 
-Cinq quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+Sept quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
 l'état de chacune ; les objets à trouver clignotent sur la carte.
 
 | Quête | Où | Récompense |
@@ -48,6 +65,8 @@ l'état de chacune ; les objets à trouver clignotent sur la carte.
 | La prime de la garde | quinze monstres | 60 rubis et 5 bombes |
 | **La lanterne du pêcheur** | vallée **puis** Terres de Cendre | **épée de Cendre** (+1 dégât) |
 | **Les brasiers éteints** | Terres de Cendre | carte des Cendres révélée, 120 rubis |
+| **Les cloches de givre** | Cimes Gelées | carte des Cimes révélée, cœur de cristal |
+| **Les perles du naufragé** | Lagon d'Azur | 150 rubis et une potion |
 
 **La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
 fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
@@ -61,12 +80,20 @@ basalte en portent — et forge l'**épée de Cendre**, qui ajoute un point de d
 coup d'épée y fait jaillir l'étincelle. Les trois rallumés, la région entière
 apparaît sur la carte et Durn paie 120 rubis.
 
+**Les cloches de givre** — trois cloches de glace pendent aux parvis des Cimes.
+**Seul le boomerang** les fait sonner. Les trois sonnées, la carte des Cimes se
+révèle et un cœur de cristal apparaît au Temple de Givre.
+
+**Les perles du naufragé** — échoué sur la grève, un naufragé a perdu sa bourse
+de **cinq perles**, éparpillées dans les coraux du Lagon. Ramène-les-lui, palmes
+aux pieds, contre 150 rubis et une potion.
+
 ## Gemmes
 
 Un **coup d'épée ramasse** ce qu'il touche — inutile de marcher pile dessus.
 Les monstres et les buissons lâchent trois pierres : **rubis vert** (1),
-**saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les
-Terres de Cendre, plus dures, en lâchent davantage.
+**saphir bleu** (5) et **grenat rouge** (20). Le grenat est rare — et les régions
+du sud, plus dures (Cendres, Cimes, Lagon), en lâchent davantage.
 
 ## La colporteuse
 
@@ -87,7 +114,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 172 contrôles, ~11 s
+npm test                          # 243 contrôles, ~18 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 
