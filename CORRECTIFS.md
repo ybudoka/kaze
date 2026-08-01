@@ -330,6 +330,15 @@ Autres pièges rencontrés en construisant la région :
 - **Un nouvel objet doit être ajouté partout où les objets se dessinent**, pas
   seulement là où ils agissent : la table `OBJETS` existait mais le HUD choisissait
   son image en dur, et le marteau était affiché en arc (cf. 10).
+- **Un écran se compose du texte vers l'image, jamais l'inverse** : mesurer le
+  pied de page d'abord et donner le reste au contenu rend le débordement
+  impossible par construction (cf. 11.1).
+- **La police pixel avale en silence ce qu'elle ne sait pas dessiner** : tout
+  nouveau texte affiché doit passer par `13-police.js`. `Œ` n'existe toujours
+  pas — écrire « COEUR » (cf. 12).
+- **Une assertion doit pouvoir être fausse** : `largeurTexte(c) === 0` ne l'est
+  jamais. Après avoir écrit un contrôle, lui donner exprès une entrée fautive
+  et vérifier qu'il la refuse (cf. 12).
 
 ---
 
@@ -418,10 +427,80 @@ quelque chose.
 > les deux dessins étaient identiques. Il ne lit désormais que **l'icône**.
 > Réinjection du bug d'origine : rouge.
 
+---
+
+## 11. L'écran de carte
+
+### 11.1 ⚠️ Le pied de page se chevauchait et débordait
+
+| | |
+|---|---|
+| **Symptôme** | « Y SAUVEGARDDERNIÈRE : 13:28 » sur une seule ligne, et une ligne coupée sous le bord de l'écran. |
+| **Cause** | La carte était dimensionnée sur `H - 62`, puis les textes calés **sous elle** (`bas = my + MH*sc + 10`) tandis que la ligne des commandes était en absolu (`H - 12`). Selon les proportions de l'écran, `bas + 20` tombait exactement sur `H - 12`, et `bas + 30` passait hors champ. |
+| **Correctif** | Le pied de page est **mesuré et posé à partir du bas** ; la carte prend ce qui reste. Un débordement devient impossible par construction. |
+
+### 11.2 La carte s'effondrait sur les écrans hauts
+
+Six pixels de marge de trop suffisaient à faire retomber la carte de l'échelle 2
+à l'échelle 1 (elle est en 88×160 tuiles, l'échelle est entière) : elle
+n'occupait plus qu'un sixième de l'écran. Le pied a été resserré au pixel.
+
+### 11.3 Ce qui a été ajouté
+
+- Une **légende** : les pastilles de couleur ne voulaient rien dire. Elle
+  n'annonce que ce qui est réellement sur la carte — une luciole déjà prise ou
+  un brasier déjà allumé en disparaissent — et se répartit sur autant de lignes
+  qu'il faut, **avant** que la carte soit dimensionnée.
+- Deux colonnes au lieu de trois : le canvas descend à 200 px de large, où
+  « LUCIOLES 8/8 » débordait de la troisième.
+- Le **témoin de sauvegarde** prend la place de la ligne des commandes le temps
+  de s'afficher, au lieu de recouvrir la légende dans son propre cadre — or
+  c'est justement sur cet écran qu'on appuie sur Y.
+- « STOCKAGE : OK » n'occupe plus une ligne à chaque ouverture : le stockage
+  n'est signalé que lorsqu'il pose problème.
+
+`12-carte.js` intercepte le tracé et mesure les **rectangles réellement
+dessinés** à cinq tailles d'écran : rien hors du canvas, aucun texte sur un
+autre, aucun texte sur la carte, et la carte garde une vraie part de l'écran.
+
+> Deux défauts du contrôle lui-même, trouvés en le réinjectant : il capturait
+> **plusieurs images** de la boucle de rendu (chaque texte « se recouvrait »
+> lui-même d'une image à l'autre), et il prenait le **mini-plan du HUD** pour la
+> carte (dessiné avec la même image) — d'où une surface ridicule. Il ne capture
+> plus qu'une image, et retient le plus grand des deux tracés.
 
 ---
 
-## 11. Les Cimes Gelées et le Lagon d'Azur (deux régions de plus)
+## 12. ⚠️ La police remplaçait des caractères par « ? » sans rien dire
+
+`glyphe()` fait `GLYPHES[ch] || GLYPHES['?']` : un caractère absent de la table
+est dessiné en **point d'interrogation**, sans erreur ni avertissement.
+
+Deux textes livrés en souffraient depuis des versions :
+
+- le **journal** affichait `?X? PARLER À LA DOYENNE` : la table n'avait ni `[`
+  ni `]` ;
+- le garde Tomas disait « LA ROUTE EST PLUS SÛRE **GR?CE** À TOI » : pas de `Â`.
+
+Glyphes ajoutés : `[ ] ; Â Ù Ä Ë Ï Ö Ü`. `Œ` reste absent — « COEUR » est écrit
+en toutes lettres dans les boutiques, et le piège est consigné ci-dessous.
+
+`13-police.js` parcourt **tout ce que le jeu sait écrire** — dialogues de chaque
+personnage dans 28 états de partie, journal, objectif courant, étiquettes des
+deux boutiques, panneaux, noms d'objets, messages et bandeaux des coffres — et
+exige que chaque caractère soit dessinable. Plus un contrôle à blanc (on lui
+donne un `Ω` : il doit le voir) et une couverture du français majuscule.
+
+> ⚠️ Le contrôle qui existait pour cela dans `11-quetes.js` était **vide de
+> sens** : il testait `largeurTexte(c) === 0`, or `largeurTexte` renvoie
+> `longueur*6-1` — jamais 0 pour un caractère. Il passait quoi qu'on lui donne.
+> Il interroge maintenant la table `GLYPHES`, comme le faisait déjà
+> `10-colporteuse.js`.
+
+
+---
+
+## 13. Les Cimes Gelées et le Lagon d'Azur (deux régions de plus)
 
 Le monde passe de deux régions à **quatre**, empilées du nord au sud : vallée,
 Terres de Cendre, **Cimes Gelées** (rangées 160-239), **Lagon d'Azur**
@@ -431,7 +510,7 @@ bougent pas, et une sauvegarde d'avant l'ajout retrouve sa vallée et ses Cendre
 intactes (les nouveaux champs de quête prennent leur valeur par défaut, le
 brouillard des nouvelles rangées reste noir).
 
-### 11.1 Une région bornée à sa bande, pas à `MH`
+### 13.1 Une région bornée à sa bande, pas à `MH`
 
 `genererCendres()` remplissait « du haut de la région jusqu'à `MH` ». Avec deux
 régions de plus, ce `MH` recouvrait les Cimes et le Lagon de cendre et de lave.
@@ -439,7 +518,7 @@ Chaque génération, chaque peuplement, chaque révélation de carte est désorm
 **bornée à sa propre bande** (`Y_CENDRE`→`Y_CIMES`, etc.), et `enCendre()` ne
 répond vrai que **dans** les Cendres — plus « partout au sud ».
 
-### 11.2 Atteignable à pied, à la nage — mesuré, jamais supposé
+### 13.2 Atteignable à pied, à la nage — mesuré, jamais supposé
 
 Comme au § 9, un parcours à blanc rejoue les **vraies collisions** :
 
@@ -454,7 +533,7 @@ Comme au § 9, un parcours à blanc rejoue les **vraies collisions** :
 > qu'on venait de poser (il dégageait la tuile de la brèche). On pose donc les
 > **grilles après** les sentiers, et le sentier s'arrête une tuile avant le mur.
 
-### 11.3 Le boomerang, une arme qui revient
+### 13.3 Le boomerang, une arme qui revient
 
 Nouvelle arme (`Y`) : un projectile qui part droit devant, **ralentit, revient**
 vers le héros et se range dans sa main ; en chemin il frappe les ennemis (une
@@ -463,14 +542,14 @@ déclenche l'œil de pierre et **ramasse les butins**. Un seul en vol à la fois
 C'est la clé du **crabe cuirassé**, sur qui l'épée ricoche : le boomerang (ou une
 bombe) le **sonne**, et l'épée porte alors.
 
-### 11.4 Les palmes, ou nager sans casser les tests
+### 13.4 Les palmes, ou nager sans casser les tests
 
 Les palmes rendent l'eau franchissable — `solide()` ne bloque plus `EAU`/
 `EAUPROF` **si `Q.palmes`**. Comme aucun test n'accorde les palmes par défaut,
 le comportement historique (le lac de la vallée reste infranchissable) est
 **inchangé**, et les parcours à blanc des autres tests le vérifient encore.
 
-### 11.5 Les objets de quête sont des butins persistants
+### 13.5 Les objets de quête sont des butins persistants
 
 Boomerang, palmes et les cinq perles sont des **butins reposés par `peupler()`**
 tant que le drapeau de quête correspondant est faux — exactement comme la clé de
@@ -479,16 +558,16 @@ ramasse ; les perles déjà prises ne reviennent pas. Les blocs de glace brisés
 les cloches sonnées sont des **tuiles** : ils survivent par les différences de
 décor, sans champ de sauvegarde supplémentaire.
 
-Tout est vérifié dans `12-cimes-lagon.js` : biomes, six monstres armés, boomerang
+Tout est vérifié dans `14-cimes-lagon.js` : biomes, six monstres armés, boomerang
 (vol/retour, glace, crabe), palmes (nage), les deux gardiens (Roi Yéti scellé,
 Léviathan cerné d'eau), quêtes annexes, musique, mini-carte, et rien de perdu au
 rechargement — le tout mesuré sur le vrai jeu.
 
 ---
 
-## 12. Énigmes, grappin et un nouveau marteau
+## 14. Énigmes, grappin et un nouveau marteau
 
-### 12.1 Des briques d'énigme réutilisables
+### 14.1 Des briques d'énigme réutilisables
 
 Cinq pièces, posées d'un monde à l'autre, décrites en données (`PUZZLES`,
 `poserEnigmes`) et résolues par `majPuzzles` :
@@ -513,7 +592,7 @@ La vallée **enseigne** chaque mécanique isolément ; les Cendres **combinent**
 > uniques (grappin, cœurs de cristal) sont des **butins reposés par `peupler`**
 > tant qu'un drapeau `Q` dit qu'on ne les a pas — comme la clé de pierre.
 
-### 12.2 Le grappin, mesuré comme une vraie traversée
+### 14.2 Le grappin, mesuré comme une vraie traversée
 
 Le **grappin** (`lancerGrappin`) accroche une **`ANCRE`** dans la direction du
 regard et tire le héros jusqu'à la case d'avant, **par-dessus l'eau** — un mur
@@ -530,20 +609,20 @@ le trésor **injoignable à pied** et **joignable au grappin**.
 > déplacées dans des poches vides ; le contrôle des lucioles (test 05) le
 > garantit.
 
-### 12.3 Le marteau ne balaie plus comme l'épée
+### 14.3 Le marteau ne balaie plus comme l'épée
 
 | | |
 |---|---|
 | **Avant** | Le marteau réutilisait l'animation du coup d'épée (`J.atk`) : même arc horizontal, on ne distinguait pas les deux armes. |
 | **Après** | Le marteau a son propre état (`J.slam`) : il **se lève au-dessus de la tête et s'abat** droit devant (`dessinerMarteau`), avec une **onde de choc** au sol et une secousse plus lourde. Le coup lui-même (`slamMarteau`) part **à l'impact** (`SLAM_IMPACT`), pas au déclenchement. |
 
-Vérifié dans `13-enigmes.js` : appuyer sur **Y** avec le marteau met `J.slam > 0`
+Vérifié dans `15-enigmes.js` : appuyer sur **Y** avec le marteau met `J.slam > 0`
 et **laisse `J.atk` à zéro** (c'est un *slam*, pas un coup d'épée), et la roche
 noire ne cède qu'**à l'impact**.
 
 ---
 
-## 13. Les Sables du Mirage (cinquième région) et le bracelet de force
+## 15. Les Sables du Mirage (cinquième région) et le bracelet de force
 
 Le monde passe de quatre régions à **cinq** : les Sables du Mirage occupent les
 rangées 320 à 399, `MH` passe de 320 à 400. Comme les précédentes, la région est
@@ -552,7 +631,7 @@ sauvegardes restent valables. Tous les bornages `Y_LAGON..MH` (fin de la
 génération du Lagon, faune, révélation de carte) ont été ramenés à `Y_SABLES`,
 et `enLagon()` ne répond plus vrai que **dans** le Lagon.
 
-### 13.1 Le bracelet de force : soulever, jeter, combler
+### 15.1 Le bracelet de force : soulever, jeter, combler
 
 Nouvel outil (`Y`) : `brasBracelet` **soulève** le `BLOCLOURD` posé devant soi
 (`J.porte='lourd'`), puis, pressé de nouveau, le **jette** (`majBlocLourd`). Le
@@ -566,7 +645,7 @@ bloc jeté :
 Les bras chargés, on ralentit, on ne saute pas, on n'attaque pas et on ne change
 pas d'objet — comme il se doit.
 
-### 13.2 L'arène gardée par les sables mouvants — mesuré, pas supposé
+### 15.2 L'arène gardée par les sables mouvants — mesuré, pas supposé
 
 L'unique accès à l'Arène du Colosse est un **couloir d'une case**, muré des deux
 côtés, barré de trois `SABLEMOU`, avec quatre blocs lourds en réserve juste
@@ -582,14 +661,14 @@ tant qu'on ne comble pas le gué, et **joignable** une fois comblé.
 > - le traceur de sentier **vidait** la réserve de blocs et le gué : la vanne
 >   est posée **en dernier**, après toutes les voies.
 
-### 13.3 Le Colosse de Grès : on lui renvoie ses propres blocs
+### 15.3 Le Colosse de Grès : on lui renvoie ses propres blocs
 
 Le Colosse est **cuirassé** : `frapper` renvoie tout, sauf un bloc lourd
 (`'lourd'`) ou une bombe (`'explosion'`). Il **jette** des blocs qui atterrissent
 en `BLOCLOURD` près du héros ; ramassés au bracelet et **renvoyés**, ils
-l'entament. Vérifié dans `14-sables.js` : l'épée ricoche, le bloc porte.
+l'entament. Vérifié dans `16-sables.js` : l'épée ricoche, le bloc porte.
 
-### 13.4 Les trois monstres armés
+### 15.4 Les trois monstres armés
 
 - le **scarabée-bombe** roule vers le héros et **explose** de près — et explose
   aussi quand on l'abat (`scarabeeBoom`, avec un garde anti-double `e.boomed`) ;
@@ -597,7 +676,7 @@ l'entament. Vérifié dans `14-sables.js` : l'épée ricoche, le bloc porte.
 - le **djinn de sable** dérive, traverse tout et **s'efface** par intermittence
   (on ne le touche que matérialisé, comme le spectre et la méduse).
 
-### 13.5 Compatibilité des sauvegardes
+### 15.5 Compatibilité des sauvegardes
 
 `Q.inter` (l'état des interrupteurs à bascule) passe de quatre à **cinq**
 entrées. Au chargement, une vieille sauvegarde est **complétée** sans être
@@ -607,10 +686,10 @@ chargement s'ils manquent du sac.
 
 ---
 
-## 14. Compatibilité des sauvegardes (aucun bloquant après un ajout)
+## 16. Compatibilité des sauvegardes (aucun bloquant après un ajout)
 
 Chaque niveau ou fonctionnalité est ajouté **sans jamais casser une partie déjà
-enregistrée**. Le contrat, vérifié par `15-compat.js` sur de vraies sauvegardes
+enregistrée**. Le contrat, vérifié par `17-compat.js` sur de vraies sauvegardes
 d'époque :
 
 - **On ne change pas `VERSION_SAUVE`** tant que l'ancien format reste lisible.
@@ -641,12 +720,12 @@ atteignable** (le portail, puis l'oued des Sables).
 
 ---
 
-## 15. Le Marais des Murmures (sixième région)
+## 17. Le Marais des Murmures (sixième région)
 
 Une sixième bande de 80 rangées s'ajoute **sous** les Sables (`MH` passe de 400
 à 480, `Y_MARAIS = 400`). Comme toujours, on n'ajoute qu'en dessous : les
 indices de tuiles des régions existantes ne bougent pas, et une vieille
-sauvegarde reste lisible (voir § 14).
+sauvegarde reste lisible (voir § 16).
 
 - **Un nouvel outil, le fanal.** Ramassé au Bosquet du Fanal, il s'équipe seul
   (`Q.fanal`, ajouté au sac et sélectionné). Il **éclaire** la nuit du marais,
@@ -673,8 +752,8 @@ sauvegarde reste lisible (voir § 14).
 - **Compatibilité.** `razQuetes()` pose `fanal:false, veilleuses:0,
   reineTue:false` (et `Q.inter` gagne une sixième bascule) *avant*
   `Object.assign(Q, d.Q)` : une sauvegarde d'avant le Marais les laisse à zéro,
-  le fanal est rééquipé s'il manque du sac, et `15-compat.js` prouve qu'aucune
-  vieille partie n'est bloquée. `16-marais.js` mesure sur le vrai jeu :
+  le fanal est rééquipé s'il manque du sac, et `17-compat.js` prouve qu'aucune
+  vieille partie n'est bloquée. `18-marais.js` mesure sur le vrai jeu :
   atteignabilité (fanal, veilleuses, arène barrée puis ouverte par le feu),
   immunité de l'ombre hors lumière, réveil et chute de la Reine, journal,
   mini-carte, et rechargement sans perte.

@@ -1,5 +1,5 @@
 'use strict';
-/* CORRECTIFS.md § 13 — la cinquième région : les Sables du Mirage. Désert,
+/* CORRECTIFS.md § 15 — la cinquième région : les Sables du Mirage. Désert,
    ruines de grès, champs de sables mouvants. Le BRACELET DE FORCE soulève et
    jette les blocs lourds (pour combler les sables mouvants et renvoyer ses
    propres blocs au Colosse de Grès). Tout est mesuré sur le vrai jeu :

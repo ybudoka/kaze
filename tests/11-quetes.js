@@ -253,8 +253,12 @@ module.exports = {
         }
         dial = null;
         textes.push(...lignesJournal().map(l => l[0]));
-        out.illisibles = textes.join(' ').split('')
-          .filter(c => c !== ' ' && largeurTexte(c) === 0 && c !== '\n');
+        /* On interroge la table des glyphes, pas `largeurTexte()` : celle-ci
+           renvoie `longueur*6-1`, donc jamais 0 pour un caractère — le
+           contrôle passait quoi qu'on lui donne. Un caractère absent de la
+           table est dessiné en « ? ». */
+        out.illisibles = [...new Set(textes.join(' '))]
+          .filter(c => c !== ' ' && c !== '\n' && !GLYPHES[c]);
       }
       return out;
     });

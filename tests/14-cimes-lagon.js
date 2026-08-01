@@ -1,5 +1,5 @@
 'use strict';
-/* CORRECTIFS.md § 10 — les deux nouvelles régions : les Cimes Gelées (montagne,
+/* CORRECTIFS.md § 13 — les deux nouvelles régions : les Cimes Gelées (montagne,
    neige et glace, le boomerang, le Roi Yéti) et le Lagon d'Azur (mer, palmes,
    le Léviathan). Génération, monstres armés, objets, quêtes principales et
    annexes, et rien de perdu au rechargement. Comme les autres, ce test pilote

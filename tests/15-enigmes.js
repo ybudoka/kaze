@@ -1,5 +1,5 @@
 'use strict';
-/* CORRECTIFS.md § 12 — les énigmes réutilisables (caisse, plaque, porte à
+/* CORRECTIFS.md § 14 — les énigmes réutilisables (caisse, plaque, porte à
    mécanisme, interrupteur à bascule), le nouvel outil GRAPPIN, et la nouvelle
    animation du marteau (une chute verticale, pas un balayage). On mesure tout
    sur le vrai jeu : géométrie posée, énigmes résolubles avec les vraies

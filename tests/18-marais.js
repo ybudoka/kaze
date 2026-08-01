@@ -1,5 +1,5 @@
 'use strict';
-/* CORRECTIFS.md § 15 — la sixième région : le Marais des Murmures. Une tourbe
+/* CORRECTIFS.md § 17 — la sixième région : le Marais des Murmures. Une tourbe
    noyée de nuit, où le FANAL éclaire, BRÛLE LES RONCES qui barrent les chemins,
    et RALLUME LES VEILLEUSES jusqu'au Cœur du Marais, où règne la Reine des
    Lucioles Noires (elle éteint ton fanal par vagues). Tout est mesuré sur le

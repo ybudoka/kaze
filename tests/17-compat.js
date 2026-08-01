@@ -1,5 +1,5 @@
 'use strict';
-/* CORRECTIFS.md § 14 — compatibilité des sauvegardes. Une partie enregistrée
+/* CORRECTIFS.md § 16 — compatibilité des sauvegardes. Une partie enregistrée
    AVANT l'ajout d'un niveau ou d'une fonctionnalité doit se recharger sans
    crash, sans piéger le héros, et sans rien perdre de sa progression. On
    fabrique des sauvegardes « d'époque » (peu de champs, pas de brouillard, peu
