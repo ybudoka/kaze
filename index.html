@@ -6625,6 +6625,44 @@ function eclatsDeLame(g,dx,dy){
     g.globalAlpha=1;
   }
 }
+/* ==================== L'ARME AU POING ====================
+   Au repos et en marche, le héros ne portait RIEN : l'épée n'apparaissait qu'au
+   moment de frapper, et l'outil sélectionné nulle part. Tourner ne changeait
+   donc rien à l'écran. Il tient désormais son outil — ou son épée s'il n'en a
+   pas — et l'arme suit sa direction. De dos, elle passe derrière lui.
+
+   [décalage x, décalage y, angle de la lame, passe derrière] */
+const ARME_MAIN=[[-9,-13, 1.30, 1],
+                 [-10,-12, 2.25, 0],
+                 [  9,-11, 1.10, 0],
+                 [ 10,-12, 0.95, 0]];
+/* L'outil tenu : celui qui est sélectionné, l'épée à défaut. */
+function armeAuPoing(){
+  const o=J.objets.length?J.objets[J.objSel]:null;
+  if(!o) return null;                                  // l'épée
+  const d=OBJETS.find(x=>x.id===o);
+  return d?d.spr:null;
+}
+function dessinerArmeMain(g,derriere){
+  /* Rien pendant une attaque, un tourbillon, un coup de marteau, un portage ou
+     un vol de grappin : l'arme y est déjà dessinée, et autrement. */
+  if(J.atk>0||J.spin>0||J.slam>0||J.porte||J.grap) return;
+  const [dx,dy,ang,derr]=ARME_MAIN[J.dir];
+  if((derr===1)!==derriere) return;
+  const cx=Math.round(J.x)+dx, cy=Math.round(J.y-J.z)+dy;
+  const spr=armeAuPoing();
+  if(spr&&SPR[spr]){
+    const im=SPR[spr], w=im.width, h=im.height;
+    g.save(); g.translate(cx,cy);
+    if(J.dir===1) g.scale(-1,1);                       // vers la gauche : on retourne
+    g.drawImage(im,-(w>>1),-(h>>1));
+    g.restore();
+  } else {
+    // l'épée courte, tenue le long du corps
+    lame(g,cx,cy,ang,Q.epeeLongue?14:11);
+  }
+}
+
 function dessinerJoueur(g){
   ombre(g,J.x,J.y,J.z,6.5);
   if(J.invuln>0&&(J.invuln%8)<4&&J.invuln<70) return;
@@ -6639,7 +6677,9 @@ function dessinerJoueur(g){
     return [bx-8,by-21];
   };
   if(J.bouclier&&J.dir===0){ const [a,c]=posBouclier(); g.drawImage(SPR[Q.bouclierFort?'bouclierF0':'bouclier0'],a,c); }
+  dessinerArmeMain(g,true);                    // de dos : derrière le corps
   g.drawImage(s,px,py);
+  dessinerArmeMain(g,false);                   // sinon : devant
   if(J.bouclier&&J.dir!==0){ const [a,c]=posBouclier(); g.drawImage(SPR[(Q.bouclierFort?'bouclierF':'bouclier')+J.dir],a,c); }
   if(J.slam>0) dessinerMarteau(g);
   if(J.porte){                                   // le bloc lourd porté au-dessus de la tête
@@ -7670,7 +7710,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.2';
+const VERSION='V1.3';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours

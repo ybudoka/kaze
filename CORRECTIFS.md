@@ -1118,3 +1118,40 @@ recours.
   Un second contrôle **force un nom de région absurdement long** et vérifie que
   la troncature s'applique.
 
+---
+
+## 20. L'arme au poing ne suivait pas la direction — elle n'existait pas
+
+| | |
+|---|---|
+| **Symptôme** | « Quand le personnage change de direction, il faut que l'épée ou l'outil change aussi de direction. » |
+| **Cause réelle** | Au repos et en marche, le héros ne portait **rien**. L'épée n'était dessinée que pendant une attaque (les planches `h{dir}a{f}`, elles, correctement orientées), et l'outil sélectionné n'apparaissait nulle part — sauf dans la petite boîte du HUD. Tourner ne changeait donc rien à l'écran : il n'y avait rien à tourner. |
+
+Vérifié à l'œil avant de corriger : une planche du héros dans les quatre
+directions, au repos, montre quatre silhouettes **les mains vides**.
+
+**Correctif** : le héros tient désormais son **outil sélectionné** — son **épée**
+s'il n'en a aucun — et l'arme est placée selon `J.dir`. De dos, elle passe
+**derrière** le corps, comme le bouclier. Elle n'est pas dessinée pendant une
+attaque, un tourbillon, un coup de marteau, un portage ou un vol de grappin :
+ces gestes dessinent déjà l'arme, et autrement — on aurait vu deux lames.
+
+Bénéfice de côté : on voit enfin **quel outil est équipé** sans regarder le HUD.
+
+### Le contrôle mesure les pixels que l'arme AJOUTE
+
+`25-arme-main.js` ne cherche pas « une épée quelque part ». Il dessine le héros
+**deux fois** — avec et sans son arme au poing — et isole les pixels qui
+diffèrent. Il obtient ainsi la boîte réelle de l'arme, et vérifie qu'elle passe
+**à gauche quand on va à gauche, à droite quand on va à droite**, que les quatre
+directions donnent quatre placements distincts, et qu'aucune seconde lame
+n'apparaît pendant une attaque.
+
+> Encore un contrôle vert pour une mauvaise raison, et **la même erreur que pour
+> le panneau de débug** : il appelait `dessinerArmeMain()` à la main. Retirer ses
+> appels de `dessinerJoueur()` — c'est-à-dire remettre exactement le défaut
+> d'origine — le laissait vert. Il passe désormais par `dessinerJoueur()`, en
+> neutralisant l'arme pour la seconde passe. Réinjection : rouge.
+>
+> À retenir : **tester la fonction, ce n'est pas tester qu'elle est appelée.**
+
