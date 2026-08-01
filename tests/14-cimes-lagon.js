@@ -184,7 +184,7 @@ module.exports = {
       return out;
     });
 
-    v('six régions de 80 rangées', r.MH === 480
+    v('huit régions de 80 rangées', r.MH === 640
       && r.bornes.join() === '80,160,240', `${r.MH} / ${r.bornes.join()}`);
     v('chaque bande a sa région', r.regions.join() === 'vallee,cendre,cimes,lagon', r.regions.join());
     v('les trois sols des Cimes existent',

@@ -236,27 +236,31 @@ const TS = 16, EH = 16;                        // tuile, hauteur d'étage
    Chaque région est ajoutée EN DESSOUS de la précédente pour que les index de
    tuiles des régions du haut — et donc les sauvegardes existantes — restent
    valables : une ancienne partie retrouve sa vallée et ses Cendres intactes. */
-const MW = 88, MH = 480;                       // dimensions du monde en tuiles
+const MW = 88, MH = 640;                       // dimensions du monde en tuiles
 const Y_CENDRE = 80;                           // première rangée des Terres de Cendre
 const Y_CIMES  = 160;                           // première rangée des Cimes Gelées
 const Y_LAGON  = 240;                           // première rangée du Lagon d'Azur
 const Y_SABLES = 320;                           // première rangée des Sables du Mirage
 const Y_MARAIS = 400;                           // première rangée du Marais des Murmures
+const Y_NUES   = 480;                           // première rangée de la Cité des Nues
+const Y_FAILLE = 560;                           // première rangée de la Faille (monde final)
 const enVallee = py => py <  Y_CENDRE*TS;
 const enCendre = py => py >= Y_CENDRE*TS && py < Y_CIMES*TS;
 const enCimes  = py => py >= Y_CIMES*TS  && py < Y_LAGON*TS;
 const enLagon  = py => py >= Y_LAGON*TS  && py < Y_SABLES*TS;
 const enSables = py => py >= Y_SABLES*TS  && py < Y_MARAIS*TS;
-const enMarais = py => py >= Y_MARAIS*TS;
+const enMarais = py => py >= Y_MARAIS*TS  && py < Y_NUES*TS;
+const enNues   = py => py >= Y_NUES*TS    && py < Y_FAILLE*TS;
+const enFaille = py => py >= Y_FAILLE*TS;
 /* La région d'un point, du nom des morceaux et des libellés de carte. */
-const regionDe = py => enMarais(py)?'marais':enSables(py)?'sables':enLagon(py)?'lagon':enCimes(py)?'cimes':enCendre(py)?'cendre':'vallee';
-/* Indice de région (0-5) d'une RANGÉE de tuiles — pour les interrupteurs, dont
+const regionDe = py => enFaille(py)?'faille':enNues(py)?'nues':enMarais(py)?'marais':enSables(py)?'sables':enLagon(py)?'lagon':enCimes(py)?'cimes':enCendre(py)?'cendre':'vallee';
+/* Indice de région (0-7) d'une RANGÉE de tuiles — pour les interrupteurs, dont
    l'état est propre à chaque région, une énigme de bascule par région. */
-const regionIdx = ty => ty>=Y_MARAIS?5:ty>=Y_SABLES?4:ty>=Y_LAGON?3:ty>=Y_CIMES?2:ty>=Y_CENDRE?1:0;
+const regionIdx = ty => ty>=Y_FAILLE?7:ty>=Y_NUES?6:ty>=Y_MARAIS?5:ty>=Y_SABLES?4:ty>=Y_LAGON?3:ty>=Y_CIMES?2:ty>=Y_CENDRE?1:0;
 /* Rangées-frontières des six régions. Elles servent à garder chaque monstre
    dans SA région : un ennemi ne suit pas le héros d'une région à l'autre par les
    passages (le col, l'oued, le marécage) — il reste chez lui. */
-const BORNES_Y = [0, Y_CENDRE, Y_CIMES, Y_LAGON, Y_SABLES, Y_MARAIS, MH];
+const BORNES_Y = [0, Y_CENDRE, Y_CIMES, Y_LAGON, Y_SABLES, Y_MARAIS, Y_NUES, Y_FAILLE, MH];
 
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -783,6 +787,40 @@ const MUSIQUES={
                               A2 = = = = = = =  E2 = = = = = = =
                               D2 = = = = = = =  A2 = = = = = = =`)}]},
   /* la Reine des Lucioles Noires : spectral, montant */
+  /* la Cité des Nues : haut, aéré, presque immobile */
+  nues:{bpm:96,pistes:[
+    {t:'triangle',v:.055,n:p(`E5 = = B4 = = G4 =  A4 = = E5 = = - -
+                              D5 = = A4 = = F4 =  G4 = = D5 = = - -
+                              C5 = = G4 = = E4 =  F4 = = C5 = = - -
+                              B4 = = G4 = = D4 =  E4 = = B4 = = = =`)},
+    {t:'sine',v:.06,n:p(`E2 = = = = = = =  A2 = = = = = = =
+                         D2 = = = = = = =  G2 = = = = = = =
+                         C2 = = = = = = =  F2 = = = = = = =
+                         B1 = = = = = = =  E2 = = = = = = =`)}]},
+  /* la Faille : rien ne tient, tout se fend */
+  faille:{bpm:80,pistes:[
+    {t:'sawtooth',v:.05,n:p(`C4 = - C4 = - C#4 =  C4 = - A#3 = - - -
+                             G#3 = - G#3 = - A3 =  G#3 = - G3 = - - -
+                             C4 = - D#4 = - F#4 =  F4 = - C#4 = - - -
+                             A#3 = - F#3 = - C4 =  C4 = = = = = = =`)},
+    {t:'square',v:.035,n:p(`C1 = = = C#1 = = =  C1 = = = A#0 = = =
+                            G#0 = = = A0 = = =  G#0 = = = G0 = = =
+                            C1 = = = D#1 = = =  F#1 = = = F1 = = =
+                            A#0 = = = F#0 = = =  C1 = = = = = = =`)}]},
+  /* la Sentinelle : mécanique, implacable */
+  cielBoss:{bpm:156,pistes:[
+    {t:'square',v:.05,n:p(`B4 B4 F#4 B4 D5 B4 F#4 B4  B4 B4 F#4 B4 E5 D5 B4 F#4
+                           A4 A4 E4 A4 C#5 A4 E4 A4  B4 D5 F#5 B5 A5 F#5 D5 B4`)},
+    {t:'sawtooth',v:.042,n:p(`B1 = B1 = B1 = B1 =  B1 = B1 = D2 = F#2 =
+                              A1 = A1 = A1 = A1 =  B1 = B1 = F#2 = B2 =`)}]},
+  /* le Rongeur d'Étoiles : le dernier, et il le sait */
+  rongeurBoss:{bpm:168,pistes:[
+    {t:'sawtooth',v:.055,n:p(`D4 D4 A4 D4 F4 D4 A4 D4  D4 D4 A4 D4 G4 F4 D4 A4
+                              C4 C4 G4 C4 D#4 C4 G4 C4  D4 F4 A4 D5 C5 A4 F4 D4
+                              A#3 A#3 F4 A#3 D4 A#3 F4 A#3  A3 C4 F4 A4 C5 A4 F4 C4`)},
+    {t:'square',v:.04,n:p(`D1 = D1 = D1 = F1 =  D1 = D1 = A1 = D2 =
+                           C1 = C1 = C1 = D#1 =  D1 = F1 = A1 = D2 =
+                           A#0 = A#0 = D1 = F1 =  A0 = C1 = F1 = A1 =`)}]},
   reineBoss:{bpm:144,pistes:[
     {t:'square',v:.045,n:p(`A4 A4 E4 A4 C5 A4 E4 A4  A4 A4 E4 A4 D5 C5 A4 E4
                             G4 G4 D4 G4 B4 G4 D4 G4  A4 C5 E5 A5 G5 E5 C5 A4`)},
@@ -854,8 +892,12 @@ function lancerMusique(nom){
 function themeVoulu(){
   if(etat==='titre'||etat==='nom') return 'titre';
   if(etat==='victoire') return 'victoire';
+  /* L'épilogue prend le morceau de la région que la caméra traverse : c'est
+     le voyage lui-même qui joue, pas un thème plaqué par-dessus. */
+  if(etat==='epilogue') return epiT>EPI_ETOILES+EPI_MONTEE?'victoire':regionEpilogue();
   if(etat==='mort') return null;                       // silence
-  if(boss) return {coeur:'coeurBoss',yeti:'givreBoss',kraken:'abysseBoss',colosse:'colosseBoss',reine:'reineBoss'}[boss.type]||'boss';
+  if(boss) return {coeur:'coeurBoss',yeti:'givreBoss',kraken:'abysseBoss',colosse:'colosseBoss',
+                   reine:'reineBoss',sentinelle:'cielBoss',rongeur:'rongeurBoss'}[boss.type]||'boss';
   if(salleDe(J.x,J.y)) return 'donjon';                // ruine, arène, forge, temples…
   if(dansRefuge(J.x,J.y)) return 'village';            // village, grève, bosquet
   return regionDe(J.y);                                // vallee | cendre | cimes | lagon
@@ -884,7 +926,9 @@ const S = {HERBE:0,TERRE:1,EAU:2,SABLE:3,DALLE:4,RAMPE:5,TAPIS:6,
            /* Lagon d'Azur */ EAUPROF:14,CORAIL:15,
            /* énigmes : plaque de pression, au sol */ PLAQUE:16,
            /* Sables du Mirage */ DESERT:17,SABLEMOU:18,
-           /* Marais des Murmures */ MARAIS:19,VASE:20};           // sol
+           /* Marais des Murmures */ MARAIS:19,VASE:20,
+           /* Cité des Nues */ VIDE:21,NUAGE:22,PIERRECIEL:23,
+           /* la Faille */ NEANT:24,FRACTURE:25};                  // sol
 const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNEAU:8,
            SOUCHE:9,FLEUR:10,BLOC:11,PORTE:12,GRILLE:13,OEIL:14,FISSURE:15,
            ROCNOIR:16,PORTAIL:17,CRISTAL:18,BRASIER:19,BRASIERVIF:20,LANTERNE:21,
@@ -892,11 +936,16 @@ const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNE
            /* Lagon */ PALMIER:26,CORAILO:27,
            /* énigmes */ CAISSE:28,INTER:29,BLOCB:30,BLOCO:31,ANCRE:32,PORTEP:33,
            /* Sables */ BLOCLOURD:34,CACTUS:35,
-           /* Marais */ RONCE:36,VEILLEUSE:37,VEILLEUSEVIVE:38,SAULE:39};
+           /* Marais */ RONCE:36,VEILLEUSE:37,VEILLEUSEVIVE:38,SAULE:39,
+           /* Cité des Nues */ COLONNE:40,CARILLON:41,CARILLONVIF:42,OBELISQUE:43,
+           /* la Faille */ SCEAU:44,ECLATNOIR:45};
 
 /*                index 0  1  2 3  4  5  6  7  8 9 10 11 12 13 14 15  16 17 18  19 20 21  22 23 24 25  26 27  28 29 30 31 32 33  34 35  36 37 38 39 */
-const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16,  14,18,16,16,28,20,  16,26,  16,20,20,34];
-const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  1,1,0,0,1,1,  1,1,  1,1,1,1];
+const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16,  14,18,16,16,28,20,  16,26,  16,20,20,34,
+                /* Nues */ 26,22,22,34,  /* Faille */ 24,18];
+/* La colonne d'air et le carillon se traversent : l'une porte, l'autre sonne. */
+const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  1,1,0,0,1,1,  1,1,  1,1,1,1,
+                0,0,0,1,  1,1];
 /* Ce qu'un saut permet réellement d'enjamber. Tout le reste — murs, portes,
    grilles, murs fissurés, piliers, statues, arbres, maisons — reste infranchissable
    quelle que soit la hauteur atteinte, sinon le saut annulerait toute la progression. */
@@ -905,7 +954,8 @@ const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  
    franchit — c'est un simple carillon que le boomerang fait sonner. Le bloc
    lourd ne se pousse pas : il ne se soulève qu'au bracelet de force. La ronce
    ne s'enjambe pas : elle ne cède qu'au fanal. */
-const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0,  0,0,0,0,0,0,  0,0,  0,0,0,0];
+const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0,  0,0,0,0,0,0,  0,0,  0,0,0,0,
+                  0,0,0,0,  0,0];
 
 const sol   = new Uint8Array(MW*MH);
 const objs  = new Uint8Array(MW*MH);
@@ -996,13 +1046,21 @@ function genererMonde(){
         putO(x,y, hash(x*9,y*2)>.9?O.SOUCHE:O.ARBRE);
     }
 
-  /* --- rochers, buissons, fleurs --- */
+  /* --- rochers, buissons, fleurs ---
+     Bornés à la VALLÉE, et non à la carte entière. Ils tiraient leur rangée sur
+     `MH` : agrandir la carte les diluait, donc changeait le nombre de tirages
+     retenus — et décalait le générateur pour TOUTES les régions suivantes.
+     Ajouter un monde repeignait ainsi le terrain de ceux d'avant (mesuré : la
+     sortie sud de la Forge Noire passait de la cendre aux braises, et devenait
+     infranchissable sans les bottes). Le tirage de forme est désormais fait
+     dans tous les cas, pour que le flux ne dépende plus des tuiles touchées. */
   for(let i=0;i<820;i++){
-    const x=3+Math.floor(rnd()*(MW-6)), y=3+Math.floor(rnd()*(MH-6));
-    if(Sol(x,y)===S.HERBE && Obj(x,y)===O.RIEN) putO(x,y, rnd()<.4?O.ROC:O.BUISSON);
+    const x=3+Math.floor(rnd()*(MW-6)), y=3+Math.floor(rnd()*(Y_CENDRE-6));
+    const forme=rnd()<.4?O.ROC:O.BUISSON;
+    if(Sol(x,y)===S.HERBE && Obj(x,y)===O.RIEN) putO(x,y,forme);
   }
   for(let i=0;i<900;i++){
-    const x=3+Math.floor(rnd()*(MW-6)), y=3+Math.floor(rnd()*(MH-6));
+    const x=3+Math.floor(rnd()*(MW-6)), y=3+Math.floor(rnd()*(Y_CENDRE-6));
     if(Sol(x,y)===S.HERBE && Obj(x,y)===O.RIEN) putO(x,y,O.FLEUR);
   }
 
@@ -1044,6 +1102,8 @@ function genererMonde(){
   genererLagon();
   genererSables();
   genererMarais();
+  genererNues();
+  genererFaille();
 
   /* --- les énigmes, semées dans les régions --- */
   poserEnigmes();
@@ -1160,7 +1220,14 @@ const PS={
   sablemouP:'#8a6a34', sablemou:'#a6853f', gres:['#b98a4e','#c89a5c','#d6ab6e'], gresO:'#8a6030',
   /* Marais des Murmures : tourbe sombre, vase, eau croupie */
   marais:['#26332a','#2e3d31','#374a3a'], maraisO:'#1a241d', maraisC:'#5a7a52',
-  vaseP:'#2a2a1c', vase:['#3a3a24','#454530','#50503a'], vaseO:'#22220f'
+  vaseP:'#2a2a1c', vase:['#3a3a24','#454530','#50503a'], vaseO:'#22220f',
+  /* Cité des Nues : pierre pâle au-dessus des nuages, et le vide entre les îles */
+  cielP:['#8e97b8','#9ea7c8','#aeb7d6'], cielO:'#6d7699', cielC:'#dfe6ff',
+  nuage:['#c8d2ee','#d6def6','#e6ecff'], nuageO:'#a8b4d8',
+  videP:'#0a0d1c', vide:'#141a33', videC:'#2a3358',
+  /* la Faille : le néant fracturé */
+  neant:'#0b0713', neantC:'#3a2350',
+  fracture:['#241a33','#2e2242','#3a2b52'], fractureO:'#160f22', fractureC:'#9a6ae0'
 };
 const solCV=document.createElement('canvas');
 solCV.width=MW*TS; solCV.height=MH*TS;
@@ -1176,6 +1243,14 @@ function dither(g,x,y,w,h,col,motif){
 function fondTuile(g,t,sx,sy,x,y){
   const h=hash(x*17,y*29);
   if(t===S.EAU){ g.fillStyle=PS.eauP; g.fillRect(sx,sy,TS,TS); return; }
+  /* Le vide et le néant sont des trous : on ne les borde pas, on les creuse. */
+  if(t===S.VIDE){ g.fillStyle=PS.videP; g.fillRect(sx,sy,TS,TS);
+    if(h>.72){ g.fillStyle=PS.vide; g.fillRect(sx+((h*10)|0),sy+((h*11)|0),3,2); }
+    if(h>.93){ g.fillStyle=PS.videC; g.fillRect(sx+((h*12)|0),sy+((h*6)|0)+4,1,1); }
+    return; }
+  if(t===S.NEANT){ g.fillStyle=PS.neant; g.fillRect(sx,sy,TS,TS);
+    if(h>.88){ g.fillStyle=PS.neantC; g.fillRect(sx+((h*12)|0),sy+((h*13)|0),2,1); }
+    return; }
   if(t===S.LAVE){ g.fillStyle=PS.laveP; g.fillRect(sx,sy,TS,TS); return; }
   if(t===S.EAUPROF){ g.fillStyle=PS.eauprofP; g.fillRect(sx,sy,TS,TS); return; }
   if(t===S.PLAQUE){                              // plaque de pression (énigme)
@@ -1192,7 +1267,9 @@ function fondTuile(g,t,sx,sy,x,y){
             : t===S.NEIGE?PS.neige : t===S.ROCHE?PS.roche
             : t===S.GLACE?[PS.glace] : t===S.CORAIL?PS.corail
             : t===S.DESERT?PS.desert : t===S.SABLEMOU?[PS.sablemou]
-            : t===S.MARAIS?PS.marais : t===S.VASE?PS.vase : PS.herbe;
+            : t===S.MARAIS?PS.marais : t===S.VASE?PS.vase
+            : t===S.PIERRECIEL?PS.cielP : t===S.NUAGE?PS.nuage
+            : t===S.FRACTURE?PS.fracture : PS.herbe;
   g.fillStyle=pal[(h*pal.length)|0]; g.fillRect(sx,sy,TS,TS);
   if(t===S.HERBE){
     g.fillStyle=PS.herbeO;
@@ -1266,6 +1343,19 @@ function fondTuile(g,t,sx,sy,x,y){
     if(((tick/30+h*10)|0)%4===0){ g.fillStyle='#5a5a3a';
       g.fillRect(sx+((h*10)|0)+2,sy+((Math.sin(ph)*.5+.5)*9|0)+3,2,2); }
     g.fillStyle=PS.vaseO; g.fillRect(sx+((h*8)|0)+3,sy+((h*7)|0)+7,3,1);
+  } else if(t===S.PIERRECIEL){
+    g.fillStyle=PS.cielO; g.fillRect(sx,sy,TS,1); g.fillRect(sx,sy,1,TS);
+    g.fillStyle=PS.cielC; g.fillRect(sx+1,sy+1,TS-2,1);
+    if(h>.78){ g.fillStyle=PS.cielO; g.fillRect(sx+4,sy+9,6,1); }
+  } else if(t===S.NUAGE){
+    g.fillStyle=PS.nuageO;                           // moutonnement
+    g.fillRect(sx+((h*9)|0),sy+((h*10)|0)+4,4,2);
+    g.fillStyle='#f2f6ff'; g.fillRect(sx+((h*7)|0)+3,sy+((h*8)|0)+2,3,2);
+  } else if(t===S.FRACTURE){
+    g.fillStyle=PS.fractureO;                        // veines de néant
+    g.fillRect(sx+((h*11)|0),sy+((h*12)|0),4,1);
+    g.fillRect(sx+((h*6)|0)+7,sy+((h*9)|0)+6,2,1);
+    if(h>.84){ g.fillStyle=PS.fractureC; g.fillRect(sx+((h*10)|0),sy+((h*7)|0)+4,1,3); }
   }
 }
 /* transitions douces entre sols (tramage 16 bits) */
@@ -1273,16 +1363,19 @@ function bordures(g,t,sx,sy,x,y){
   const prio={[S.EAU]:0,[S.SABLE]:1,[S.HERBE]:2,[S.TERRE]:3,[S.RAMPE]:3,[S.DALLE]:4,[S.TAPIS]:5,
               [S.LAVE]:0,[S.CENDRE]:2,[S.BRAISE]:3,[S.BASALTE]:4,
               [S.EAUPROF]:0,[S.CORAIL]:1,[S.GLACE]:1,[S.NEIGE]:2,[S.ROCHE]:3,
-              [S.SABLEMOU]:0,[S.DESERT]:2,[S.VASE]:1,[S.MARAIS]:2};
+              [S.SABLEMOU]:0,[S.DESERT]:2,[S.VASE]:1,[S.MARAIS]:2,
+              [S.VIDE]:0,[S.NUAGE]:1,[S.PIERRECIEL]:4,[S.NEANT]:0,[S.FRACTURE]:2};
   const couleur={[S.HERBE]:PS.herbe[1],[S.TERRE]:PS.terre[1],[S.SABLE]:PS.sable[1],
                  [S.DALLE]:PS.dalle[1],[S.TAPIS]:PS.tapis[1],[S.RAMPE]:PS.terre[1],
                  [S.CENDRE]:PS.cendre[1],[S.BASALTE]:PS.basalte[1],[S.BRAISE]:PS.braise[1],
                  [S.NEIGE]:PS.neige[1],[S.ROCHE]:PS.roche[1],[S.GLACE]:PS.glace,[S.CORAIL]:PS.corail[1],
-                 [S.DESERT]:PS.desert[1],[S.MARAIS]:PS.marais[1],[S.VASE]:PS.vase[1]};
+                 [S.DESERT]:PS.desert[1],[S.MARAIS]:PS.marais[1],[S.VASE]:PS.vase[1],
+                 [S.NUAGE]:PS.nuage[1],[S.PIERRECIEL]:PS.cielP[1],[S.FRACTURE]:PS.fracture[1]};
   const dirs=[[0,-1,'N'],[0,1,'S'],[-1,0,'O'],[1,0,'E']];
   for(const [dx,dy,d] of dirs){
     const nt=Sol(x+dx,y+dy);
-    if(nt===t||nt===S.EAU||nt===S.LAVE||nt===S.EAUPROF||nt===S.SABLEMOU) continue;
+    if(nt===t||nt===S.EAU||nt===S.LAVE||nt===S.EAUPROF||nt===S.SABLEMOU
+       ||nt===S.VIDE||nt===S.NEANT) continue;
     if((prio[nt]??2)<=(prio[t]??2)) continue;
     const col=couleur[nt]; if(!col) continue;
     if(d==='N') dither(g,sx,sy,TS,4,col,1);
@@ -1851,6 +1944,53 @@ function bakeEnnemis(){
     rc(g,8,7+o,2,3,'#c83a5a'); rc(g,12,7+o,2,3,'#c83a5a');     // yeux rouges
     rc(g,8,7+o,2,1,'#ff8a9a'); rc(g,12,7+o,2,1,'#ff8a9a');
   });
+  /* ---- Cité des Nues ---- */
+  // TOURBILLON : il aspire, puis repousse
+  for(let f=0;f<3;f++) faireSprite(`tourbillon${f}`,24,26,g=>{
+    const o=f*2;
+    rc(g,9,2,6,4,'#c8d8f8'); rc(g,7,6,10,4,'#aabce8');
+    rc(g,5,10,14,5,'#8fa6dc'); rc(g,7,15,10,5,'#aabce8');
+    rc(g,9,20,6,4,'#c8d8f8');
+    rc(g,6+((o)%6),8,3,2,'#eef4ff'); rc(g,15-((o)%6),16,3,2,'#eef4ff');
+    rc(g,10,11,2,2,'#2a3358'); rc(g,13,11,2,2,'#2a3358');
+  });
+  // AIGLE DE FOUDRE : il fond en piqué
+  for(let f=0;f<2;f++) faireSprite(`aigle${f}`,26,18,g=>{
+    const d=f?2:0;
+    rc(g,1,6-d,9,4,'#5a6a92'); rc(g,16,6-d,9,4,'#5a6a92');       // ailes
+    rc(g,2,7-d,7,2,'#8fa0cc'); rc(g,17,7-d,7,2,'#8fa0cc');
+    rc(g,9,5,8,9,'#3f4a6a'); rc(g,10,6,6,6,'#5f6d94');
+    rc(g,11,7,2,2,'#ffe86a'); rc(g,14,7,2,2,'#ffe86a');          // yeux d'éclair
+    rc(g,12,12,3,4,'#e8c04a'); rc(g,11,13,1,3,'#c8a03c');        // bec et serres
+  });
+  // GOLEM-NUAGE : lourd, il ne cède qu'au marteau et se reforme
+  for(let f=0;f<2;f++) faireSprite(`golemnuage${f}`,30,32,g=>{
+    const d=f?1:0;
+    rc(g,4,6+d,22,20,'#aab6d8'); rc(g,6,8+d,18,14,'#c6d0ee');
+    rc(g,7,9+d,16,5,'#e2e9ff');
+    rc(g,2,12+d,4,10,'#96a2c6'); rc(g,24,12+d,4,10,'#96a2c6');   // bras
+    rc(g,9,14+d,4,4,'#2a3358'); rc(g,17,14+d,4,4,'#2a3358');     // yeux
+    rc(g,10,15+d,2,2,'#8fd0ff'); rc(g,18,15+d,2,2,'#8fd0ff');
+    rc(g,8,26+d,6,5,'#8f9cc0'); rc(g,16,26+d,6,5,'#8f9cc0');     // jambes
+  });
+  /* ---- la Faille ---- */
+  // ÉCHO : un gardien vaincu, revenu en creux
+  for(let f=0;f<2;f++) faireSprite(`echo${f}`,24,26,g=>{
+    const d=f?1:0;
+    rc(g,5,4+d,14,18,'#2a2038'); rc(g,6,5+d,12,12,'#3d2f54');
+    rc(g,7,6+d,10,4,'#54406f');
+    rc(g,8,10+d,3,3,'#c86ae0'); rc(g,14,10+d,3,3,'#c86ae0');
+    rc(g,6,22+d,4,4,'#241a33'); rc(g,15,22+d,4,4,'#241a33');
+  });
+  for(let f=0;f<2;f++) faireSprite(`echonoir${f}`,30,32,g=>{
+    const d=f?1:0;
+    rc(g,4,5+d,22,22,'#160f22'); rc(g,6,7+d,18,16,'#2a1c40');
+    rc(g,7,8+d,16,5,'#3f2c5c');
+    rc(g,9,13+d,4,4,'#e08aff'); rc(g,18,13+d,4,4,'#e08aff');
+    rc(g,10,14+d,2,2,'#ffffff'); rc(g,19,14+d,2,2,'#ffffff');
+    rc(g,3,14+d,3,9,'#160f22'); rc(g,25,14+d,3,9,'#160f22');
+    rc(g,8,27+d,6,5,'#100b1a'); rc(g,17,27+d,6,5,'#100b1a');
+  });
   // LA REINE DES LUCIOLES NOIRES — gardienne du Cœur du Marais
   for(let f=0;f<2;f++) faireSprite(`reine${f}`,40,44,g=>{
     const d=f?1:0;
@@ -1864,6 +2004,37 @@ function bakeEnnemis(){
     rc(g,18,9,2,1,'#ff8a9a'); rc(g,22,9,2,1,'#ff8a9a');
     rc(g,14,3,3,4,'#7de0a0'); rc(g,23,3,3,4,'#d8e060');           // antennes lumineuses
     rc(g,17,34,6,8,'#1f1a30');                                     // abdomen effilé
+  });
+
+  // LA SENTINELLE DU CIEL — automate à trois cœurs, gardienne du Belvédère
+  for(let f=0;f<2;f++) faireSprite(`sentinelle${f}`,44,46,g=>{
+    const d=f?1:0;
+    rc(g,6,16+d,8,18,'#6d7699'); rc(g,30,16+d,8,18,'#6d7699');     // bras suspendus
+    rc(g,7,18+d,6,12,'#8e97b8'); rc(g,31,18+d,6,12,'#8e97b8');
+    rc(g,14,10,16,28,'#5a648a'); rc(g,16,12,12,22,'#8e97b8');      // torse
+    rc(g,17,13,10,6,'#aeb7d6');
+    rc(g,19,20,6,6,'#2a3358'); rc(g,20,21,4,4,'#8fd0ff');          // le cœur bleu
+    rc(g,16,2,12,10,'#6d7699'); rc(g,18,4,8,6,'#aeb7d6');          // tête
+    rc(g,19,6,3,3,'#ffe86a'); rc(g,24,6,3,3,'#ffe86a');            // yeux d'or
+    rc(g,20,0,4,3,'#dfe6ff');
+    rc(g,15,38,6,7,'#4e5678'); rc(g,25,38,6,7,'#4e5678');          // jambes
+    rc(g,2,20+d,5,5,'#dfe6ff'); rc(g,37,20+d,5,5,'#dfe6ff');       // souffles
+  });
+  // LE RONGEUR D'ÉTOILES — il a dévoré les trois étoiles
+  for(let f=0;f<2;f++) faireSprite(`rongeur${f}`,52,52,g=>{
+    const d=f?2:0;
+    rc(g,2,18+d,12,20,'#160f22'); rc(g,38,18+d,12,20,'#160f22');   // ailes de néant
+    rc(g,4,20+d,9,14,'#2a1c40'); rc(g,40,20+d,9,14,'#2a1c40');
+    rc(g,14,10,24,32,'#100b1a'); rc(g,17,13,18,24,'#2a1c40');      // masse
+    rc(g,18,14,16,7,'#3f2c5c');
+    rc(g,18,4,16,10,'#241634'); rc(g,20,6,12,7,'#3f2c5c');         // gueule
+    for(let k=0;k<5;k++) rc(g,21+k*2,12,1,3,'#e8e0ff');            // crocs
+    rc(g,19,7,4,4,'#e08aff'); rc(g,29,7,4,4,'#e08aff');            // yeux
+    rc(g,20,8,2,2,'#ffffff'); rc(g,30,8,2,2,'#ffffff');
+    // les trois étoiles avalées, qui battent dans son ventre
+    rc(g,20,26,4,4,'#ffe86a'); rc(g,24,30,4,4,'#ffe86a'); rc(g,28,26,4,4,'#ffe86a');
+    rc(g,21,27,2,2,'#fff6c0'); rc(g,25,31,2,2,'#fff6c0'); rc(g,29,27,2,2,'#fff6c0');
+    rc(g,16,42,7,8,'#0c0714'); rc(g,29,42,7,8,'#0c0714');          // pattes
   });
 
   ['gluant0','gluant1','gluant2','gluant3','mini0','mini1','mini2','mini3','chauve0','chauve1','chauve2',
@@ -2028,6 +2199,19 @@ function bakeDecors(){
     rc(g,6,6,2,4,'#fff6d0');
     rc(g,3,12,8,2,'#6a6a4a');                          // base
   });
+  faireSprite('capeItem',14,14,g=>{                  // la cape des courants
+    rc(g,4,1,6,2,'#d8e8ff');                           // col
+    rc(g,2,3,10,7,'#5a7ac0'); rc(g,3,4,8,5,'#7a9ae0');
+    rc(g,4,5,6,3,'#a8c8ff');
+    rc(g,2,10,3,3,'#5a7ac0'); rc(g,9,10,3,3,'#5a7ac0');
+    rc(g,6,10,2,4,'#c8dcff');
+  });
+  faireSprite('etoileVolee',16,16,g=>{               // une étoile reprise au Rongeur
+    rc(g,7,0,2,16,'#ffe86a'); rc(g,0,7,16,2,'#ffe86a');
+    rc(g,5,5,6,6,'#fff6c0'); rc(g,6,6,4,4,'#ffffff');
+    rc(g,3,3,2,2,'#ffd24a'); rc(g,11,11,2,2,'#ffd24a');
+    rc(g,11,3,2,2,'#ffd24a'); rc(g,3,11,2,2,'#ffd24a');
+  });
   faireSprite('bloclourd',14,14,g=>{                 // bloc de grès jeté
     rc(g,1,1,12,12,'#8a6030'); rc(g,2,2,10,10,'#b98a4e');
     rc(g,2,2,10,3,'#d6ab6e'); rc(g,6,2,1,10,'#6e4a24'); rc(g,2,6,10,1,'#6e4a24');
@@ -2079,11 +2263,13 @@ function razQuetes(){
     /* Cimes Gelées */ boomerang:false,cloches:0,yetiTue:false,
     /* Lagon d'Azur */ palmes:false,perles:0,perlesRendues:false,naufrageParle:false,leviathanTue:false,
     /* énigmes : le grappin, les interrupteurs à bascule, et les trésors uniques */
-    grappin:false,inter:[0,0,0,0,0,0],
+    grappin:false,inter:[0,0,0,0,0,0,0,0],
     tresorInter:false,tresorGouffre:false,tresorCendre:false,
     /* Sables du Mirage */ bracelet:false,fresques:0,fresquesParle:false,fresquesRendues:false,
     colosseTue:false,tresorSables:false,
-    /* Marais des Murmures */ fanal:false,veilleuses:0,reineTue:false,tresorMarais:false});
+    /* Marais des Murmures */ fanal:false,veilleuses:0,reineTue:false,tresorMarais:false,
+    /* Cité des Nues */ cape:false,carillons:0,sentinelleTue:false,tresorNues:false,
+    /* la Faille */ failleOuverte:false,sceaux:0,rongeurTue:false,epreuveFinale:false});
 }
 
 /* ---------------------------- SPRITES DE QUÊTE ---------------------------- */
@@ -2355,6 +2541,10 @@ const LANTERNE_POS=[44,10];
 const BRASIERS_POS=[[12,112],[74,110],[16,126]];
 const FORGERON_POS=[41,104];           // sous la Forge, sur le chemin des salles
 function genererCendres(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x51ED1A;
   const Y0=Y_CENDRE, Y1=Y_CIMES;               // la région s'arrête aux Cimes
   /* Nappes de terrain : une grille grossière tirée du générateur du jeu, puis
      lue par tuile. hash() est trop dégénéré sur des entrées aussi régulières
@@ -2416,8 +2606,12 @@ function genererCendres(){
   const chemin=(x1,y1,x2,y2)=>{
     let x=x1,y=y1;
     const poser=()=>{ for(let k=-1;k<=1;k++){
-      if(Sol(x+k,y)===S.LAVE||Obj(x+k,y)===O.ROCNOIR){ putS(x+k,y,S.CENDRE); putO(x+k,y,O.RIEN); }
-      if(Sol(x,y+k)===S.LAVE||Obj(x,y+k)===O.ROCNOIR){ putS(x,y+k,S.CENDRE); putO(x,y+k,O.RIEN); }
+      /* On dégage aussi les BRAISES : sans cela, un chemin des Cendres pouvait
+         passer sous une nappe ardente et n'être franchissable qu'avec les
+         bottes — or les brasiers et l'atelier de Durn se visitent bien avant.
+         Le champ de braises qui garde l'Antre, lui, est posé plus bas. */
+      if(Sol(x+k,y)===S.LAVE||Sol(x+k,y)===S.BRAISE||Obj(x+k,y)===O.ROCNOIR){ putS(x+k,y,S.CENDRE); putO(x+k,y,O.RIEN); }
+      if(Sol(x,y+k)===S.LAVE||Sol(x,y+k)===S.BRAISE||Obj(x,y+k)===O.ROCNOIR){ putS(x,y+k,S.CENDRE); putO(x,y+k,O.RIEN); }
     } };
     while(y!==y2){ y+=Math.sign(y2-y); poser(); }
     while(x!==x2){ x+=Math.sign(x2-x); poser(); }
@@ -2511,6 +2705,10 @@ const CIMES={
 const CLOCHES_POS=[[20,172],[71,180],[30,220]];   // les trois cloches de givre
 const BOOMERANG_POS=[18,190];          // au cœur du Temple de Givre
 function genererCimes(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x27C1E5;
   const Y0=Y_CIMES, Y1=Y_LAGON;
   const PAS=6, NG=Math.ceil(MW/PAS)+2, MG=Math.ceil((Y1-Y0)/PAS)+2;
   const grille=new Float32Array(NG*MG*3);
@@ -2689,6 +2887,10 @@ function poserEnigmes(){
   }
 }
 function genererLagon(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x3A9012;
   const Y0=Y_LAGON, Y1=Y_SABLES;               // la région s'arrête aux Sables
   const PAS=6, NG=Math.ceil(MW/PAS)+2, MG=Math.ceil((Y1-Y0)/PAS)+2;
   const grille=new Float32Array(NG*MG*3);
@@ -2783,6 +2985,10 @@ const BRACELET_POS=[18,346];           // au cœur du Temple du Bracelet
 const ARCHEO_POS=[37,329];             // l'archéologue, près de l'oued
 const FRESQUES_POS=[[10,330],[76,332],[20,388],[80,388],[44,352]];  // cinq fragments de fresque
 function genererSables(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x5AB1E5;
   const Y0=Y_SABLES, Y1=Y_MARAIS;               // la région s'arrête au Marais
   const PAS=6, NG=Math.ceil(MW/PAS)+2, MG=Math.ceil((Y1-Y0)/PAS)+2;
   const grille=new Float32Array(NG*MG*3);
@@ -2902,6 +3108,10 @@ const MARAIS={
 const FANAL_POS=[18,426];              // au cœur du Bosquet du Fanal
 const VEILLEUSES_POS=[[20,410],[70,414],[14,452],[74,450],[30,470],[62,468],[44,430]];  // sept veilleuses
 function genererMarais(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x7A9A15;
   const Y0=Y_MARAIS, Y1=MH;
   const PAS=6, NG=Math.ceil(MW/PAS)+2, MG=Math.ceil((Y1-Y0)/PAS)+2;
   const grille=new Float32Array(NG*MG*3);
@@ -2984,6 +3194,218 @@ function genererMarais(){
    for(let y=ro.y0;y<=ro.y1;y++){ putS(x,y,S.MARAIS); putO(x,y,O.RONCE); }
    putO(x,yBas,O.RIEN); putS(x,yBas,S.DALLE);
    panneaux.push({x:(x-2)*TS+8,y:(yTop-2)*TS+8,txt:"BRÛLE LES RONCES AVEC LE FANAL."});
+  }
+}
+
+/* ==========================================================================
+   MONDE 7 — LA CITÉ DES NUES (rangées 480 à 559)
+   Des ruines flottantes séparées par le vide. Rien ne se traverse à pied :
+   il faut la CAPE DES COURANTS, et les colonnes d'air qui portent.
+   ========================================================================== */
+const NUES={
+  tour:{x0:38,x1:42},                    // la tour en spirale, depuis le Marais
+  parvis:{x0:34,y0:486,w:19,h:12},       // le Parvis des Vents : la cape
+  arene:{x0:33,y0:534,w:22,h:20}         // le Belvédère : la Sentinelle du Ciel
+};
+/* Les huit carillons du vent, suspendus au-dessus du vide : on les fait sonner
+   au boomerang, comme les cloches des Cimes. */
+const CARILLONS_POS=[[12,492],[74,494],[20,512],[68,510],[10,530],[78,528],[24,548],[66,546]];
+const CAPE_POS=[43,494];               // au fond du Parvis des Vents
+/* Les îles : centre et rayon. Tout le reste de la région est du vide. */
+const ILES_NUES=[
+  [40,484,7],[40,492,6],                     // l'entrée et le parvis
+  [20,494,5],[62,496,5],[12,492,4],[74,494,4],
+  [30,506,5],[52,506,5],[20,512,4],[68,510,4],
+  [40,512,6],[14,522,4],[70,522,4],
+  [30,528,5],[52,528,5],[10,530,4],[78,528,4],
+  [40,524,5],[24,548,4],[66,546,4],
+  [44,556,5],[36,556,5]
+];
+function genererNues(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0x0EC1E7;
+  const Y0=Y_NUES, Y1=Y_FAILLE;
+  /* tout est vide, et l'on pose les îles par-dessus */
+  for(let y=Y0;y<Y1;y++)for(let x=0;x<MW;x++){ putS(x,y,S.VIDE); putO(x,y,O.RIEN); putE(x,y,0); }
+  rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
+  rectO(0,Y0,MW,2,O.MUR);
+
+  const ile=(cx,cy,r,sole)=>{
+    for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){
+      if(!dansCarte(x,y)||y<Y0+2||y>=Y1) continue;
+      const d=Math.hypot(x-cx,y-cy);
+      if(d<=r-.4){ putS(x,y,sole||S.PIERRECIEL); putO(x,y,O.RIEN); putE(x,y,0); }
+      else if(d<=r+.4&&Sol(x,y)===S.VIDE){ putS(x,y,S.NUAGE); putO(x,y,O.RIEN); }
+    }
+  };
+  for(const [cx,cy,r] of ILES_NUES) ile(cx,cy,r);
+
+  /* la tour en spirale : le passage depuis le Marais, percé dans la falaise */
+  const t=NUES.tour;
+  for(let x=t.x0;x<=t.x1;x++)for(let y=Y0-8;y<=Y0+6;y++){
+    putO(x,y,O.RIEN); putS(x,y,y<Y0?S.DALLE:S.PIERRECIEL); putE(x,y,0); }
+  putO(t.x0,Y0+3,O.TORCHE); putO(t.x1,Y0+3,O.TORCHE);
+  panneaux.push({x:40*TS+8,y:(Y0+5)*TS+8,
+    txt:"LA CITÉ DES NUES. RIEN NE SE TRAVERSE À PIED, ICI."});
+
+  const salle=s=>{
+    rectS(s.x0,s.y0,s.w,s.h,S.PIERRECIEL); rectO(s.x0,s.y0,s.w,s.h,O.RIEN); rectE(s.x0,s.y0,s.w,s.h,0);
+    cadreO(s.x0,s.y0,s.w,s.h,O.MUR);
+    putO(s.x0+1,s.y0+1,O.TORCHE); putO(s.x0+s.w-2,s.y0+1,O.TORCHE);
+    putO(s.x0+1,s.y0+s.h-2,O.TORCHE); putO(s.x0+s.w-2,s.y0+s.h-2,O.TORCHE);
+  };
+  const breche=s=>{ const cx=s.x0+(s.w>>1);
+    for(let k=-1;k<=1;k++){ putO(cx+k,s.y0,O.RIEN); putS(cx+k,s.y0,S.PIERRECIEL); } };
+  salle(NUES.parvis); salle(NUES.arene);
+  breche(NUES.parvis); breche(NUES.arene);
+  /* on rejoint le parvis à pied depuis la tour : la cape s'y trouve, on ne
+     peut donc pas exiger de l'avoir déjà pour l'atteindre. */
+  {const cx=NUES.parvis.x0+(NUES.parvis.w>>1);
+   for(let y=Y0+2;y<=NUES.parvis.y0;y++)for(let k=-1;k<=1;k++){
+     putS(cx+k,y,S.PIERRECIEL); putO(cx+k,y,O.RIEN); putE(cx+k,y,0); }}
+  /* le socle de la cape, au fond du parvis */
+  {const p=NUES.parvis;
+   rectS(p.x0+2,p.y0+2,p.w-4,p.h-4,S.TAPIS);
+   putO(CAPE_POS[0],CAPE_POS[1]-1,O.OBELISQUE);
+   putO(CAPE_POS[0],CAPE_POS[1],O.RIEN);
+  }
+
+  /* Les colonnes d'air : elles portent au-dessus du vide. Posées sur les bords
+     des îles et au milieu des grands vides, ce sont elles qui dessinent le
+     chemin — sans cape on ne fait que retomber. */
+  const colonnes=[];
+  for(const [cx,cy,r] of ILES_NUES){
+    for(const [dx,dy] of [[0,1],[0,-1],[1,0],[-1,0]]){
+      const x=cx+dx*(r+1), y=cy+dy*(r+1);
+      if(!dansCarte(x,y)||y<Y0+3||y>=Y1-1) continue;
+      if(Sol(x,y)!==S.VIDE) continue;
+      putO(x,y,O.COLONNE); colonnes.push([x,y]);
+    }
+  }
+  /* quelques colonnes de relais en plein vide, pour les grandes traversées */
+  for(let i=0;i<40;i++){
+    const x=5+Math.floor(rnd()*(MW-10)), y=Y0+6+Math.floor(rnd()*(Y1-Y0-10));
+    if(Sol(x,y)===S.VIDE&&Obj(x,y)===O.RIEN
+       &&!colonnes.some(([a,b])=>Math.hypot(a-x,b-y)<5)){ putO(x,y,O.COLONNE); colonnes.push([x,y]); }
+  }
+
+  /* les huit carillons, sur leur propre îlot au-dessus du vide */
+  for(const [cx,cy] of CARILLONS_POS){
+    ile(cx,cy,2,S.NUAGE);
+    putO(cx,cy,O.CARILLON);
+  }
+  panneaux.push({x:CARILLONS_POS[0][0]*TS+8,y:(CARILLONS_POS[0][1]+3)*TS+8,
+    txt:"CARILLON MUET. LE BOOMERANG LE FAIT SONNER."});
+
+  /* obélisques de repère sur les îles majeures */
+  for(const [cx,cy,r] of ILES_NUES) if(r>=6&&Obj(cx,cy)===O.RIEN&&Sol(cx,cy)===S.PIERRECIEL)
+    putO(cx,cy,O.OBELISQUE);
+}
+
+/* ==========================================================================
+   MONDE 8 — LA FAILLE (rangées 560 à 639)
+   Pas de nouvel outil : on arrive avec tout. Trois paliers rejouent chacun
+   une mécanique d'un monde traversé, puis la salle finale les enchaîne.
+   ========================================================================== */
+const FAILLE={
+  bouche:{x0:38,x1:42},                  // la déchirure, depuis les Nues
+  palier1:{x0:8, y0:572,w:20,h:14},      // glace et boomerang
+  palier2:{x0:34,y0:572,w:20,h:14},      // bloc lourd et bracelet
+  palier3:{x0:60,y0:572,w:20,h:14},      // ronces et fanal
+  finale: {x0:30,y0:594,w:28,h:16},      // la salle-énigme : les quatre d'affilée
+  arene:  {x0:28,y0:614,w:32,h:22}       // le Rongeur d'Étoiles
+};
+/* Un sceau par palier. Les trois brisés ouvrent la salle finale. */
+const SCEAUX_POS=[[18,584],[44,584],[70,584]];
+function genererFaille(){
+  /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
+     ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
+     § 14). Chaque monde est ainsi indépendant de ceux qui l'entourent. */
+  _s=0xFA111E;
+  const Y0=Y_FAILLE, Y1=MH;
+  for(let y=Y0;y<Y1;y++)for(let x=0;x<MW;x++){
+    const n=rnd();
+    putS(x,y,n>.62?S.FRACTURE:S.NEANT); putO(x,y,O.RIEN); putE(x,y,0);
+  }
+  rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
+  rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-3,MW,3,O.MUR);
+
+  /* la bouche de la Faille : on y tombe depuis les Nues */
+  const b=FAILLE.bouche;
+  for(let x=b.x0;x<=b.x1;x++)for(let y=Y0-6;y<=Y0+8;y++){
+    putO(x,y,O.RIEN); putS(x,y,y<Y0?S.PIERRECIEL:S.FRACTURE); putE(x,y,0); }
+  panneaux.push({x:40*TS+8,y:(Y0+6)*TS+8,
+    txt:"LA FAILLE. TROIS SCEAUX, PUIS LE RONGEUR D'ÉTOILES."});
+
+  const salle=(s,sole)=>{
+    rectS(s.x0,s.y0,s.w,s.h,sole||S.FRACTURE); rectO(s.x0,s.y0,s.w,s.h,O.RIEN); rectE(s.x0,s.y0,s.w,s.h,0);
+    cadreO(s.x0,s.y0,s.w,s.h,O.MUR);
+    putO(s.x0+1,s.y0+1,O.TORCHE); putO(s.x0+s.w-2,s.y0+1,O.TORCHE);
+    putO(s.x0+1,s.y0+s.h-2,O.TORCHE); putO(s.x0+s.w-2,s.y0+s.h-2,O.TORCHE);
+  };
+  const breche=s=>{ const cx=s.x0+(s.w>>1);
+    for(let k=-1;k<=1;k++){ putO(cx+k,s.y0,O.RIEN); putS(cx+k,s.y0,S.FRACTURE); } };
+  for(const s of [FAILLE.palier1,FAILLE.palier2,FAILLE.palier3,FAILLE.finale,FAILLE.arene]){
+    salle(s); breche(s);
+  }
+
+  /* Un couloir de desserte relie la bouche aux trois paliers puis à la finale. */
+  const voie=(x1,y1,x2,y2)=>{ let x=x1,y=y1;
+    const pose=()=>{ for(let k=-1;k<=1;k++) for(const [ax,ay] of [[x+k,y],[x,y+k]])
+      if(dansCarte(ax,ay)&&Obj(ax,ay)!==O.MUR){ putS(ax,ay,S.FRACTURE); putO(ax,ay,O.RIEN); putE(ax,ay,0); } };
+    while(y!==y2){ y+=Math.sign(y2-y); pose(); }
+    while(x!==x2){ x+=Math.sign(x2-x); pose(); } };
+  const hub=[40,Y0+9];
+  for(const s of [FAILLE.palier1,FAILLE.palier2,FAILLE.palier3])
+    voie(hub[0],hub[1],s.x0+(s.w>>1),s.y0-1);
+
+  /* --- palier 1 : la glace, comme aux Cimes — le boomerang la brise --- */
+  {const s=FAILLE.palier1, cx=s.x0+(s.w>>1);
+   rectS(s.x0+2,s.y0+2,s.w-4,s.h-4,S.GLACE);
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.GLACON);
+   for(let y=s.y0+7;y<=s.y0+8;y++){ putO(cx,y,O.GLACON); }
+   putO(cx,s.y0+s.h-3,O.SCEAU);
+   panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE BOOMERANG BRISE LA GLACE."});}
+  /* --- palier 2 : le bloc lourd, comme aux Sables — le bracelet le soulève --- */
+  {const s=FAILLE.palier2, cx=s.x0+(s.w>>1);
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.BLOCLOURD);
+   putO(cx,s.y0+s.h-3,O.SCEAU);
+   panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE BRACELET SOULÈVE LE BLOC LOURD."});}
+  /* --- palier 3 : les ronces, comme au Marais — le fanal les brûle --- */
+  {const s=FAILLE.palier3, cx=s.x0+(s.w>>1);
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.RONCE);
+   putO(cx,s.y0+s.h-3,O.SCEAU);
+   panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE FANAL BRÛLE LES RONCES."});}
+
+  /* --- la salle finale : quatre mécaniques d'affilée, sans filet ---
+     un gouffre (grappin), un vide (cape), une glace (boomerang), un bloc
+     lourd (bracelet). Elle est fermée tant que les trois sceaux tiennent. */
+  {const s=FAILLE.finale, y0=s.y0;
+   voie(hub[0],hub[1],s.x0+(s.w>>1),y0-1);
+   // bande 1 : le gouffre, franchi au grappin (une ancre au-delà)
+   for(let x=s.x0+2;x<s.x0+s.w-2;x++){ putS(x,y0+4,S.VIDE); putS(x,y0+5,S.VIDE); }
+   putO(s.x0+(s.w>>1),y0+3,O.ANCRE);
+   // bande 2 : le vide, franchi à la cape (deux colonnes d'air)
+   for(let x=s.x0+2;x<s.x0+s.w-2;x++){ putS(x,y0+8,S.VIDE); putS(x,y0+9,S.VIDE); putS(x,y0+10,S.VIDE); }
+   putO(s.x0+8,y0+9,O.COLONNE); putO(s.x0+s.w-9,y0+9,O.COLONNE);
+   // bande 3 : la glace et le bloc lourd, l'un derrière l'autre
+   for(let x=s.x0+2;x<s.x0+s.w-2;x++){ putS(x,y0+12,S.GLACE); putO(x,y0+12,O.GLACON); }
+   for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y0+13,O.BLOCLOURD);
+   panneaux.push({x:(s.x0+2)*TS+8,y:(y0+2)*TS+8,
+     txt:"QUATRE ÉPREUVES D'AFFILÉE. GRAPPIN, CAPE, BOOMERANG, BRACELET."});
+   // la porte de la salle finale, scellée par les trois sceaux
+   const cx=s.x0+(s.w>>1);
+   for(let k=-1;k<=1;k++){ putO(cx+k,y0,O.ECLATNOIR); putS(cx+k,y0,S.FRACTURE); }
+  }
+
+  /* --- l'arène du Rongeur, sous la salle finale --- */
+  {const f=FAILLE.finale, a=FAILLE.arene, cx=a.x0+(a.w>>1);
+   for(let y=f.y0+f.h-1;y<=a.y0;y++)for(let k=-1;k<=1;k++){
+     putS(cx+k,y,S.FRACTURE); putO(cx+k,y,O.RIEN); putE(cx+k,y,0); }
+   rectS(a.x0+2,a.y0+2,a.w-4,a.h-4,S.NEANT);
+   rectS(a.x0+3,a.y0+3,a.w-6,a.h-6,S.FRACTURE);
   }
 }
 
@@ -3245,6 +3667,79 @@ function tenterInteraction(){
   return false;
 }
 
+/* ============ LE VIDE ET LE VOL PLANÉ (Cité des Nues) ============
+   Le vide n'est pas un mur : on y entre, et on tombe. Le dernier sol ferme
+   foulé est mémorisé, c'est là qu'on revient — sans lui, une chute au milieu
+   d'un grand vide renverrait n'importe où, voire dans le vide à nouveau.
+   Seul S.VIDE fait tomber ; le néant de la Faille n'est qu'un décor, sans quoi
+   les bords de l'arène finale seraient mortels. */
+function tomberDansLeVide(){
+  J.x=J.solX; J.y=J.solY; J.z=J.solZ;
+  J.vz=0; J.enAir=false; J.kx=0; J.ky=0; J.plane=0;
+  secousse=9; son(300,.45,'sine',.06,-260); bruit(.35,.08);
+  particules(J.x,J.y,J.z+10,18,'#8e97b8',2.6,30);
+  if(J.invuln<=0) blesser(1,J.x,J.y+12);
+  J.x=J.solX; J.y=J.solY; J.z=J.solZ; J.kx=0; J.ky=0;   // blesser repousse : on recale
+  J.invuln=Math.max(J.invuln,70);
+  dire("LE VIDE T'A REPRIS.",120);
+}
+function majVol(){
+  const tx=Math.floor(J.x/TS), ty=Math.floor(J.y/TS);
+  if(!dansCarte(tx,ty)) return;
+  /* Une colonne d'air porte — mais seulement qui sait s'en servir. Sans la
+     cape, elle souffle et rien de plus : la Cité reste infranchissable. */
+  if(Obj(tx,ty)===O.COLONNE&&Q.cape){
+    J.plane=Math.max(J.plane,150);
+    J.vz=Math.max(J.vz,1.15); J.enAir=true;
+    if(tick%6===0) particules(J.x,J.y,J.z+4,2,'#dfe6ff',1.3,20);
+  }
+  if(Sol(tx,ty)!==S.VIDE){
+    if(!J.enAir&&J.plane<=0){ J.solX=J.x; J.solY=J.y; J.solZ=J.z; }
+    return;
+  }
+  if(J.plane>0) return;                      // on plane : le vide ne prend pas
+  tomberDansLeVide();
+}
+
+/* ============ LA FAILLE : SCEAUX ET PORTE FINALE ============
+   Un sceau par palier. Chacun n'est atteignable qu'avec l'outil du monde qu'il
+   rejoue, et les trois brisés effacent les éclats noirs qui ferment la salle
+   finale — comme la grille du lac cède à l'œil de pierre. */
+function ouvrirFaille(){
+  if(Q.failleOuverte) return;
+  Q.failleOuverte=true;
+  SFX.coffre(); secousse=14;
+  annonce('LA FAILLE S OUVRE');
+  dire("LE CIEL S'EST DÉCHIRÉ AU SUD DE LA CITÉ. C'EST LÀ QU'IL T'ATTEND.",320);
+  autoSauver();
+}
+function briserSceau(){
+  const tx=Math.floor(J.x/TS), ty=Math.floor(J.y/TS);
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(Obj(tx+dx,ty+dy)!==O.SCEAU) continue;
+    if(Math.hypot((tx+dx)*TS+8-J.x,(ty+dy)*TS+8-J.y)>24) continue;
+    putO(tx+dx,ty+dy,O.RIEN); rafraichirTuile(tx+dx,ty+dy);
+    Q.sceaux=Math.min(3,Q.sceaux+1);
+    SFX.coffre(); secousse=10;
+    particules((tx+dx)*TS+8,(ty+dy)*TS+8,Etg(tx+dx,ty+dy)*EH+10,26,'#c86ae0',3,36);
+    dire('SCEAU BRISÉ : '+Q.sceaux+'/3');
+    if(Q.sceaux>=3) ouvrirEpreuveFinale();
+    autoSauver();
+    return;
+  }
+}
+function ouvrirEpreuveFinale(){
+  if(Q.epreuveFinale) return;
+  Q.epreuveFinale=true;
+  for(let x=0;x<MW;x++)for(let y=Y_FAILLE;y<MH;y++)
+    if(objs[y*MW+x]===O.ECLATNOIR){ putO(x,y,O.RIEN);
+      particules(x*TS+8,y*TS+8,0,10,'#e08aff',2.4,26); }
+  prerendreSol();
+  SFX.coffre(); secousse=16; annonce("L'ÉPREUVE FINALE S OUVRE");
+  dire("LES TROIS SCEAUX SONT BRISÉS. QUATRE ÉPREUVES, PUIS LUI.",320);
+  autoSauver();
+}
+
 /* -------------------- VERROUS DU MONDE -------------------- */
 function verifierVerrous(){
   const tx=Math.floor(J.x/TS), ty=Math.floor(J.y/TS);
@@ -3379,6 +3874,35 @@ function fanalAction(){
   }
   if(fait){ SFX.epee(); secousse=3; } else { SFX.erreur(); if(msgT<=0) dire("RIEN À BRÛLER DEVANT."); }
 }
+/* La cape des courants : un coup d'aile, puis on plane. Une colonne d'air
+   rallonge le vol (voir majVol) — c'est en les enchaînant qu'on traverse. */
+function capeAction(){
+  if(J.plane>0){ J.plane=Math.max(J.plane,60); return; }   // relancer, sans cumuler
+  J.plane=120; J.vz=Math.max(J.vz,1.35); J.enAir=true;
+  SFX.saut(); son(520,.16,'sine',.05,180);
+  particules(J.x,J.y,J.z+6,14,'#a8c8ff',2,22);
+  if(msgT<=0) dire("TU PLANES.",90);
+}
+/* Les huit carillons du vent : suspendus au-dessus du vide, on les fait sonner
+   au boomerang, jamais à l'épée — c'est ce qui les distingue des cloches. */
+function sonnerCarillon(tx,ty){
+  if(Obj(tx,ty)!==O.CARILLON) return false;
+  putO(tx,ty,O.CARILLONVIF); rafraichirTuile(tx,ty);
+  Q.carillons=Math.min(8,Q.carillons+1);
+  SFX.coffre(); son(880,.18,'triangle',.05,320); son(1180,.14,'triangle',.04,260,.08);
+  particules(tx*TS+8,ty*TS+2,Etg(tx,ty)*EH+16,20,'#dfe6ff',2.4,32);
+  dire('CARILLON DU VENT : '+Q.carillons+'/8');
+  if(Q.carillons>=8) recompenseCarillons();
+  autoSauver();
+  return true;
+}
+function recompenseCarillons(){
+  for(let y=Y_NUES;y<Y_FAILLE;y++)for(let x=0;x<MW;x++) vu[y*MW+x]=1;
+  secousse=12; annonce('LES HUIT CARILLONS RÉPONDENT');
+  dire("LE VENT PORTE TA CARTE DES NUES, ET UN CŒUR T'ATTEND AU PARVIS.",320);
+  const p=NUES.parvis;
+  butins.push({x:(p.x0+(p.w>>1))*TS+8,y:(p.y0+3)*TS+8,z:0,vz:2,type:'coeurmax',t:0});
+}
 function allumerVeilleuse(tx,ty){
   if(Obj(tx,ty)!==O.VEILLEUSE) return false;
   putO(tx,ty,O.VEILLEUSEVIVE); rafraichirTuile(tx,ty); inventorierTorches();
@@ -3488,6 +4012,20 @@ function lignesJournal(){
     L.push([f(Q.reineTue)+'REINE DES LUCIOLES : '+(Q.reineTue?'VAINCUE':'CŒUR DU MARAIS - BRÛLE LES RONCES'),'#9ad0a0']);
     L.push([f(Q.veilleuses>=7)+'VEILLEUSES : '+Q.veilleuses+'/7','#9ad0a0']);
   }
+  if(Q.reineTue||Q.cape||Q.carillons){
+    L.push(['','#000']);
+    L.push(['CITÉ DES NUES','#c8d8f8']);
+    L.push([f(Q.cape)+'LA CAPE DES COURANTS','#c8d8f8']);
+    L.push([f(Q.sentinelleTue)+'SENTINELLE DU CIEL : '+(Q.sentinelleTue?'ARRÊTÉE':'AU BELVÉDÈRE'),'#c8d8f8']);
+    L.push([f(Q.carillons>=8)+'CARILLONS DU VENT : '+Q.carillons+'/8','#c8d8f8']);
+  }
+  if(Q.failleOuverte||Q.sceaux||Q.rongeurTue){
+    L.push(['','#000']);
+    L.push(['LA FAILLE','#e08aff']);
+    L.push([f(Q.sceaux>=3)+'SCEAUX BRISÉS : '+Q.sceaux+'/3','#e08aff']);
+    L.push([f(Q.epreuveFinale)+'ÉPREUVE FINALE','#e08aff']);
+    L.push([f(Q.rongeurTue)+"RONGEUR D'ÉTOILES",'#e08aff']);
+  }
   L.push(['','#000']);
   L.push(['ÉQUIPEMENT','#ffb0c0']);
   L.push(['ÉPÉE '+(Q.epeeLongue?'LONGUE':'COURTE')+(Q.epeeCendre?' DE CENDRE':''),'#c8d0e8']);
@@ -3498,6 +4036,8 @@ function lignesJournal(){
            +(Q.bottes?'BOTTES DE CENDRE':'-'),'#e8b0a0']);
   if(Q.boomerang||Q.palmes||Q.grappin)
     L.push([(Q.boomerang?'BOOMERANG':'-')+'  '+(Q.palmes?'PALMES':'-')+'  '+(Q.grappin?'GRAPPIN':'-'),'#aee0ff']);
+  if(Q.bracelet||Q.fanal||Q.cape)
+    L.push([(Q.bracelet?'BRACELET':'-')+'  '+(Q.fanal?'FANAL':'-')+'  '+(Q.cape?'CAPE':'-'),'#c8d8f8']);
   if(Q.bracelet||Q.fanal) L.push([(Q.bracelet?'BRACELET':'-')+'   '+(Q.fanal?'FANAL':'-'),'#f0c878']);
   L.push(['BOUCLIER '+(Q.bouclierFort?'RENFORCÉ':'DE BOIS')+'   POTIONS '+Q.potions,'#c8d0e8']);
   return L;
@@ -3522,11 +4062,22 @@ function ecranJournal(){
 /* -------------------- OBJECTIF COURANT -------------------- */
 function objectifCourant(){
   /* Dans les régions du sud, l'objectif suit le lieu où l'on se trouve. */
+  if(enFaille(J.y)){
+    if(Q.rongeurTue) return "LES TROIS ÉTOILES SONT LIBRES";
+    if(Q.sceaux<3) return 'SCEAUX : '+Q.sceaux+"/3 - LES TROIS PALIERS";
+    return "L'ÉPREUVE FINALE, PUIS LE RONGEUR D'ÉTOILES";
+  }
+  if(enNues(J.y)){
+    if(!Q.cape) return 'PARVIS DES VENTS, DROIT DEVANT : LA CAPE';
+    if(!Q.sentinelleTue) return 'BELVÉDÈRE, PLEIN SUD : LA SENTINELLE DU CIEL';
+    if(Q.carillons<8) return 'CARILLONS : '+Q.carillons+'/8 AU BOOMERANG';
+    return 'AU SUD : LA FAILLE';
+  }
   if(enMarais(J.y)){
     if(!Q.fanal) return 'BOSQUET DU FANAL, À L OUEST';
     if(!Q.reineTue) return 'CŒUR DU MARAIS : BRÛLE LES RONCES, BATS LA REINE';
     if(Q.veilleuses<7) return 'VEILLEUSES : '+Q.veilleuses+'/7 À RALLUMER';
-    return 'LE MARAIS EST APAISÉ';
+    return 'AU SUD : LA TOUR VERS LA CITÉ DES NUES';
   }
   if(enSables(J.y)){
     if(!Q.bracelet) return 'TEMPLE DU BRACELET, À L OUEST';
@@ -3566,7 +4117,7 @@ function objectifCourant(){
 }
 
 /* ============================ ÉTAT DE JEU ============================ */
-let etat='titre';           // titre | jeu | carte | mort | victoire
+let etat='titre';           // titre | jeu | carte | mort | epilogue | victoire
 let tick=0, gel=0, secousse=0, fondu=0, fonduDir=0, fonduSuite=null;
 let ennemis=[], tirs=[], butins=[], bombes=[], parts=[], coffres=[], boss=null;
 let message='', msgT=0, bandeau='', bandeauT=0;
@@ -3578,7 +4129,8 @@ const OBJETS=[
   {id:'boomerang',nom:'BOOMERANG',spr:'boomerangItem'},
   {id:'grappin',nom:'GRAPPIN',spr:'grappinItem'},
   {id:'bracelet',nom:'BRACELET',spr:'braceletItem'},
-  {id:'fanal',nom:'FANAL',spr:'fanalItem'}
+  {id:'fanal',nom:'FANAL',spr:'fanalItem'},
+  {id:'cape',nom:'CAPE',spr:'capeItem'}
 ];
 
 const J={
@@ -3587,7 +4139,9 @@ const J={
   objets:[], objSel:0,
   atk:0, charge:0, spin:0, invuln:0, bouclier:false, kx:0, ky:0,
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
-  slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null, porte:null
+  slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null, porte:null,
+  /* Cité des Nues : le vol plané et le dernier sol ferme foulé */
+  plane:0, solX:35*TS, solY:45*TS, solZ:0
 };
 
 function dire(t,duree=200){ message=t; msgT=duree; }
@@ -3621,15 +4175,19 @@ function pondre(type,tx,ty){
             braise:4,golem:12,spectre:5,
             harpie:3,piquier:5,loup:2,crabe:6,triton:4,meduse:3,
             scarabee:2,lancier:4,djinn:3,
-            follet:2,crapaud:4,ombre:3}[type]||2;
-  const r={mini:4,chef:9,golem:9,crabe:8,piquier:6,scarabee:7}[type]||6;
+            follet:2,crapaud:4,ombre:3,
+            /* Cité des Nues */ tourbillon:5,aigle:3,golemnuage:14,
+            /* la Faille */ echo:8,echonoir:12}[type]||2;
+  const r={mini:4,chef:9,golem:9,crabe:8,piquier:6,scarabee:7,
+           golemnuage:9,tourbillon:8,echonoir:9}[type]||6;
   ennemis.push({type,x:tx*TS+8,y:ty*TS+8,z:0,vz:0,r,dir:2,
     pv,pvmax:pv,t:Math.floor(rnd()*120),cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*100,stun:0});
 }
 function libre(x,y){
   return dansCarte(x,y)&&Obj(x,y)===O.RIEN
     &&[S.HERBE,S.TERRE,S.SABLE,S.DALLE,S.CENDRE,S.BASALTE,
-       S.NEIGE,S.GLACE,S.ROCHE,S.CORAIL,S.DESERT,S.MARAIS,S.VASE].includes(Sol(x,y));
+       S.NEIGE,S.GLACE,S.ROCHE,S.CORAIL,S.DESERT,S.MARAIS,S.VASE,
+       S.PIERRECIEL,S.NUAGE,S.FRACTURE].includes(Sol(x,y));
 }
 function peupler(){
   ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
@@ -3732,6 +4290,34 @@ function peupler(){
   if(!Q.fanal){ const t=MARAIS.bosquet, cx=t.x0+(t.w>>1);
     pondre('follet',cx-2,t.y0+2); pondre('crapaud',cx+2,t.y0+2); pondre('follet',cx,t.y0+5); }
 
+  /* --- la faune de la Cité des Nues : tourbillons, aigles, golems-nuage ---
+     Elle ne se pose que sur les îles : le vide n'est pas un sol. */
+  let nnu=0; g=0;
+  while(nnu<26&&g++<9000){
+    const x=5+Math.floor(rnd()*(MW-10)), y=Y_NUES+4+Math.floor(rnd()*(Y_FAILLE-Y_NUES-9));
+    if(!libre(x,y)) continue;
+    const ar=NUES.arene;
+    if(x>ar.x0-2&&x<ar.x0+ar.w+2&&y>ar.y0-2&&y<ar.y0+ar.h+2) continue;
+    if(salleDe(x*TS+8,y*TS+8)) continue;
+    const r=rnd();
+    pondre(r<.40?'aigle':r<.74?'tourbillon':'golemnuage',x,y);
+    nnu++;
+  }
+  if(!Q.cape){ const t=NUES.parvis, cx=t.x0+(t.w>>1);
+    pondre('aigle',cx-3,t.y0+3); pondre('tourbillon',cx+3,t.y0+3); pondre('aigle',cx,t.y0+6); }
+
+  /* --- la Faille : des échos des gardiens vaincus, par paires --- */
+  let nfa=0; g=0;
+  while(nfa<20&&g++<9000){
+    const x=5+Math.floor(rnd()*(MW-10)), y=Y_FAILLE+4+Math.floor(rnd()*(MH-Y_FAILLE-9));
+    if(!libre(x,y)) continue;
+    const ar=FAILLE.arene;
+    if(x>ar.x0-2&&x<ar.x0+ar.w+2&&y>ar.y0-2&&y<ar.y0+ar.h+2) continue;
+    if(salleDe(x*TS+8,y*TS+8)) continue;
+    pondre(rnd()<.6?'echo':'echonoir',x,y);
+    nfa++;
+  }
+
   /* --- objets de quête, reposés tant qu'on ne les a pas ---
      Comme la clé, ce sont des butins persistants : ils réapparaissent à la
      même place au rechargement, jusqu'à ce qu'on les ramasse. */
@@ -3758,6 +4344,8 @@ function peupler(){
     butins.push({x:fx*TS+8,y:fy*TS+8,z:Etg(fx,fy)*EH,vz:0,type:'fresque',t:0}); }
   // Marais des Murmures : le fanal
   tresor(Q.fanal,FANAL_POS,'fanal');
+  // Cité des Nues : la cape des courants, au fond du Parvis des Vents
+  tresor(Q.cape,CAPE_POS,'cape');
 }
 
 function reveillerBoss(){
@@ -3795,7 +4383,7 @@ function slamMarteau(){
   }
   for(const e of ennemis){
     if(Math.abs(e.x-cx)<22&&Math.abs(e.y-cy)<22&&Math.abs(e.z-J.z)<24){
-      if(e.type==='golem'&&e.stun<=0){ e.stun=110; eclat(e.x,e.y-10,e.z+8,'#ff8b3a'); }
+      if((e.type==='golem'||e.type==='golemnuage')&&e.stun<=0){ e.stun=110; eclat(e.x,e.y-10,e.z+8,e.type==='golemnuage'?'#8fd0ff':'#ff8b3a'); }
       frapper(e,3,J.x,J.y,'marteau');
     }
   }
@@ -3815,7 +4403,7 @@ function frapper(e,deg,sx,sy,type){
   if(e.flash>6) return false;
   // le colosse de basalte n'est entamé que par le marteau, ou pendant qu'il
   // vacille sous un coup de marteau
-  if(e.type==='golem'&&e.stun<=0&&type!=='marteau'&&type!=='explosion'){
+  if((e.type==='golem'||e.type==='golemnuage')&&e.stun<=0&&type!=='marteau'&&type!=='explosion'){
     SFX.bouclier(); eclat(sx,sy-8,e.z+10,'#8d84a4'); return false;
   }
   // le spectre, la méduse, le djinn et l'ombre s'effacent : on ne les touche que
@@ -3985,6 +4573,7 @@ function majJoueur(){
     else if(o==='grappin') lancerGrappin();
     else if(o==='bracelet') brasBracelet();
     else if(o==='fanal') fanalAction();
+    else if(o==='cape') capeAction();
   }
 
   /* --- le grappin tire le héros jusqu'à l'ancre : il glisse en ligne droite,
@@ -4029,6 +4618,13 @@ function majJoueur(){
 
   /* --- gravité / étages --- */
   const nb=baseSol(J.x,J.y);
+  /* La cape des courants : tant qu'on plane, la chute est freinée et le vide
+     ne reprend pas. Une colonne d'air relance le vol — c'est ce qui permet
+     d'enchaîner les îles de la Cité des Nues. */
+  if(J.plane>0){ J.plane--;
+    if(J.vz<-.55) J.vz=-.55;
+    if(tick%5===0) particules(J.x+(rnd()-.5)*10,J.y+(rnd()-.5)*8,J.z+6,1,'#c8dcff',1,16);
+  }
   if(J.z>nb+.5){ J.vz-=.23; J.z+=J.vz; J.enAir=true;
     J.coyote=Math.max(0,(J.coyote|0)-1);
     if(J.z<=nb){ J.z=nb; J.vz=0; J.enAir=false; J.coyote=8;
@@ -4127,6 +4723,7 @@ function majJoueur(){
   /* --- verrous du monde --- */
   verifierVerrous();
   majPuzzles();
+  majVol();
 
   /* --- points de sauvegarde : le village, puis toutes les minutes --- */
   if(dansRefuge(J.x,J.y)&&tempsJeu-dernierAuto>1800) autoSauver();
@@ -4159,6 +4756,13 @@ function majJoueur(){
   {const ar=MARAIS.arene;
    if(!boss&&!Q.reineTue&&J.x>ar.x0*TS&&J.x<(ar.x0+ar.w)*TS
       &&J.y>(ar.y0+1)*TS&&J.y<(ar.y0+ar.h)*TS) reveillerReine();}
+  {const ar=NUES.arene;
+   if(!boss&&!Q.sentinelleTue&&J.x>ar.x0*TS&&J.x<(ar.x0+ar.w)*TS
+      &&J.y>(ar.y0+1)*TS&&J.y<(ar.y0+ar.h)*TS) reveillerSentinelle();}
+  {const ar=FAILLE.arene;
+   if(!boss&&!Q.rongeurTue&&J.x>ar.x0*TS&&J.x<(ar.x0+ar.w)*TS
+      &&J.y>(ar.y0+1)*TS&&J.y<(ar.y0+ar.h)*TS) reveillerRongeur();}
+  briserSceau();
 
   /* --- les braises brûlent qui n'a pas les bottes --- */
   if(!Q.bottes&&J.invuln<=0&&Sol(Math.floor(J.x/TS),Math.floor(J.y/TS))===S.BRAISE
@@ -4210,8 +4814,15 @@ function ouvrirCoffre(c){
     dire("LES TROIS ÉTOILES BRILLENT. AU SUD, LA TERRE S'EST FENDUE.",300);
     autoSauver();
   } },1400);
+  /* Les trois braises n'achèvent plus l'aventure non plus : elles ouvrent la
+     route des Cimes. La fin attend le Rongeur d'Étoiles, huit mondes plus bas.
+     (Le jeu déclarait encore victoire ici, alors que six régions suivaient.) */
   if(Q.braises>=3) setTimeout(()=>{ if(etat==='jeu'){
-    menuSel=0; sauver(true); etat='victoire'; finT=0; viderTampon(); } },1400);
+    SFX.coffre(); secousse=10;
+    annonce('LA ROUTE DES CIMES S OUVRE');
+    dire("LES TROIS BRAISES BRÛLENT. LE COL DU NORD-SUD EST DÉGAGÉ : MONTE AUX CIMES.",320);
+    autoSauver();
+  } },1400);
 }
 
 /* Effets d'un butin ramassé. Extrait de la boucle de proximité pour servir
@@ -4258,6 +4869,13 @@ function ramasserButin(o){
     SFX.coffre(); secousse=8; annonce('LE BRACELET DE FORCE');
     particules(o.x,o.y,o.z+10,24,'#ffcf4a',2.8,34);
     dire("LE BRACELET ! Y SOULÈVE UN BLOC LOURD, Y LE JETTE.",320); autoSauver(); }
+  if(o.type==='cape'){ Q.cape=true;
+    if(!J.objets.includes('cape')) J.objets.push('cape');
+    J.objSel=J.objets.indexOf('cape');
+    SFX.coffre(); secousse=8; annonce('LA CAPE DES COURANTS');
+    particules(o.x,o.y,o.z+10,26,'#a8c8ff',3,36);
+    dire("LA CAPE ! Y POUR PLANER. LES COLONNES D'AIR TE PORTENT PLUS LOIN.",340);
+    autoSauver(); }
   if(o.type==='fanal'){ Q.fanal=true;
     if(!J.objets.includes('fanal')) J.objets.push('fanal');
     J.objSel=J.objets.indexOf('fanal');
@@ -4663,6 +5281,80 @@ function majEnnemis(){
       e.y=clamp(e.y+Math.sin(a)*.72+e.ky,TS*3,(MH-3)*TS);
       e.kx*=.9; e.ky*=.9;
     }
+    /* ---------------- Cité des Nues ---------------- */
+    else if(e.type==='tourbillon'){
+      // il aspire le héros vers lui, puis le repousse d'un coup
+      e.z=baseSol(e.x,e.y)+6+Math.sin(e.anim/16)*3;
+      const a=Math.atan2(J.y-e.y,J.x-e.x);
+      bouger(e,Math.cos(a)*.42+e.kx,Math.sin(a)*.42+e.ky);
+      if(e.cd>0) e.cd--;
+      if(d<96){
+        if(e.cd<=0){ e.cd=150;                       // la bourrasque
+          const b=Math.atan2(J.y-e.y,J.x-e.x);
+          J.kx+=Math.cos(b)*4.2; J.ky+=Math.sin(b)*4.2;
+          son(180,.3,'sawtooth',.05,-90); secousse=5;
+          particules(e.x,e.y,e.z+8,14,'#dfe6ff',3,26);
+        } else {                                     // sinon il aspire, doucement
+          const b=Math.atan2(e.y-J.y,e.x-J.x);
+          J.kx+=Math.cos(b)*.10; J.ky+=Math.sin(b)*.10;
+        }
+      }
+    }
+    else if(e.type==='aigle'){
+      // il tourne haut, puis fond en piqué
+      const bb=baseSol(e.x,e.y);
+      if(e.cd>0) e.cd--;
+      if(e.phase!=='pique'){
+        e.z=bb+22+Math.sin(e.anim/13)*4;
+        const a=Math.atan2(J.y-e.y,J.x-e.x)+Math.PI/2.4;
+        bouger(e,Math.cos(a)*.85+e.kx,Math.sin(a)*.85+e.ky);
+        if(e.cd<=0&&d<130){ e.phase='pique'; e.cd=70;
+          const b=Math.atan2(J.y-e.y,J.x-e.x);
+          e.hx=Math.cos(b)*2.7; e.hy=Math.sin(b)*2.7;
+          son(880,.16,'square',.04,-320); }
+      } else {
+        e.z=lerp(e.z,bb+4,.22);
+        bouger(e,e.hx+e.kx,e.hy+e.ky);
+        e.hx*=.985; e.hy*=.985;
+        if(e.cd<=0){ e.phase='vol'; e.cd=110; }
+      }
+      e.dir=Math.cos(Math.atan2(J.y-e.y,J.x-e.x))>0?3:1;
+    }
+    else if(e.type==='golemnuage'){
+      /* Lourd et lent. Comme le colosse de basalte, il ne s'entame qu'au
+         marteau — et il se reforme : ses points de vie remontent s'il est
+         laissé tranquille. */
+      e.z=baseSol(e.x,e.y);
+      if(e.stun>0){ e.stun--; e.kx*=.85; e.ky*=.85; bouger(e,e.kx,e.ky); }
+      else{
+        const a=Math.atan2(J.y-e.y,J.x-e.x);
+        bouger(e,Math.cos(a)*.30+e.kx,Math.sin(a)*.30+e.ky);
+        if(e.t%150===0&&e.pv<e.pvmax){ e.pv++;        // il se reforme
+          particules(e.x,e.y,e.z+14,6,'#c6d0ee',1.6,20); }
+      }
+      e.dir=Math.abs(J.x-e.x)>Math.abs(J.y-e.y)?(J.x>e.x?3:1):(J.y>e.y?2:0);
+    }
+    /* ---------------- la Faille ---------------- */
+    else if(e.type==='echo'||e.type==='echonoir'){
+      // des gardiens en creux : ils chargent par à-coups, de plus en plus vite
+      e.z=baseSol(e.x,e.y);
+      if(e.cd>0) e.cd--;
+      const vite=(e.type==='echonoir');
+      if(e.phase==='charge'){
+        bouger(e,e.hx+e.kx,e.hy+e.ky);
+        e.hx*=.97; e.hy*=.97;
+        if(e.cd<=0){ e.phase='attente'; e.cd=vite?52:78; }
+      } else {
+        const a=Math.atan2(J.y-e.y,J.x-e.x);
+        bouger(e,Math.cos(a)*(vite?.5:.38)+e.kx,Math.sin(a)*(vite?.5:.38)+e.ky);
+        if(e.cd<=0&&d<150){ e.phase='charge'; e.cd=42;
+          const b=Math.atan2(J.y-e.y,J.x-e.x);
+          e.hx=Math.cos(b)*(vite?2.9:2.2); e.hy=Math.sin(b)*(vite?2.9:2.2);
+          son(150,.2,'sawtooth',.05,-60); }
+      }
+      if(e.t%9===0) particules(e.x,e.y,e.z+10,1,'#c86ae0',.9,16);
+      e.dir=Math.abs(J.x-e.x)>Math.abs(J.y-e.y)?(J.x>e.x?3:1):(J.y>e.y?2:0);
+    }
     e.kx*=.85; e.ky*=.85;
     // confinement à la région : le centre du monstre ne franchit pas ses
     // frontières (marge d'une demi-tuile pour que le sprite n'y déborde pas)
@@ -4973,6 +5665,171 @@ function majReine(){
   if(d<24&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
 }
 
+/* ==================== LA SENTINELLE DU CIEL ====================
+   Un automate qui ne s'ouvre qu'entre deux rafales : pendant la rafale, elle
+   est close et te repousse ; c'est dans le répit qu'on la touche. */
+function reveillerSentinelle(){
+  if(boss) return;
+  const a=NUES.arene;
+  boss={type:'sentinelle',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-5)*TS+8,z:0,vz:0,r:18,dir:0,
+    pv:36,pvmax:36,phase:'attente',t:0,cd:70,flash:0,kx:0,ky:0,anim:0,stun:0,
+    close:0,coeurs:3};
+  annonce('LA SENTINELLE DU CIEL');
+  son(180,.8,'square',.08,-60); bruit(.6,.1); secousse=16;
+}
+function majSentinelle(){
+  const B=boss;
+  if(B.pv<=0){
+    particules(B.x,B.y,B.z+22,70,'#dfe6ff',4.4,60);
+    particules(B.x,B.y,B.z+22,34,'#8fd0ff',3.4,44);
+    secousse=24; SFX.mort(); son(90,1.2,'square',.09,-40);
+    Q.sentinelleTue=true; boss=null;
+    for(let y=Y_NUES;y<Y_FAILLE;y++)for(let x=0;x<MW;x++) vu[y*MW+x]=1;
+    butins.push({x:B.x,y:B.y,z:B.z+6,vz:2,type:'coeurmax',t:0});
+    annonce('LA SENTINELLE S ARRÊTE');
+    dire("LE VENT RETOMBE. AU SUD, LE CIEL S'EST DÉCHIRÉ.",320);
+    ouvrirFaille();
+    setTimeout(autoSauver,600); return;
+  }
+  B.z=baseSol(B.x,B.y)+14+Math.sin(B.anim/22)*4;    // elle flotte
+  const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
+  if(B.close>0) B.close--;
+  if(B.stun>0){ B.kx*=.9; B.ky*=.9; return; }
+  if(B.cd>0) B.cd--;
+  if(B.phase==='attente'){
+    const a=Math.atan2(dy,dx);
+    B.x=clamp(B.x+Math.cos(a)*.55,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.55,TS*3,(MH-3)*TS);
+    if(B.cd<=0){ const r=rnd();
+      if(r<.42){ B.phase='rafale'; B.cd=104; B.close=104; secousse=7;
+        son(140,.5,'sawtooth',.07,-60); annonce('RAFALE : ELLE SE CLÔT'); }
+      else if(r<.74){ B.phase='gerbe'; B.cd=62; }
+      else { B.phase='appel'; B.cd=48; son(340,.22,'square',.05,-140); } }
+  }
+  else if(B.phase==='rafale'){
+    // elle souffle : on est repoussé, et sa coque est fermée
+    if(B.cd%9===0&&d<150){ const a=Math.atan2(dy,dx);
+      J.kx+=Math.cos(a)*1.5; J.ky+=Math.sin(a)*1.5; }
+    if(B.cd%16===0) particules(B.x,B.y,B.z+10,6,'#dfe6ff',3,26);
+    if(B.cd<=0){ B.phase='attente'; B.cd=70; }
+  }
+  else if(B.phase==='gerbe'){
+    if(B.cd%15===0){ const n=6, base=rnd()*6.28;
+      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
+        tirs.push({x:B.x,y:B.y,z:B.z+12,vx:Math.cos(a)*2.3,vy:Math.sin(a)*2.3,vie:110,ami:0,spr:'venin'}); }
+      son(300,.09,'square',.05,-140); }
+    if(B.cd<=0){ B.phase='attente'; B.cd=62; }
+  }
+  else if(B.phase==='appel'){
+    if(B.cd===24){ for(let k=0;k<2;k++){ const a=rnd()*6.28;
+      const lx=Math.floor((B.x+Math.cos(a)*34)/TS), ly=Math.floor((B.y+Math.sin(a)*34)/TS);
+      pondre('aigle',clamp(lx,4,MW-4),clamp(ly,Y_NUES+2,Y_FAILLE-2)); }
+      particules(B.x,B.y,B.z+10,14,'#aabce8',2.6,24); }
+    if(B.cd<=0){ B.phase='attente'; B.cd=64; }
+  }
+  B.kx*=.9; B.ky*=.9;
+  if(d<26&&Math.abs(B.z-J.z)<34) blesser(2,B.x,B.y);
+}
+
+/* ==================== LE RONGEUR D'ÉTOILES ====================
+   Le dernier. Il emprunte, phase après phase, les armes des gardiens qu'il a
+   dévorés — puis met à nu les trois étoiles volées. */
+function reveillerRongeur(){
+  if(boss) return;
+  const a=FAILLE.arene;
+  boss={type:'rongeur',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-6)*TS+8,z:0,vz:0,r:22,dir:0,
+    pv:60,pvmax:60,phase:'attente',t:0,cd:80,flash:0,kx:0,ky:0,anim:0,stun:0,
+    ax:0,ay:0,palier:0,coeurNu:false,etoiles:3};
+  annonce("LE RONGEUR D'ÉTOILES");
+  son(50,1.4,'sawtooth',.12,-24); bruit(1,.14); secousse=22;
+  dire("IL A DÉVORÉ LES TROIS ÉTOILES. REPRENDS-LES.",300);
+}
+/* Cinq paliers : chacun rejoue l'arme d'un gardien. On y entre par tranches de
+   points de vie — pas au hasard : le combat doit se lire. */
+function palierRongeur(B){
+  const p=B.pv/B.pvmax;
+  return p>.8?0 : p>.6?1 : p>.4?2 : p>.2?3 : 4;
+}
+function majRongeur(){
+  const B=boss;
+  if(B.pv<=0){
+    particules(B.x,B.y,B.z+24,90,'#e08aff',5,70);
+    particules(B.x,B.y,B.z+24,50,'#ffe86a',4,56);
+    secousse=30; SFX.mort(); son(45,1.8,'sawtooth',.12,-20);
+    Q.rongeurTue=true; boss=null;
+    annonce("LE RONGEUR D'ÉTOILES TOMBE");
+    // les trois étoiles reprises, une par une
+    for(let k=0;k<3;k++) butins.push({x:B.x+(k-1)*22,y:B.y-6,z:B.z+10,vz:2.2,type:'etoileVolee',t:0});
+    dire("LES TROIS ÉTOILES SONT LIBRES.",320);
+    setTimeout(()=>{ if(etat==='jeu'){ lancerEpilogue(); } },1800);
+    setTimeout(autoSauver,600); return;
+  }
+  const pal=palierRongeur(B);
+  if(pal!==B.palier){ B.palier=pal; B.phase='attente'; B.cd=50; secousse=10;
+    annonce(['','GERBE DE BRAISES','GLACE ET BOURRASQUES','DÉLUGE ET PLONGÉE','LE CŒUR À NU'][pal]||'');
+    son(120,.5,'sawtooth',.08,-40); }
+  B.coeurNu=(pal===4);
+  B.z=baseSol(B.x,B.y)+(pal===3?18:8)+Math.sin(B.anim/18)*3;
+  const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
+  if(B.stun>0){ B.kx*=.9; B.ky*=.9; return; }
+  if(B.cd>0) B.cd--;
+
+  if(B.phase==='attente'){
+    const a=Math.atan2(dy,dx);
+    B.x=clamp(B.x+Math.cos(a)*.5,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.5,TS*3,(MH-3)*TS);
+    if(B.cd<=0){
+      /* Palier 0 : la charge du Gardien de Pierre. 1 : la gerbe du Cœur.
+         2 : la glace du Yéti. 3 : la plongée du Léviathan. 4 : le cœur à nu. */
+      B.phase=['charge','gerbe','glace','plongee','nu'][pal];
+      B.cd=[76,66,90,110,120][pal];
+      if(pal===0){ const b=Math.atan2(dy,dx); B.ax=Math.cos(b)*3.2; B.ay=Math.sin(b)*3.2;
+        son(140,.3,'sawtooth',.06,90); }
+      if(pal===3) son(90,.5,'sine',.07,-40);
+    }
+  }
+  else if(B.phase==='charge'){
+    bouger(B,B.ax,B.ay); B.ax*=.985; B.ay*=.985;
+    if(B.cd%6===0) particules(B.x,B.y,B.z+8,2,'#c86ae0',1.6,18);
+    if(B.cd<=0){ B.phase='attente'; B.cd=64; }
+  }
+  else if(B.phase==='gerbe'){
+    if(B.cd%12===0){ const n=10, base=rnd()*6.28;
+      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
+        tirs.push({x:B.x,y:B.y,z:B.z+12,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,vie:120,ami:0,spr:'venin'}); }
+      son(240,.09,'sawtooth',.05,-120); }
+    if(B.cd<=0){ B.phase='attente'; B.cd=60; }
+  }
+  else if(B.phase==='glace'){
+    /* Il se couvre de glace : rien ne l'entame tant que la carapace tient.
+       Le boomerang la brise — comme au Roi Yéti. */
+    if(B.gel===undefined) B.gel=3;
+    if(B.cd%20===0&&d<170){ const a=Math.atan2(dy,dx);
+      tirs.push({x:B.x,y:B.y,z:B.z+10,vx:Math.cos(a)*2.6,vy:Math.sin(a)*2.6,vie:110,ami:0,spr:'venin'}); }
+    if(B.cd%9===0) particules(B.x+(rnd()-.5)*30,B.y+(rnd()-.5)*24,B.z+14,1,'#c8ecff',1.2,20);
+    if(B.cd<=0||B.gel<=0){ B.phase='attente'; B.cd=58; B.gel=undefined; }
+  }
+  else if(B.phase==='plongee'){
+    // il s'enfonce dans le néant, puis ressurgit sous le héros
+    if(B.cd>70){ B.z=lerp(B.z,-20,.14); }
+    else if(B.cd>34){ if(B.cd===70){ B.x=J.x; B.y=J.y; } }
+    else { B.z=lerp(B.z,baseSol(B.x,B.y)+18,.2);
+      if(B.cd===34){ secousse=12; son(70,.6,'sawtooth',.09,-30);
+        particules(B.x,B.y,B.z+4,28,'#3f2c5c',3.4,34);
+        for(let k=0;k<8;k++){ const a=k*6.2832/8;
+          tirs.push({x:B.x,y:B.y,z:B.z+8,vx:Math.cos(a)*2.4,vy:Math.sin(a)*2.4,vie:100,ami:0,spr:'venin'}); } } }
+    if(B.cd<=0){ B.phase='attente'; B.cd=70; }
+  }
+  else if(B.phase==='nu'){
+    /* Le cœur à nu : les trois étoiles battent à l'air libre. Il ne bouge
+       presque plus — c'est le moment de frapper. */
+    if(B.cd%26===0){ const a=Math.atan2(dy,dx);
+      tirs.push({x:B.x,y:B.y,z:B.z+10,vx:Math.cos(a)*1.9,vy:Math.sin(a)*1.9,vie:120,ami:0,spr:'venin'}); }
+    if(B.cd%7===0) particules(B.x+(rnd()-.5)*36,B.y+(rnd()-.5)*30,B.z+16,1,'#ffe86a',1.4,24);
+    if(B.cd<=0){ B.phase='attente'; B.cd=90; }
+  }
+  B.kx*=.9; B.ky*=.9;
+  if(d<30&&Math.abs(B.z-J.z)<38) blesser(2,B.x,B.y);
+}
+
 /* ---------------------------- LE GARDIEN ---------------------------- */
 function majBoss(){
   const B=boss; B.t++; B.anim++;
@@ -4983,6 +5840,8 @@ function majBoss(){
   if(B.type==='kraken'){ majKraken(); return; }
   if(B.type==='colosse'){ majColosse(); return; }
   if(B.type==='reine'){ majReine(); return; }
+  if(B.type==='sentinelle'){ majSentinelle(); return; }
+  if(B.type==='rongeur'){ majRongeur(); return; }
   if(B.pv<=0){
     particules(B.x,B.y,B.z+18,60,'#c8d0e8',4.5,60);
     particules(B.x,B.y,B.z+18,30,'#ffb84a',3.5,40);
@@ -5062,6 +5921,8 @@ function boomerangSurTuile(p){
     SFX.bouclier(); son(300,.12,'triangle',.05,-140);
   } else if(o===O.CLOCHE){
     sonnerCloche(tx,ty);
+  } else if(o===O.CARILLON){
+    sonnerCarillon(tx,ty);
   } else if(o===O.INTER){
     basculerInter(tx,ty);
   } else if(p.ami&&o===O.OEIL){
@@ -5082,7 +5943,8 @@ function majBoomerang(p,i){
   const tx=Math.floor(p.x/TS),ty=Math.floor(p.y/TS);
   // un mur plein le renvoie
   if((!dansCarte(tx,ty)||(Obj(tx,ty)&&DUR_O[Obj(tx,ty)]&&!FRANCH_O[Obj(tx,ty)]
-        &&Obj(tx,ty)!==O.GLACON&&Obj(tx,ty)!==O.CLOCHE&&p.z<Etg(tx,ty)*EH+HAUT_O[Obj(tx,ty)]-4))
+        &&Obj(tx,ty)!==O.GLACON&&Obj(tx,ty)!==O.CLOCHE&&Obj(tx,ty)!==O.CARILLON
+        &&p.z<Etg(tx,ty)*EH+HAUT_O[Obj(tx,ty)]-4))
      &&p.phase==='aller'){ p.phase='retour'; }
   boomerangSurTuile(p);
   // frappe les ennemis (une fois chacun par lancer)
@@ -5179,7 +6041,9 @@ const ANCRE={gluant:[12,23],mini:[8,15],pieuvre:[12,22],chauve:[13,14],squel:[13
   harpie:[13,15],piquier:[14,29],loup:[13,17],crabe:[13,17],triton:[11,27],meduse:[10,18],
   yeti:[22,45],kraken:[24,38],
   scarabee:[10,15],lancier:[11,27],djinn:[11,20],colosse:[24,47],
-  follet:[7,10],crapaud:[11,15],ombre:[11,20],reine:[20,42]};
+  follet:[7,10],crapaud:[11,15],ombre:[11,20],reine:[20,42],
+  tourbillon:[12,25],aigle:[13,17],golemnuage:[15,31],echo:[12,25],echonoir:[15,31],
+  sentinelle:[22,44],rongeur:[26,50]};
 
 function murTuile(g,x,y){
   const h=HAUT_O[O.MUR], e=Etg(x,y)*EH;
@@ -5714,10 +6578,18 @@ function dessinerEnnemi(g,e){
   else if(e.type==='crapaud') nom='crapaud'+(Math.floor(e.anim/16)%2);
   else if(e.type==='ombre') nom='ombre'+(Math.floor(e.anim/12)%3);
   else if(e.type==='reine') nom='reine'+(Math.floor(e.anim/12)%2);
+  else if(e.type==='tourbillon') nom='tourbillon'+(Math.floor(e.anim/5)%3);
+  else if(e.type==='aigle') nom='aigle'+(Math.floor(e.anim/7)%2);
+  else if(e.type==='golemnuage') nom='golemnuage'+(Math.floor(e.anim/18)%2);
+  else if(e.type==='echo') nom='echo'+(Math.floor(e.anim/13)%2);
+  else if(e.type==='echonoir') nom='echonoir'+(Math.floor(e.anim/15)%2);
+  else if(e.type==='sentinelle') nom='sentinelle'+(Math.floor(e.anim/14)%2);
+  else if(e.type==='rongeur') nom='rongeur'+(Math.floor(e.anim/13)%2);
   else nom='boss'+e.dir+(Math.floor(e.anim/16)%2);
   if(e.flash>0&&(e.flash%4)<2&&SPR[nom+'_w']) nom=nom+'_w';
   const s=SPR[nom], a=ANCRE[e.type];
-  const gros=(e.type==='boss'||e.type==='yeti'||e.type==='kraken'||e.type==='colosse'||e.type==='reine');
+  const gros=(e.type==='boss'||e.type==='yeti'||e.type==='kraken'||e.type==='colosse'
+              ||e.type==='reine'||e.type==='sentinelle'||e.type==='rongeur');
   ombre(g,e.x,e.y,e.z,gros?15:e.type==='chef'?10:e.type==='mini'?4:6.5);
   const wob=((gros||e.type==='coeur')&&e.stun>0)?Math.sin(tick*.5)*2:0;
   // le spectre, la méduse, le djinn et l'ombre s'effacent : rendus translucides
@@ -5761,7 +6633,16 @@ const SALLES=[
   {x0:ENIG.caisse.x0, y0:ENIG.caisse.y0, x1:ENIG.caisse.x0+ENIG.caisse.w-1, y1:ENIG.caisse.y0+ENIG.caisse.h-1},
   {x0:ENIG.inter.x0,  y0:ENIG.inter.y0,  x1:ENIG.inter.x0+ENIG.inter.w-1,  y1:ENIG.inter.y0+ENIG.inter.h-1},
   {x0:ENIG.gouffre.x0,y0:ENIG.gouffre.y0,x1:ENIG.gouffre.x0+ENIG.gouffre.w-1,y1:ENIG.gouffre.y0+ENIG.gouffre.h-1},
-  {x0:ENIG.cendre.x0, y0:ENIG.cendre.y0, x1:ENIG.cendre.x0+ENIG.cendre.w-1, y1:ENIG.cendre.y0+ENIG.cendre.h-1}
+  {x0:ENIG.cendre.x0, y0:ENIG.cendre.y0, x1:ENIG.cendre.x0+ENIG.cendre.w-1, y1:ENIG.cendre.y0+ENIG.cendre.h-1},
+  /* Cité des Nues : le Parvis des Vents et le Belvédère */
+  {x0:NUES.parvis.x0, y0:NUES.parvis.y0, x1:NUES.parvis.x0+NUES.parvis.w-1, y1:NUES.parvis.y0+NUES.parvis.h-1},
+  {x0:NUES.arene.x0,  y0:NUES.arene.y0,  x1:NUES.arene.x0+NUES.arene.w-1,  y1:NUES.arene.y0+NUES.arene.h-1},
+  /* la Faille : trois paliers, la salle finale et l'arène du Rongeur */
+  {x0:FAILLE.palier1.x0,y0:FAILLE.palier1.y0,x1:FAILLE.palier1.x0+FAILLE.palier1.w-1,y1:FAILLE.palier1.y0+FAILLE.palier1.h-1},
+  {x0:FAILLE.palier2.x0,y0:FAILLE.palier2.y0,x1:FAILLE.palier2.x0+FAILLE.palier2.w-1,y1:FAILLE.palier2.y0+FAILLE.palier2.h-1},
+  {x0:FAILLE.palier3.x0,y0:FAILLE.palier3.y0,x1:FAILLE.palier3.x0+FAILLE.palier3.w-1,y1:FAILLE.palier3.y0+FAILLE.palier3.h-1},
+  {x0:FAILLE.finale.x0, y0:FAILLE.finale.y0, x1:FAILLE.finale.x0+FAILLE.finale.w-1, y1:FAILLE.finale.y0+FAILLE.finale.h-1},
+  {x0:FAILLE.arene.x0,  y0:FAILLE.arene.y0,  x1:FAILLE.arene.x0+FAILLE.arene.w-1,  y1:FAILLE.arene.y0+FAILLE.arene.h-1}
 ];
 function salleDe(px,py){
   const tx=Math.floor(px/TS), ty=Math.floor(py/TS);
@@ -6250,6 +7131,8 @@ function construireMini(){
           : s===S.EAUPROF?'#164a9e' : s===S.CORAIL?'#39b4b0' : s===S.PLAQUE?'#6a7290'
           : s===S.DESERT?'#dcac63' : s===S.SABLEMOU?'#a6853f'
           : s===S.MARAIS?'#2e3d31' : s===S.VASE?'#454530'
+          : s===S.VIDE?'#0a0d1c' : s===S.NUAGE?'#d6def6' : s===S.PIERRECIEL?'#9ea7c8'
+          : s===S.NEANT?'#0b0713' : s===S.FRACTURE?'#2e2242'
           : (e?'#4f9a48':'#3f7f37');
     if(o===O.ARBRE||o===O.SAPIN||o===O.CACTUS||o===O.SAULE) c='#1d5a2c';
     if(o===O.RONCE) c='#3a2f1a';
@@ -6261,6 +7144,10 @@ function construireMini(){
     if(o===O.CAISSE) c='#8a6238';
     if(o===O.BLOCLOURD) c='#8a6030';
     if(o===O.ANCRE) c='#9aa0b0';
+    if(o===O.COLONNE) c='#7f9ad8';
+    if(o===O.CARILLON||o===O.CARILLONVIF) c='#dfe6ff';
+    if(o===O.OBELISQUE) c='#6d7699';
+    if(o===O.SCEAU||o===O.ECLATNOIR) c='#c86ae0';
     if(o===O.PORTAIL) c='#ff8b3a';
     g.fillStyle=c; g.fillRect(x,y,1,1);
   }
@@ -6338,6 +7225,11 @@ function ecranCarte(){
   for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k];
     rep2(fx,fy,(tick%36<18)?'#f0c878':'#a67a3e',true); }
   if(!Q.fanal) rep2(FANAL_POS[0],FANAL_POS[1],(tick%36<18)?'#f4ffb0':'#8a8a5a',true);
+  if(!Q.cape) rep2(CAPE_POS[0],CAPE_POS[1],(tick%36<18)?'#a8c8ff':'#5a7ac0',true);
+  for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON)
+    rep2(cx,cy,(tick%40<20)?'#dfe6ff':'#8f9cc0',true);
+  for(const [sx,sy] of SCEAUX_POS) if(Obj(sx,sy)===O.SCEAU)
+    rep2(sx,sy,(tick%36<18)?'#e08aff':'#6a3a90',true);
   for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE)
     rep2(vx,vy,(tick%36<18)?'#d8e060':'#8a8a3a',true);
   for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert){
@@ -6349,7 +7241,8 @@ function ecranCarte(){
 
   texteCentre(X,{vallee:'CARTE DE LA VALLÉE',cendre:'TERRES DE CENDRE',
     cimes:'CIMES GELÉES',lagon:"LAGON D'AZUR",sables:'SABLES DU MIRAGE',
-    marais:'MARAIS DES MURMURES'}[regionDe(J.y)]||'CARTE',W/2,6,'#f0f4ff');
+    marais:'MARAIS DES MURMURES',nues:'CITÉ DES NUES',
+    faille:'LA FAILLE'}[regionDe(J.y)]||'CARTE',W/2,6,'#f0f4ff');
 
   /* --- pied de page : deux colonnes, la droite alignée sur le bord ---
      Trois colonnes ne tiennent pas : le canvas descend à 200 px de large et
@@ -6397,6 +7290,107 @@ function ecranCarte(){
    combat ne relance une partie sans qu'on l'ait voulu. */
 let finT=0;
 const VERROU_FIN=52;
+/* ======================== L'ÉPILOGUE ========================
+   Les trois étoiles reprises s'élèvent, puis la caméra remonte les huit mondes
+   d'un seul mouvement, du néant jusqu'au village au petit matin. Chaque région
+   ramène son propre morceau au passage. C'est un état de jeu à part entière :
+   il se rend comme le monde, avec le vrai décor — pas une image fixe. */
+let epiT=0, epiY=0, epiPause=0;
+const EPI_ETOILES=150;                 // les étoiles montent
+const EPI_MONTEE=1150;                 // le travelling
+function lancerEpilogue(){
+  if(etat==='epilogue') return;
+  epiT=0; epiPause=0;
+  epiY=(MH-14)*TS;                     // on part du fond de la Faille
+  etat='epilogue'; viderTampon();
+  sauver(true);
+  son(180,1.2,'sine',.07,340); son(270,1.4,'sine',.06,300,.2);
+}
+/* La région que traverse la caméra : c'est elle qui donne le morceau. */
+function regionEpilogue(){ return regionDe(epiY); }
+function majEpilogue(){
+  epiT++;
+  if(epiT>EPI_ETOILES){
+    /* Montée douce, ralentie sur chaque région : on a le temps de la voir. */
+    const u=clamp((epiT-EPI_ETOILES)/EPI_MONTEE,0,1);
+    const e=u<.5?2*u*u:1-Math.pow(-2*u+2,2)/2;       // accélère puis freine
+    epiY=(MH-14)*TS*(1-e)+45*TS*e;
+  }
+  cam.x=clamp(44*TS-W/2,0,MW*TS-W);
+  cam.y=clamp(epiY-H/2,0,MH*TS-H-EH);
+  if(epiT>EPI_ETOILES+EPI_MONTEE+260&&!epiPause) epiPause=1;
+}
+function ecranEpilogue(){
+  /* On dessine le monde réel à la position de la caméra : les huit régions
+     défilent pour de bon, avec leur décor et leurs couleurs. */
+  rendreMonde();
+  const u=clamp((epiT-EPI_ETOILES)/EPI_MONTEE,0,1);
+
+  // 1) les trois étoiles s'élèvent et se rejoignent au-dessus de Kaze
+  if(epiT<=EPI_ETOILES+40){
+    const p=clamp(epiT/EPI_ETOILES,0,1);
+    for(let k=0;k<3;k++){
+      const a=(k*6.2832/3)+p*3.4;
+      const r=(1-p)*34;
+      const x=W/2+Math.cos(a)*r, y=H*.62-p*(H*.28)+Math.sin(a)*r*.5;
+      X.globalCompositeOperation='lighter'; X.globalAlpha=.6+.4*p;
+      X.drawImage(glowCV,x-24,y-24,48,48);
+      X.globalAlpha=1; X.globalCompositeOperation='source-over';
+      X.drawImage(SPR.etoileVolee,Math.round(x)-8,Math.round(y)-8);
+    }
+  }
+  // 2) le voile qui adoucit le défilé
+  X.fillStyle='rgba(6,8,18,'+(.30*(1-u)).toFixed(3)+')'; X.fillRect(0,0,W,H);
+
+  // 3) le nom de la région traversée
+  if(epiT>EPI_ETOILES&&u<1){
+    const noms={faille:'LA FAILLE SE REFERME',nues:'LA CITÉ DES NUES',
+                marais:'LE MARAIS RESPIRE',sables:'LES SABLES SE TAISENT',
+                lagon:"LE LAGON D'AZUR",cimes:'LES CIMES GELÉES',
+                cendre:'LES TERRES DE CENDRE',vallee:'LA VALLÉE, AU PETIT MATIN'};
+    const t=noms[regionEpilogue()]||'';
+    X.globalAlpha=.85; texteCentre(X,t,W/2,18,'#f0f4ff'); X.globalAlpha=1;
+  }
+  // 4) le bilan, une fois arrivé
+  if(epiT>EPI_ETOILES+EPI_MONTEE){
+    const p=clamp((epiT-EPI_ETOILES-EPI_MONTEE)/70,0,1);
+    X.fillStyle='rgba(6,10,22,'+(.82*p).toFixed(3)+')'; X.fillRect(0,0,W,H);
+    if(p>.4){
+      texteCentre(X,'KAZE RENTRE CHEZ LUI',W/2,Math.round(H*.16),'#ffe06a');
+      const L=bilanComplétion();
+      let y=Math.round(H*.16)+22;
+      for(const [g,d] of L){
+        texte(X,g,Math.max(8,Math.round(W/2-84)),y,'#c8d0e8');
+        texte(X,d,Math.round(W/2+84)-largeurTexte(d),y,'#7de0a0');
+        y+=11;
+      }
+      if(epiPause) texteCentre(X,'START POUR CONTINUER',W/2,H-16,'#8b96b4');
+    }
+  }
+}
+/* Le compte de ce qui a été fait — armes, cœurs, quêtes, énigmes. */
+function bilanComplétion(){
+  const armes=['arc','bombe','marteau','boomerang','grappin','bracelet','fanal','cape']
+    .filter(a=>J.objets.includes(a)).length;
+  const quetes=[Q.epeeLongue,Q.coeurCristal,Q.primeRendue,Q.lanterne>=3,Q.brasiers>=3,
+                Q.cloches>=5,Q.perlesRendues,Q.fresquesRendues,Q.veilleuses>=7,
+                Q.carillons>=8].filter(Boolean).length;
+  const gardiens=[Q.chefTue,Q.coeurTue,Q.yetiTue,Q.leviathanTue,Q.colosseTue,
+                  Q.reineTue,Q.sentinelleTue,Q.rongeurTue].filter(Boolean).length;
+  const enigmes=[Q.tresorInter,Q.tresorGouffre,Q.tresorCendre,Q.tresorSables,
+                 Q.tresorMarais,Q.tresorNues,Q.epreuveFinale].filter(Boolean).length;
+  return [
+    ['ARMES ET OUTILS', armes+'/8'],
+    ['GARDIENS ABATTUS', gardiens+'/8'],
+    ['QUÊTES ANNEXES', quetes+'/10'],
+    ['ÉNIGMES', enigmes+'/7'],
+    ['CŒURS', (J.pvmax/2)+''],
+    ['LUCIOLES', Q.lucioles+'/8'],
+    ['RUBIS', J.rubis+''],
+    ['TEMPS', formatTemps(tempsJeu)]
+  ];
+}
+
 function ecranFin(gagne){
   rendreMonde();
   const p=clamp(finT/30,0,1), e=1-Math.pow(1-p,3);      // fondu adouci
@@ -6673,6 +7667,22 @@ async function chargerInterne(slot){
       dire("LE PORTAIL DE CENDRE EST OUVERT, AU SUD DE LA VALLÉE.",320); },900);
   }
 
+  /* Une partie d'AVANT les deux derniers mondes : elle a pu être « gagnée »
+     du temps où les trois braises déclenchaient la victoire, et n'a donc
+     aucun des nouveaux drapeaux. Il ne faut pas qu'elle reste bloquée : la
+     Faille s'ouvre dès que la Sentinelle est tombée, et `razQuetes()` a déjà
+     posé les drapeaux manquants à zéro AVANT la lecture de la sauvegarde. */
+  if(Q.sentinelleTue&&!Q.failleOuverte) Q.failleOuverte=true;
+  // et les outils du sac doivent redonner leurs drapeaux, et l'inverse
+  for(const [id,drap] of [['cape','cape'],['fanal','fanal'],['bracelet','bracelet'],
+                          ['grappin','grappin'],['boomerang','boomerang']]){
+    if(J.objets.includes(id)) Q[drap]=true;
+    else if(Q[drap]) J.objets.push(id);
+  }
+  J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
+  // le dernier sol ferme : sans lui, une chute dans le vide renverrait à zéro
+  J.solX=J.x; J.solY=J.y; J.solZ=J.z; J.plane=0;
+
   marchand.actif=false; marchand.prochain=(d.temps||0)+900;
   tempsJeu=d.temps||0; dernierAuto=tempsJeu;
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
@@ -6867,6 +7877,16 @@ function boucle(){
     return;
   }
   if(etat==='nom'){ ecranNom(); naviguerNom(); return; }
+  if(etat==='epilogue'){
+    majEpilogue(); ecranEpilogue();
+    /* On ne peut l'écourter qu'une fois le bilan posé : sans ce verrou, une
+       touche héritée du combat sauterait la fin d'un seul appui. */
+    if(epiPause&&(appui('Start')||appui('B'))){
+      pris('Start','B'); menuSel=0; sauver(true);
+      etat='victoire'; finT=0; viderTampon();
+    }
+    return;
+  }
   if(etat==='mort'||etat==='victoire'){
     const gagne=(etat==='victoire');
     finT++;

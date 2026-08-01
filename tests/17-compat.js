@@ -121,7 +121,7 @@ module.exports = {
       r.old.objets.join() === 'arc,bombe' && r.old.parle && r.old.lucioles === 5,
       `${r.old.objets.join()} parle=${r.old.parle}`);
     v('les nouveaux champs prennent des valeurs sûres',
-      r.old.interLen === 6 && !r.old.bracelet && !r.old.palmes && !r.old.grappin,
+      r.old.interLen === 8 && !r.old.bracelet && !r.old.palmes && !r.old.grappin,
       `inter=${r.old.interLen} bracelet=${r.old.bracelet}`);
     v('les six coffres existent même avec un vieux tableau de trois',
       r.old.coffresTotal === 6, `${r.old.coffresTotal}`);

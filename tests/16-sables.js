@@ -60,7 +60,9 @@ module.exports = {
       out.fresquesReach = FRESQUES_POS.every(([x, y]) => near(vv, x, y));
       out.areneReachAfterFill = near(flood(wx, wy, true), areneCentre[0], areneCentre[1]);
       out.wadiFromLagon = near(flood(LAGON.large.x0 + (LAGON.large.w >> 1), LAGON.large.y0 + 3, false), wx, wy);
-      out.blocsLourds = (() => { let n = 0; for (let y = Y_SABLES; y < MH; y++) for (let x = 0; x < MW; x++) if (Obj(x, y) === O.BLOCLOURD) n++; return n; })();
+      /* Bornée aux SABLES, et non au bas de la carte : la Faille rejoue
+         l'épreuve du bloc lourd, et ses blocs se comptaient ici. */
+      out.blocsLourds = (() => { let n = 0; for (let y = Y_SABLES; y < Y_MARAIS; y++) for (let x = 0; x < MW; x++) if (Obj(x, y) === O.BLOCLOURD) n++; return n; })();
 
       // ---- le bracelet : ramassé, il soulève et jette un bloc ----
       out.braceletButin = butins.some(b => b.type === 'bracelet');
@@ -89,6 +91,10 @@ module.exports = {
       // un bloc jeté sur un sol sec s'y POSE (récupérable), il ne se perd pas :
       // un mur l'arrête, il retombe sur la dernière case sèche
       const dx2 = 50, dy2 = Y_SABLES + 24;
+      /* On vide la zone : un monstre de passage encaisserait le bloc, qui
+         éclaterait au lieu de se poser — le contrôle porte sur le sol, pas
+         sur le combat. */
+      ennemis.length = 0;
       for (let k = 0; k <= 3; k++) { putS(dx2 + k, dy2, S.DESERT); putO(dx2 + k, dy2, O.RIEN); }
       putO(dx2 + 4, dy2, O.MUR);
       J.x = dx2 * TS + 8; J.y = dy2 * TS + 8; J.dir = 3; J.porte = 'lourd';
@@ -144,7 +150,7 @@ module.exports = {
       return out;
     });
 
-    v('six régions, les Sables en cinquième', r.MH === 480
+    v('huit régions, les Sables en cinquième', r.MH === 640
       && r.bornes.join() === '80,160,240,320' && r.regions.join() === 'lagon,sables',
       `${r.MH} / ${r.bornes.join()} / ${r.regions.join()}`);
     v('les sols du désert existent', r.sols.every(n => n > 80),

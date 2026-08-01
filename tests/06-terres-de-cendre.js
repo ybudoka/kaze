@@ -167,7 +167,7 @@ module.exports = {
       return out;
     });
 
-    v('la carte compte six régions', r.MH === 480 && r.Y === 80, `${r.MH}/${r.Y}`);
+    v('la carte compte huit régions', r.MH === 640 && r.Y === 80, `${r.MH}/${r.Y}`);
     v('six coffres au total', r.coffres === 6, r.coffres);
     v('les quatre sols du biome existent',
       r.sols.every(n => n > 100), `cendre/lave/braise/basalte = ${r.sols.join('/')}`);
@@ -201,8 +201,10 @@ module.exports = {
     v('un coffre ne se rouvre pas', r.pasDeDoublon, 'contenu redonné');
     v('entrer dans l\'Antre réveille le Cœur', r.bossReveille, 'pas de boss');
     v('vaincre le Cœur descelle le coffre', r.bossVaincu, 'coffre verrouillé');
-    v('la dernière braise donne la victoire',
-      r.braises3 === 3 && r.etat === 'victoire', `braises=${r.braises3} état=${r.etat}`);
+    /* Les trois braises n'achèvent plus l'aventure : six mondes suivent. Elles
+       ouvrent la route des Cimes, et la partie continue. */
+    v('LA DERNIÈRE BRAISE OUVRE LA ROUTE DES CIMES, ELLE NE FINIT PLUS LE JEU',
+      r.braises3 === 3 && r.etat === 'jeu', `braises=${r.braises3} état=${r.etat}`);
     v('une partie d\'avant la région garde ses trois étoiles',
       r.ancienneEtoiles === 3, r.ancienneEtoiles);
     v('UNE PARTIE D\'AVANT LA RÉGION TROUVE LE PORTAIL OUVERT',
