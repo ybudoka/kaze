@@ -6202,6 +6202,7 @@ function ecranTitre(){
     cx+=6*sc;
   }
   texteCentre(X,'& LES TROIS ÉTOILES',W/2,yK+7*sc+6,'#e8b0c0','#0a0c18');
+  texte(X,VERSION,6,6,'#6a74a0','#0a0c18');       // numéro de version, discret dans le ciel
 
   const opts=optionsEcranTitre();
   // trois emplacements tiennent plus de place qu'une entrée « CONTINUER » :
@@ -6441,6 +6442,7 @@ const CLE_ANCIENNE='kaze-partie';   // sauvegarde unique d'avant les emplacement
 const NB_SLOTS=3;
 const cleSlot=i=>'kaze-partie-'+(i+1);
 const VERSION_SAUVE=1;
+const VERSION='V0.6';             // version du jeu, affichée sur l'écran-titre (6 des 8 mondes)
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
