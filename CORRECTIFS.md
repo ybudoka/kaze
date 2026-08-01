@@ -757,3 +757,23 @@ sauvegarde reste lisible (voir § 16).
   atteignabilité (fanal, veilleuses, arène barrée puis ouverte par le feu),
   immunité de l'ombre hors lumière, réveil et chute de la Reine, journal,
   mini-carte, et rechargement sans perte.
+
+---
+
+## 18. Les monstres restent dans leur région
+
+| | |
+|---|---|
+| **Symptôme** | Un monstre suivait le héros d'une région à l'autre par les passages (le col des Cendres, l'oued des Sables, le marécage), et se retrouvait à errer dans un biome qui n'est pas le sien. |
+| **Cause** | Chaque branche d'IA bornait la position de l'ennemi aux **bords de la carte entière** (`clamp(e.y, TS*3, (MH-3)*TS)`), jamais à sa région. Rien ne l'empêchait de traverser une frontière en poursuivant le héros. |
+| **Correctif** | Au premier réveil, l'ennemi retient sa **région d'origine** (`e.rIdx = regionIdx(⌊e.y/TS⌋)`, fixée une fois). Après le déplacement de chaque image, son **centre est confiné à la bande de cette région** (`BORNES_Y[e.rIdx]` → `BORNES_Y[e.rIdx+1]`, avec une demi-tuile de marge pour que le sprite ne déborde pas la frontière). |
+
+Le confinement **ne touche qu'à l'axe vertical** (les régions sont des bandes
+horizontales) et **ne casse pas la chasse** : dans sa propre région, l'ennemi se
+rapproche toujours du héros ; il ne bute que sur la frontière. Les gardiens
+restent, eux, tenus par leur arène.
+
+Vérifié dans `19-frontieres.js` : sur chaque frontière interne, un ennemi placé
+juste à côté avec le héros de l'autre côté ne la franchit **jamais** (poursuite
+vers le bas comme vers le haut, créatures au sol comme volantes), tout en
+continuant d'avancer vers le héros tant qu'ils partagent une région.

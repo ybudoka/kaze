@@ -253,6 +253,10 @@ const regionDe = py => enMarais(py)?'marais':enSables(py)?'sables':enLagon(py)?'
 /* Indice de région (0-5) d'une RANGÉE de tuiles — pour les interrupteurs, dont
    l'état est propre à chaque région, une énigme de bascule par région. */
 const regionIdx = ty => ty>=Y_MARAIS?5:ty>=Y_SABLES?4:ty>=Y_LAGON?3:ty>=Y_CIMES?2:ty>=Y_CENDRE?1:0;
+/* Rangées-frontières des six régions. Elles servent à garder chaque monstre
+   dans SA région : un ennemi ne suit pas le héros d'une région à l'autre par les
+   passages (le col, l'oued, le marécage) — il reste chez lui. */
+const BORNES_Y = [0, Y_CENDRE, Y_CIMES, Y_LAGON, Y_SABLES, Y_MARAIS, MH];
 
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -4396,6 +4400,8 @@ function majEnnemis(){
       larguer(e.x,e.y,e.z); ennemis.splice(i,1); son(160,.16,'square',.05,-90); continue;
     }
     if(dansRefuge(e.x,e.y)){ sortirRefuge(e); e.kx=0; e.ky=0; e.hx=0; e.hy=0; }
+    // région d'origine, fixée au premier passage : le monstre y restera confiné
+    if(e.rIdx===undefined) e.rIdx=regionIdx(Math.floor(e.y/TS));
     const d=Math.hypot(e.x-J.x,e.y-J.y);
     if(d>210){ e.kx*=.8; e.ky*=.8; continue; }
 
@@ -4652,6 +4658,10 @@ function majEnnemis(){
       e.kx*=.9; e.ky*=.9;
     }
     e.kx*=.85; e.ky*=.85;
+    // confinement à la région : le centre du monstre ne franchit pas ses
+    // frontières (marge d'une demi-tuile pour que le sprite n'y déborde pas)
+    { const lo=Math.max(TS*3, BORNES_Y[e.rIdx]*TS+8), hi=Math.min((MH-3)*TS, BORNES_Y[e.rIdx+1]*TS-8);
+      e.y=clamp(e.y,lo,hi); }
     const rc2=e.type==='mini'?9:e.type==='chef'?17:e.type==='crabe'?14:12;
     // l'ombre blesse même dans le noir (c'est là tout le danger) ; méduse et djinn non
     if(!((e.type==='meduse'||e.type==='djinn')&&e.fondu>.5)&&d<rc2&&Math.abs(e.z-J.z)<18)
