@@ -979,3 +979,46 @@ par image, recyclage effectif, et le fait que traverser les huit régions
 > désormais `majBandes()`, et la médiane des images de construction plutôt que
 > la première, qui paie seule l'achat de la toile.
 
+---
+
+## 16. La carte : une région en grand, les huit en vignettes
+
+| | |
+|---|---|
+| **Symptôme** | « Je vois toujours juste la carte en 8 carrés un par-dessus l'autre. » |
+| **Cause** | L'écran de carte montrait le monde ENTIER — 88 × 640 tuiles depuis le huitième monde. Une bande haute et fine, réduite à l'échelle pour tenir : huit petits carrés illisibles. |
+
+L'écran montre désormais la **région active en grand**, et les huit régions en
+**vignettes fixes** sur le côté (ou en bande sous la carte quand l'écran est
+trop étroit — c'est la disposition qui laisse la plus grande carte qui gagne).
+**L/R** passent d'une région à l'autre ; la carte s'ouvre toujours sur celle où
+l'on se trouve, et un point vert rappelle où l'on est vraiment. Une région
+jamais visitée reste un « ? ».
+
+Deux détails qui comptent :
+
+- **L'échelle est fractionnaire, et c'est assumé.** À l'entier, une carte qui
+  tenait à 1,9 retombait à 1 : 88 px de large sur un écran de 200. La mini-carte
+  est déjà une image d'un pixel par tuile que l'on agrandit ; mieux vaut des
+  tuiles d'inégale largeur qu'un timbre-poste.
+- **La ligne d'aide « L/R » est comptée dans la mise en page.** Posée après coup
+  sous la carte, elle retombait en plein sur la bande de vignettes.
+
+### Le contrôle ne voyait pas le défaut qu'il devait voir
+
+`12-carte.js` relevait les tracés de la mini-carte mais **ne gardait que le plus
+grand**, et ne notait que le rectangle de DESTINATION. Deux angles morts :
+
+1. le texte d'aide pouvait recouvrir une vignette sans que rien ne le signale —
+   c'est précisément le défaut trouvé à l'œil sur écran étroit ;
+2. surtout, **réinjecter le bug d'origine** (dessiner le monde entier au lieu
+   d'une région) laissait le contrôle **vert** : la destination est la même, seule
+   la source change.
+
+Il relève maintenant **tous** les tracés, vignettes comprises, et **la hauteur
+de la source** : la grande carte doit lire exactement une région (80 rangées) et
+non le monde (640). Réinjection faite : rouge.
+
+> Leçon : un `drawImage` a deux rectangles. N'en mesurer qu'un, c'est ne mesurer
+> que la moitié de ce qu'on croit vérifier.
+

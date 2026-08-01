@@ -7229,6 +7229,25 @@ function ecranTitre(){
 }
 
 /* ============================ CARTE (START) ============================ */
+/* Les huit régions, pour l'écran de carte : nom, et fraction explorée. */
+const NB_REGIONS=8;
+const NOMS_REGION=['VALLÉE','TERRES DE CENDRE','CIMES GELÉES',"LAGON D'AZUR",
+  'SABLES DU MIRAGE','MARAIS DES MURMURES','CITÉ DES NUES','LA FAILLE'];
+let carteRegion=-1;                       // région montrée en grand (-1 : celle du héros)
+let _expl=new Array(NB_REGIONS).fill(0), _explT=-999;
+/* Recalculée au plus une fois toutes les 20 images : parcourir les 56 000
+   tuiles à chaque image pour griser huit vignettes serait absurde. */
+function fractionsExplorees(){
+  if(tick-_explT<20) return _expl;
+  _explT=tick;
+  const HR=Math.floor(MH/NB_REGIONS);
+  for(let i=0;i<NB_REGIONS;i++){
+    let n=0; const a=i*HR*MW, b=(i+1)*HR*MW;
+    for(let k=a;k<b;k++) if(vu[k]) n++;
+    _expl[i]=n/(HR*MW);
+  }
+  return _expl;
+}
 const miniCV=document.createElement('canvas'); miniCV.width=MW; miniCV.height=MH;
 function construireMini(){
   const g=miniCV.getContext('2d');
@@ -7297,22 +7316,49 @@ function ecranCarte(){
   const HAUT=18;                        // sous le titre
   const hPied=4+(alerteStock?LP:0)+LP*3+2+LP*lignesLeg.length+2+LP+2;
   const yPied=H-hPied, hCarte=yPied-HAUT-2;
-  /* Échelle entière tant que la carte tient à l'échelle 1 ; mais avec six
-     régions empilées (MH grand), l'échelle 1 déborderait sous le pied de page —
-     on rétrécit alors juste ce qu'il faut pour que tout entre (échelle < 1). */
-  const scEntier=Math.min(4,Math.floor(hCarte/MH),Math.floor((W-24)/MW));
-  const sc=scEntier>=1?scEntier:Math.min(hCarte/MH,(W-24)/MW);
-  const mx=Math.round(W/2-MW*sc/2), my=Math.round(HAUT+Math.max(0,(hCarte-MH*sc)/2));
-  panneau(X,mx-4,my-4,MW*sc+8,MH*sc+8);
-  X.drawImage(miniCV,mx,my,MW*sc,MH*sc);
-  // brouillard
+
+  /* ================= UNE RÉGION EN GRAND, LES AUTRES EN VIGNETTES =========
+     Huit régions empilées, c'est 88 × 640 tuiles : la carte entière se réduisait
+     à huit petits carrés illisibles les uns au-dessus des autres. On montre donc
+     la région ACTIVE en grand, et les huit en vignettes fixes sur le côté —
+     L/R passent de l'une à l'autre. */
+  if(carteRegion<0||carteRegion>=NB_REGIONS) carteRegion=regionIdx(Math.floor(J.y/TS));
+  const HR=Math.floor(MH/NB_REGIONS);          // rangées par région
+
+  /* Deux dispositions possibles ; on retient celle qui laisse la plus grande
+     carte. Sur un canvas de 200 px de large, une bande latérale étranglerait
+     la carte — les vignettes passent alors dessous. */
+  const dispo=(cote)=>{
+    const vw=cote?20:Math.min(24,Math.floor((W-16)/NB_REGIONS)-2);
+    const vh=Math.max(6,Math.round(vw*HR/MW));
+    /* La ligne d'aide « L/R … » est comptée DANS la mise en page : posée après
+       coup sous la carte, elle retombait en plein sur la bande de vignettes. */
+    const lw=cote?vw+8:0, lh=(cote?0:vh+6)+LP+2;
+    const aw=W-14-lw, ah=hCarte-lh;
+    const e=Math.min(aw/MW,ah/HR);
+    /* Échelle FRACTIONNAIRE assumée. À l'entier, une carte qui tenait à 1,9
+       retombait à 1 : 88 px de large sur un écran de 200, soit un timbre-poste.
+       La mini-carte est déjà une image d'un pixel par tuile que l'on agrandit ;
+       mieux vaut des tuiles d'inégale largeur qu'une carte illisible. */
+    return {cote,vw,vh,lw,lh,aw,ah,sc:Math.min(6,e)};
+  };
+  const A=dispo(true), B=dispo(false);
+  const L2=(A.sc>=B.sc)?A:B;
+  const sc=L2.sc;
+  const mx=Math.round((W-L2.lw)/2-MW*sc/2), my=Math.round(HAUT+Math.max(0,(L2.ah-HR*sc)/2));
+  const y0R=carteRegion*HR;
+  panneau(X,mx-4,my-4,MW*sc+8,HR*sc+8);
+  X.drawImage(miniCV,0,y0R,MW,HR,mx,my,MW*sc,HR*sc);
+  // brouillard, sur la seule région montrée
   X.fillStyle='rgba(8,10,20,.88)';
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)
-    if(!vu[y*MW+x]) X.fillRect(mx+x*sc,my+y*sc,sc,sc);
-  // repères
+  for(let y=0;y<HR;y++)for(let x=0;x<MW;x++)
+    if(!vu[(y0R+y)*MW+x]) X.fillRect(mx+x*sc,my+y*sc,Math.ceil(sc),Math.ceil(sc));
+  // repères — seulement ceux de la région montrée
   const rep2=(tx,ty,col,gros)=>{
     if(!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
-    X.fillStyle=col; X.fillRect(mx+tx*sc-(gros?1:0),my+ty*sc-(gros?1:0),sc+(gros?2:0),sc+(gros?2:0));
+    if(ty<y0R||ty>=y0R+HR) return;
+    const px=mx+tx*sc, py=my+(ty-y0R)*sc, t=Math.max(2,Math.ceil(sc));
+    X.fillStyle=col; X.fillRect(px-(gros?1:0),py-(gros?1:0),t+(gros?2:0),t+(gros?2:0));
   };
   for(const p of pnjs) rep2(Math.floor(p.x/TS),Math.floor(p.y/TS),'#7fd0ff',true);
   // la colporteuse clignote : elle ne reste pas, autant la trouver vite
@@ -7345,17 +7391,50 @@ function ecranCarte(){
     rep2(sx,sy,(tick%36<18)?'#e08aff':'#6a3a90',true);
   for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE)
     rep2(vx,vy,(tick%36<18)?'#d8e060':'#8a8a3a',true);
-  for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert){
-    X.fillStyle=(tick%30<15)?'#ffe86a':'#c8a03c';
-    X.fillRect(mx+Math.floor(c.x/TS)*sc-1,my+Math.floor(c.y/TS)*sc-1,4,4);
-  }
-  X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
-  X.fillRect(mx+Math.floor(J.x/TS)*sc-1,my+Math.floor(J.y/TS)*sc-1,4,4);
+  for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert)
+    rep2(Math.floor(c.x/TS),Math.floor(c.y/TS),(tick%30<15)?'#ffe86a':'#c8a03c',true);
+  rep2(Math.floor(J.x/TS),Math.floor(J.y/TS),(tick%20<10)?'#ffffff':'#4fe08a',true);
 
-  texteCentre(X,{vallee:'CARTE DE LA VALLÉE',cendre:'TERRES DE CENDRE',
-    cimes:'CIMES GELÉES',lagon:"LAGON D'AZUR",sables:'SABLES DU MIRAGE',
-    marais:'MARAIS DES MURMURES',nues:'CITÉ DES NUES',
-    faille:'LA FAILLE'}[regionDe(J.y)]||'CARTE',W/2,6,'#f0f4ff');
+  /* --- les vignettes : les huit régions, figées, l'active encadrée --- */
+  {
+    const n=NB_REGIONS, ecart=2;
+    const vw=L2.vw, vh=L2.vh;
+    let vx,vy,dx,dy;
+    if(L2.cote){ vx=W-vw-4; vy=Math.round(HAUT+Math.max(0,(hCarte-(n*vh+(n-1)*ecart))/2)); dx=0; dy=vh+ecart; }
+    else { const tot=n*vw+(n-1)*ecart; vx=Math.round(W/2-tot/2); vy=yPied-vh-2; dx=vw+ecart; dy=0; }
+    const parts=fractionsExplorees();
+    for(let i=0;i<n;i++){
+      const x=vx+dx*i, y=vy+dy*i;
+      X.fillStyle='#141a2c'; X.fillRect(x,y,vw,vh);
+      if(parts[i]>0.002){
+        X.globalAlpha=.55+.45*Math.min(1,parts[i]*3);
+        X.drawImage(miniCV,0,i*HR,MW,HR,x,y,vw,vh);
+        X.globalAlpha=1;
+      } else {
+        texteCentre(X,'?',x+vw/2,y+Math.round(vh/2)-3,'#3f4664');
+      }
+      if(i===carteRegion){                      // l'active : cadre clair
+        X.fillStyle='#ffe06a';
+        X.fillRect(x-1,y-1,vw+2,1); X.fillRect(x-1,y+vh,vw+2,1);
+        X.fillRect(x-1,y-1,1,vh+2); X.fillRect(x+vw,y-1,1,vh+2);
+      } else { X.fillStyle='rgba(6,8,18,.35)'; X.fillRect(x,y,vw,vh); }
+      // un point vert sur la région où se trouve vraiment le héros
+      if(i===regionIdx(Math.floor(J.y/TS))){
+        X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
+        X.fillRect(x+vw-3,y+1,2,2);
+      }
+    }
+  }
+
+  texteCentre(X,NOMS_REGION[carteRegion]||'CARTE',W/2,6,'#f0f4ff');
+  {
+    const yAide=Math.round(my+HR*sc+7);
+    if(carteRegion!==regionIdx(Math.floor(J.y/TS)))
+      texteCentre(X,'L/R  TU ES EN '+(NOMS_REGION[regionIdx(Math.floor(J.y/TS))]||''),
+        W/2,yAide,'#8b96b4');
+    else texteCentre(X,'L/R AUTRE RÉGION',W/2,yAide,'#6d7699');
+  }
+
 
   /* --- pied de page : deux colonnes, la droite alignée sur le bord ---
      Trois colonnes ne tiennent pas : le canvas descend à 200 px de large et
@@ -8014,6 +8093,8 @@ function boucle(){
   if(etat==='carte'){
     if(sauveEtatT>0) sauveEtatT--;
     ecranCarte();                    // le témoin de sauvegarde y est intégré
+    if(appui('L')){ pris('L'); carteRegion=(carteRegion+NB_REGIONS-1)%NB_REGIONS; SFX.menu(); }
+    if(appui('R')){ pris('R'); carteRegion=(carteRegion+1)%NB_REGIONS; SFX.menu(); }
     if(appui('Y')){ pris('Y'); sauver(false); }
     if(appui('Start')||appui('B')){ pris('Start','B'); etat='jeu'; SFX.menu(); }
     return;
@@ -8047,7 +8128,9 @@ function boucle(){
     rendreMonde(); ath(); return;
   }
   if(appui('Select')){ pris('Select'); journal=true; SFX.menu(); ecranJournal(); return; }
-  if(appui('Start')){ pris('Start'); etat='carte'; SFX.menu(); autoSauver(); rendreMonde(); ath(); return; }
+  if(appui('Start')){ pris('Start'); etat='carte';
+    carteRegion=regionIdx(Math.floor(J.y/TS));      // on ouvre sur la région où l'on est
+    SFX.menu(); autoSauver(); rendreMonde(); ath(); return; }
   tempsJeu++;
   if(sauveEtatT>0) sauveEtatT--;
   if(gel>0) gel--;

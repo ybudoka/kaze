@@ -26,7 +26,7 @@ module.exports = {
 
         /* On intercepte le tracé pour relever chaque rectangle réellement
            dessiné : textes, panneau de la carte, pastilles de légende. */
-        const boites = [];
+        const boites = []; const out = {};
         const vraiTexte = window.texte, vraiDraw = X.drawImage.bind(X), vraiFill = X.fillRect.bind(X);
         let capture = false;
         window.texte = (g, s, x, y, ...r) => {
@@ -34,8 +34,18 @@ module.exports = {
             boites.push({ t: 'texte', s: String(s), x, y, w: largeurTexte(s), h: 7 });
           return vraiTexte(g, s, x, y, ...r);
         };
+        /* Tous les tracés de la mini-carte sont relevés : la GRANDE carte comme
+           les VIGNETTES. Ne retenir que la plus grande laissait le texte d'aide
+           recouvrir la bande de vignettes sans que rien ne le signale. */
         X.drawImage = (img, ...a) => {
-          if (capture && img === miniCV) boites.push({ t: 'carte', x: a[0], y: a[1], w: a[2], h: a[3] });
+          if (capture && img === miniCV) {
+            const r = a.length >= 8 ? a.slice(4) : a;
+            // la SOURCE compte autant que la destination : c'est elle qui dit
+            // si l'on montre UNE région ou le monde entier écrasé dedans
+            const src = a.length >= 8 ? a.slice(0, 4) : null;
+            boites.push({ t: 'carte', x: r[0], y: r[1], w: r[2], h: r[3],
+                          srcH: src ? src[3] : null });
+          }
           return vraiDraw(img, ...a);
         };
         /* On ne relève qu'UNE SEULE image : la boucle de rendu rappelle
@@ -66,8 +76,10 @@ module.exports = {
         /* Le plus grand des tracés de `miniCV` : le mini-plan du coin de l'écran
            est dessiné avec la même image, et le prendre pour la carte donnait
            une surface ridicule. */
-        const carte = boites.filter(b => b.t === 'carte')
-          .sort((a, b) => b.w * b.h - a.w * a.h)[0];
+        const cartes = boites.filter(b => b.t === 'carte')
+          .sort((a, b) => b.w * b.h - a.w * a.h);
+        const carte = cartes[0];                 // la grande
+        out.nbVignettes = cartes.length - 1;
 
         // 1) rien ne dépasse du canvas
         const dehors = boites.filter(b => b.x < 0 || b.y < 0 || b.x + b.w > W || b.y + b.h > H)
@@ -80,7 +92,10 @@ module.exports = {
             collisions.push(`${textes[i].s} × ${textes[j].s}`);
 
         // 3) aucun texte ne mord sur la carte
-        const surCarte = carte ? textes.filter(t => chev(t, carte) > 0).map(t => t.s) : ['carte absente'];
+        // aucun texte ne mord sur la grande carte NI sur une vignette
+        const surCarte = carte
+          ? textes.filter(t => cartes.some(c => chev(t, c) > 0)).map(t => t.s)
+          : ['carte absente'];
 
         // 4) la carte reste lisible : elle remplit la hauteur disponible.
         //    On mesure la part de la HAUTEUR, pas de la surface : avec six
@@ -88,6 +103,12 @@ module.exports = {
         //    est bridée par la hauteur, et une part de surface ne mesurerait
         //    plus que ses proportions. La hauteur, elle, doit rester pleine.
         const partCarte = carte ? carte.h / H : 0;
+        const partLargeur = carte ? carte.w / W : 0;
+        // rapport entre la grande carte et une vignette : c'est LUI qui dit que
+        // l'active est montrée en grand et les autres en petit
+        const vign = cartes[1];
+        const rapport = (carte && vign) ? (carte.w * carte.h) / (vign.w * vign.h) : 0;
+        const rangeesSource = carte ? carte.srcH : null;   // doit valoir UNE région
 
         // le témoin ne doit rien recouvrir non plus, ni sortir de l'écran
         const tT = avecTemoin.filter(b => b.t === 'texte');
@@ -97,7 +118,9 @@ module.exports = {
         const temoinDehors = tT.filter(b => b.x < 0 || b.x + b.w > W || b.y + b.h > H).map(b => b.s);
         const temoinVu = tT.some(b => b.s === 'PARTIE SAUVEGARDÉE');
 
-        return { W, H, dehors, collisions, surCarte, partCarte,
+        return { W, H, dehors, collisions, surCarte, partCarte, partLargeur, rapport,
+                 rangeesSource, rangeesRegion: Math.floor(MH / NB_REGIONS), rangeesMonde: MH,
+                 nbVignettes: out.nbVignettes,
                  temoinCollisions, temoinDehors, temoinVu,
                  textes: textes.map(t => t.s) };
       });
@@ -109,12 +132,19 @@ module.exports = {
         r.collisions.length === 0, r.collisions.join(' · '));
       v(`${nom} : aucun texte ne mord sur la carte`,
         r.surCarte.length === 0, r.surCarte.join(' · '));
-      /* La carte est en 88×480 tuiles (six régions empilées) : haute et fine,
-         sa hauteur est la contrainte. Le seuil attrape un effondrement (carte
-         reléguée dans un coin), en mesurant qu'elle remplit bien la hauteur
-         laissée entre le titre et le pied de page. */
-      v(`${nom} : la carte occupe une vraie part de l'écran`,
-        r.partCarte > 0.5, `${(r.partCarte * 100).toFixed(0)} % de la hauteur`);
+      /* La carte montrée est UNE région (88×80 tuiles), presque carrée : elle
+         ne peut plus remplir la hauteur d'un écran allongé sans déborder en
+         largeur. On vérifie donc qu'elle remplit bien l'axe qui la contraint,
+         et non une hauteur qu'elle n'a aucune raison d'occuper. */
+      v(`${nom} : la carte remplit l'espace qu'on lui laisse`,
+        r.partLargeur > 0.7 || r.partCarte > 0.55,
+        `${(r.partLargeur * 100).toFixed(0)} % de la largeur, ${(r.partCarte * 100).toFixed(0)} % de la hauteur`);
+      v(`${nom} : LA GRANDE CARTE MONTRE UNE SEULE RÉGION, PAS LE MONDE ENTIER`,
+        r.rangeesSource === r.rangeesRegion,
+        `${r.rangeesSource} rangées lues (une région = ${r.rangeesRegion}, le monde = ${r.rangeesMonde})`);
+      v(`${nom} : LA RÉGION ACTIVE EST EN GRAND, LES HUIT EN VIGNETTES`,
+        r.nbVignettes === 8 && r.rapport > 12,
+        `${r.nbVignettes} vignettes, la grande n'est que ${r.rapport.toFixed(0)}× une vignette`);
       v(`${nom} : les statistiques sont toutes là`,
         ['ÉTOILES', 'RUBIS', 'BOMBES', 'FLÈCHES', 'LUCIOLES']
           .every(m => r.textes.some(t => t.startsWith(m))),
