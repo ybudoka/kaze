@@ -35,7 +35,12 @@ module.exports = {
           return vraiTexte(g, s, x, y, ...r);
         };
         X.drawImage = (img, ...a) => {
-          if (capture && img === miniCV) boites.push({ t: 'carte', x: a[0], y: a[1], w: a[2], h: a[3] });
+          // deux formes : drawImage(img, dx,dy,dw,dh) OU drawImage(img, sx,sy,sw,sh, dx,dy,dw,dh)
+          // — la seconde (rognage source) place la destination en a[4..7].
+          if (capture && img === miniCV) {
+            const [x, y, w, h] = a.length >= 8 ? [a[4], a[5], a[6], a[7]] : [a[0], a[1], a[2], a[3]];
+            boites.push({ t: 'carte', x, y, w, h });
+          }
           return vraiDraw(img, ...a);
         };
         /* On ne relève qu'UNE SEULE image : la boucle de rendu rappelle
@@ -63,11 +68,12 @@ module.exports = {
         const chev = (a, b) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x))
                              * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
         const textes = boites.filter(b => b.t === 'texte');
-        /* Le plus grand des tracés de `miniCV` : le mini-plan du coin de l'écran
-           est dessiné avec la même image, et le prendre pour la carte donnait
-           une surface ridicule. */
-        const carte = boites.filter(b => b.t === 'carte')
-          .sort((a, b) => b.w * b.h - a.w * a.h)[0];
+        /* Deux tracés de `miniCV` : la carte de la RÉGION (le plus grand) et la
+           bande du MONDE entier (la plus haute). Le mini-plan du coin de jeu est
+           dessiné avec la même image, mais on est ici sur l'écran de carte. */
+        const cartes = boites.filter(b => b.t === 'carte');
+        const carte = cartes.slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];     // la région
+        const ruban = cartes.slice().sort((a, b) => b.h - a.h)[0];                 // le monde entier
 
         // 1) rien ne dépasse du canvas
         const dehors = boites.filter(b => b.x < 0 || b.y < 0 || b.x + b.w > W || b.y + b.h > H)
@@ -79,15 +85,15 @@ module.exports = {
           if (chev(textes[i], textes[j]) > 0)
             collisions.push(`${textes[i].s} × ${textes[j].s}`);
 
-        // 3) aucun texte ne mord sur la carte
-        const surCarte = carte ? textes.filter(t => chev(t, carte) > 0).map(t => t.s) : ['carte absente'];
+        // 3) aucun texte ne mord sur AUCUNE des deux cartes
+        const surCarte = cartes.length ? textes.filter(t => cartes.some(c => chev(t, c) > 0)).map(t => t.s) : ['carte absente'];
 
-        // 4) la carte reste lisible : elle remplit la hauteur disponible.
-        //    On mesure la part de la HAUTEUR, pas de la surface : avec six
-        //    régions empilées (88×480), la carte est haute et fine, sa largeur
-        //    est bridée par la hauteur, et une part de surface ne mesurerait
-        //    plus que ses proportions. La hauteur, elle, doit rester pleine.
-        const partCarte = carte ? carte.h / H : 0;
+        // 4) les deux cartes existent, et la bande du monde remplit la hauteur.
+        //    On mesure la part de HAUTEUR du RUBAN (le monde, 88×640, haut et
+        //    fin) : la carte de la région, elle, remplit la largeur restante.
+        const nbCartes = cartes.length;
+        const partCarte = ruban ? ruban.h / H : 0;
+        const partRegion = carte ? carte.w / W : 0;
 
         // le témoin ne doit rien recouvrir non plus, ni sortir de l'écran
         const tT = avecTemoin.filter(b => b.t === 'texte');
@@ -97,7 +103,7 @@ module.exports = {
         const temoinDehors = tT.filter(b => b.x < 0 || b.x + b.w > W || b.y + b.h > H).map(b => b.s);
         const temoinVu = tT.some(b => b.s === 'PARTIE SAUVEGARDÉE');
 
-        return { W, H, dehors, collisions, surCarte, partCarte,
+        return { W, H, dehors, collisions, surCarte, partCarte, partRegion, nbCartes,
                  temoinCollisions, temoinDehors, temoinVu,
                  textes: textes.map(t => t.s) };
       });
@@ -109,12 +115,16 @@ module.exports = {
         r.collisions.length === 0, r.collisions.join(' · '));
       v(`${nom} : aucun texte ne mord sur la carte`,
         r.surCarte.length === 0, r.surCarte.join(' · '));
-      /* La carte est en 88×640 tuiles (huit régions empilées) : haute et fine,
-         sa hauteur est la contrainte. Le seuil attrape un effondrement (carte
-         reléguée dans un coin), en mesurant qu'elle remplit bien la hauteur
-         laissée entre le titre et le pied de page. */
-      v(`${nom} : la carte occupe une vraie part de l'écran`,
+      /* L'écran de carte montre DEUX plans : la région (grand, lisible) et le
+         ruban du monde entier (88×640, haut et fin, la région du moment
+         encadrée). Le ruban remplit la hauteur ; la carte de région remplit une
+         vraie part de la largeur. Les seuils attrapent un effondrement. */
+      v(`${nom} : l'écran de carte montre deux plans (région + monde)`,
+        r.nbCartes === 2, `${r.nbCartes} plan(s)`);
+      v(`${nom} : le ruban du monde occupe la hauteur`,
         r.partCarte > 0.5, `${(r.partCarte * 100).toFixed(0)} % de la hauteur`);
+      v(`${nom} : la carte de région occupe une vraie part de la largeur`,
+        r.partRegion > 0.4, `${(r.partRegion * 100).toFixed(0)} % de la largeur`);
       v(`${nom} : les statistiques sont toutes là`,
         ['ÉTOILES', 'RUBIS', 'BOMBES', 'FLÈCHES', 'LUCIOLES']
           .every(m => r.textes.some(t => t.startsWith(m))),

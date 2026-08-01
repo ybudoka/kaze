@@ -850,3 +850,23 @@ avec tout**.
   par `21-faille.js` (sceau qui coupe l'arène puis l'ouvre, réveil et chute du
   Rongeur, carapace de givre, cœur à nu, bascule en victoire, travelling de fin
   sans erreur) et par la reprise verte de toute la suite.
+
+---
+
+## 21. L'écran de carte en deux plans (région + monde)
+
+Avec huit régions empilées (88×640 tuiles), la carte du monde entier n'était
+plus qu'un **ruban illisible**, haut et fin. En pause (START), l'écran de carte
+montre désormais **deux plans côte à côte** :
+
+- à gauche, **la région actuelle** (sa bande de 80 rangées) en grand, avec tous
+  ses repères — coffres, lucioles, objets de quête, PNJ, héros ;
+- à droite, une bande étroite du **monde entier**, l'ensemble **découvert au fil
+  de l'exploration** (le brouillard se lève à mesure), avec la **région du
+  moment encadrée en or** pour se situer d'un coup d'œil.
+
+Le nom de la région titre son plan, « MONDE » titre le ruban. `12-carte.js`
+vérifie sur cinq tailles d'écran que **les deux plans sont présents**, que le
+ruban **remplit la hauteur** et la carte de région **une vraie part de la
+largeur**, que **rien ne dépasse** et qu'**aucun texte ne mord** sur l'un ou
+l'autre plan.

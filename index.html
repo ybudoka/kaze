@@ -6952,62 +6952,79 @@ function ecranCarte(){
   const HAUT=18;                        // sous le titre
   const hPied=4+(alerteStock?LP:0)+LP*3+2+LP*lignesLeg.length+2+LP+2;
   const yPied=H-hPied, hCarte=yPied-HAUT-2;
-  /* Échelle entière tant que la carte tient à l'échelle 1 ; mais avec six
-     régions empilées (MH grand), l'échelle 1 déborderait sous le pied de page —
-     on rétrécit alors juste ce qu'il faut pour que tout entre (échelle < 1). */
-  const scEntier=Math.min(4,Math.floor(hCarte/MH),Math.floor((W-24)/MW));
-  const sc=scEntier>=1?scEntier:Math.min(hCarte/MH,(W-24)/MW);
-  const mx=Math.round(W/2-MW*sc/2), my=Math.round(HAUT+Math.max(0,(hCarte-MH*sc)/2));
-  panneau(X,mx-4,my-4,MW*sc+8,MH*sc+8);
-  X.drawImage(miniCV,mx,my,MW*sc,MH*sc);
-  // brouillard
-  X.fillStyle='rgba(8,10,20,.88)';
-  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)
-    if(!vu[y*MW+x]) X.fillRect(mx+x*sc,my+y*sc,sc,sc);
-  // repères
-  const rep2=(tx,ty,col,gros)=>{
-    if(!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
-    X.fillStyle=col; X.fillRect(mx+tx*sc-(gros?1:0),my+ty*sc-(gros?1:0),sc+(gros?2:0),sc+(gros?2:0));
-  };
-  for(const p of pnjs) rep2(Math.floor(p.x/TS),Math.floor(p.y/TS),'#7fd0ff',true);
-  // la colporteuse clignote : elle ne reste pas, autant la trouver vite
-  if(marchand.actif) rep2(Math.floor(marchand.x/TS),Math.floor(marchand.y/TS),
-    (tick%30<15)?'#ffe86a':'#c88a2a',true);
-  for(const l of lucioles) if(!l.pris) rep2(Math.floor(l.x/TS),Math.floor(l.y/TS),
-    (tick%40<20)?'#fff6b0':'#c8b03c',true);
-  if(!Q.chefTue) rep2(15,14,(tick%30<15)?'#ff7a6a':'#a03a2a',true);
-  /* Repères des quêtes annexes : sans eux, une lanterne et trois brasiers
-     posés dans deux régions entières se cherchent tuile par tuile. */
-  if(Q.lanterne===1) rep2(LANTERNE_POS[0],LANTERNE_POS[1],
-    (tick%36<18)?'#ffd88a':'#c8912a',true);
-  for(const [bx,by] of BRASIERS_POS) if(Obj(bx,by)===O.BRASIER)
-    rep2(bx,by,(tick%36<18)?'#ff9a3c':'#8a4a1a',true);
-  /* Repères des Cimes et du Lagon : boomerang, palmes, cloches, perles */
-  if(!Q.boomerang) rep2(BOOMERANG_POS[0],BOOMERANG_POS[1],(tick%36<18)?'#c8ecff':'#6a9ec8',true);
-  if(!Q.palmes) rep2(PALMES_POS[0],PALMES_POS[1],(tick%36<18)?'#7fe0d0':'#2f8a80',true);
-  for(const [bx,by] of CLOCHES_POS) if(Obj(bx,by)===O.CLOCHE)
-    rep2(bx,by,(tick%36<18)?'#aee0ff':'#5a8ab0',true);
-  for(let k=Q.perles;k<5;k++){ const [px,py]=PERLES_POS[k];
-    rep2(px,py,(tick%36<18)?'#eaf6ff':'#7fa8c8',true); }
-  if(!Q.bracelet) rep2(BRACELET_POS[0],BRACELET_POS[1],(tick%36<18)?'#ffcf4a':'#b3823a',true);
-  for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k];
-    rep2(fx,fy,(tick%36<18)?'#f0c878':'#a67a3e',true); }
-  if(!Q.fanal) rep2(FANAL_POS[0],FANAL_POS[1],(tick%36<18)?'#f4ffb0':'#8a8a5a',true);
-  for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE)
-    rep2(vx,vy,(tick%36<18)?'#d8e060':'#8a8a3a',true);
-  if(!Q.cape) rep2(CAPE_POS[0],CAPE_POS[1],(tick%36<18)?'#d6f2fb':'#5a9ec8',true);
-  for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON)
-    rep2(cx,cy,(tick%36<18)?'#e0d090':'#8a7a3a',true);
-  for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert){
-    X.fillStyle=(tick%30<15)?'#ffe86a':'#c8a03c';
-    X.fillRect(mx+Math.floor(c.x/TS)*sc-1,my+Math.floor(c.y/TS)*sc-1,4,4);
-  }
-  X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
-  X.fillRect(mx+Math.floor(J.x/TS)*sc-1,my+Math.floor(J.y/TS)*sc-1,4,4);
 
-  texteCentre(X,{vallee:'CARTE DE LA VALLÉE',cendre:'TERRES DE CENDRE',
+  /* DEUX cartes côte à côte : à gauche, en grand et lisible, la RÉGION ACTUELLE
+     (sa bande de 80 rangées) ; à droite, une bande étroite du MONDE ENTIER —
+     l'ensemble découvert au fil de l'exploration — avec la région du moment
+     encadrée. Avec huit régions empilées (88×640), la seule vue d'ensemble
+     serait un ruban illisible : on la garde comme repère, et on lit la région. */
+  const idx=regionIdx(Math.floor(J.y/TS));
+  const ry0=BORNES_Y[idx], ry1=BORNES_Y[idx+1], rh=ry1-ry0;   // la bande de la région
+
+  // la bande du monde entier, à droite, ajustée sur la hauteur (toujours fine)
+  const sfw=Math.min(hCarte/MH,4);
+  const wW=Math.max(6,Math.round(MW*sfw)), wH=Math.round(MH*sfw);
+  const wX=W-wW-7, wY=Math.round(HAUT+(hCarte-wH)/2);
+  // la région, à gauche, sur la largeur restante
+  const availW=wX-7-8;
+  const sr=Math.max(1,Math.min(availW/MW,hCarte/rh,5));
+  const rW=Math.round(MW*sr), rH=Math.round(rh*sr);
+  const rX=8+Math.round((availW-rW)/2), rY=Math.round(HAUT+(hCarte-rH)/2);
+
+  /* dessine une carte : image de la bande, brouillard, puis repères. P décrit le
+     cadre {ox,oy,sc,y0,y1} — y0..y1 : les rangées montrées. */
+  const carte=(ox,oy,sc,y0,y1)=>{
+    X.drawImage(miniCV,0,y0,MW,y1-y0,ox,oy,MW*sc,(y1-y0)*sc);
+    const pas=Math.max(1,Math.ceil(sc));
+    X.fillStyle='rgba(8,10,20,.9)';
+    for(let y=y0;y<y1;y++)for(let x=0;x<MW;x++)
+      if(!vu[y*MW+x]) X.fillRect(Math.floor(ox+x*sc),Math.floor(oy+(y-y0)*sc),pas,pas);
+  };
+  const repP=(P,tx,ty,col,gros)=>{
+    if(ty<P.y0||ty>=P.y1||!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
+    const dx=Math.floor(P.ox+tx*P.sc), dy=Math.floor(P.oy+(ty-P.y0)*P.sc), s=Math.max(2,Math.ceil(P.sc))+(gros?2:0);
+    X.fillStyle=col; X.fillRect(dx-(gros?1:0),dy-(gros?1:0),s,s);
+  };
+  // les repères communs aux deux cartes
+  const reperes=P=>{
+    for(const p of pnjs) repP(P,Math.floor(p.x/TS),Math.floor(p.y/TS),'#7fd0ff',true);
+    if(marchand.actif) repP(P,Math.floor(marchand.x/TS),Math.floor(marchand.y/TS),(tick%30<15)?'#ffe86a':'#c88a2a',true);
+    for(const l of lucioles) if(!l.pris) repP(P,Math.floor(l.x/TS),Math.floor(l.y/TS),(tick%40<20)?'#fff6b0':'#c8b03c',true);
+    if(!Q.chefTue) repP(P,15,14,(tick%30<15)?'#ff7a6a':'#a03a2a',true);
+    if(Q.lanterne===1) repP(P,LANTERNE_POS[0],LANTERNE_POS[1],(tick%36<18)?'#ffd88a':'#c8912a',true);
+    for(const [bx,by] of BRASIERS_POS) if(Obj(bx,by)===O.BRASIER) repP(P,bx,by,(tick%36<18)?'#ff9a3c':'#8a4a1a',true);
+    if(!Q.boomerang) repP(P,BOOMERANG_POS[0],BOOMERANG_POS[1],(tick%36<18)?'#c8ecff':'#6a9ec8',true);
+    if(!Q.palmes) repP(P,PALMES_POS[0],PALMES_POS[1],(tick%36<18)?'#7fe0d0':'#2f8a80',true);
+    for(const [bx,by] of CLOCHES_POS) if(Obj(bx,by)===O.CLOCHE) repP(P,bx,by,(tick%36<18)?'#aee0ff':'#5a8ab0',true);
+    for(let k=Q.perles;k<5;k++){ const [px,py]=PERLES_POS[k]; repP(P,px,py,(tick%36<18)?'#eaf6ff':'#7fa8c8',true); }
+    if(!Q.bracelet) repP(P,BRACELET_POS[0],BRACELET_POS[1],(tick%36<18)?'#ffcf4a':'#b3823a',true);
+    for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k]; repP(P,fx,fy,(tick%36<18)?'#f0c878':'#a67a3e',true); }
+    if(!Q.fanal) repP(P,FANAL_POS[0],FANAL_POS[1],(tick%36<18)?'#f4ffb0':'#8a8a5a',true);
+    for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE) repP(P,vx,vy,(tick%36<18)?'#d8e060':'#8a8a3a',true);
+    if(!Q.cape) repP(P,CAPE_POS[0],CAPE_POS[1],(tick%36<18)?'#d6f2fb':'#5a9ec8',true);
+    for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON) repP(P,cx,cy,(tick%36<18)?'#e0d090':'#8a7a3a',true);
+    for(const c of coffres) if(!c.ouvert) repP(P,Math.floor(c.x/TS),Math.floor(c.y/TS),(tick%30<15)?'#ffe86a':'#c8a03c',true);
+    repP(P,Math.floor(J.x/TS),Math.floor(J.y/TS),(tick%20<10)?'#ffffff':'#4fe08a',true);   // toi
+  };
+
+  // --- la RÉGION ACTUELLE, en grand ---
+  panneau(X,rX-4,rY-4,rW+8,rH+8);
+  const PR={ox:rX,oy:rY,sc:sr,y0:ry0,y1:ry1};
+  carte(rX,rY,sr,ry0,ry1); reperes(PR);
+
+  // --- le MONDE ENTIER, en bande étroite, avec la région encadrée ---
+  panneau(X,wX-3,wY-3,wW+6,wH+6);
+  const PW={ox:wX,oy:wY,sc:sfw,y0:0,y1:MH};
+  carte(wX,wY,sfw,0,MH); reperes(PW);
+  X.strokeStyle='#ffe06a'; X.lineWidth=1;
+  X.strokeRect(wX-1+.5,Math.round(wY+ry0*sfw)-.5,wW+2-1,Math.max(3,Math.round(rh*sfw))+1);
+
+  // titres : le nom de la région au-dessus de sa carte, « MONDE » au-dessus du ruban
+  texteCentre(X,{vallee:'LA VALLÉE',cendre:'TERRES DE CENDRE',
     cimes:'CIMES GELÉES',lagon:"LAGON D'AZUR",sables:'SABLES DU MIRAGE',
-    marais:'MARAIS DES MURMURES',nues:'CITÉ DES NUES',faille:'LA FAILLE'}[regionDe(J.y)]||'CARTE',W/2,6,'#f0f4ff');
+    marais:'MARAIS DES MURMURES',nues:'CITÉ DES NUES',faille:'LA FAILLE'}[regionDe(J.y)]||'CARTE',
+    rX+rW/2,6,'#f0f4ff');
+  if(wW>=22) texteCentre(X,'MONDE',wX+wW/2,6,'#9fb0d8');
 
   /* --- pied de page : deux colonnes, la droite alignée sur le bord ---
      Trois colonnes ne tiennent pas : le canvas descend à 200 px de large et
