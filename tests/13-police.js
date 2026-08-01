@@ -22,30 +22,37 @@ module.exports = {
             recolte.set(c, `${source} : ${String(txt).slice(0, 50)}`);
       };
 
-      /* Un éventail d'états de partie : chaque personnage change de discours
-         selon l'avancement, et c'est dans les branches rares que dorment les
-         textes jamais relus. */
-      const etats = [
-        {},
-        { parleDoyenne: true },
-        { parleDoyenne: true, cle: true },
-        { parleDoyenne: true, porteOuverte: true },
-        { champignons: 4 }, { tarte: true }, { perle: true }, { coeurCristal: true },
-        { coeurCristal: true, lanterne: 1 }, { coeurCristal: true, lanterne: 2 },
-        { lanterne: 3, eclats: 0 }, { lanterne: 3, eclats: 3 },
-        { lanterne: 3, epeeCendre: true },
-        { lucioles: 4 }, { lucioles: 8 }, { epeeLongue: true },
-        { prime: 7 }, { prime: 15 }, { primeRendue: true },
-        { chefTue: true }, { grilleOuverte: true }, { fissureOuverte: true },
-        { portailOuvert: true }, { portailOuvert: true, braises: 1, bottes: true },
-        { portailOuvert: true, braises: 3, coeurTue: true },
-        { portailOuvert: true, brasiers: 1 }, { portailOuvert: true, brasiers: 3 },
-        { carquois: true, grandSac: true, bouclierFort: true, potions: 2 },
-      ];
+      /* Les états de partie ne sont PAS écrits à la main : on énumère les
+         drapeaux de quête eux-mêmes. Une liste fixe vieillit — elle ignorerait
+         les drapeaux d'une région ajoutée après coup, et les dialogues qu'ils
+         débloquent ne seraient jamais relus. */
+      razQuetes();
+      const cles = Object.keys(Q);
+      const etats = [{}];
+      for (const k of cles) {
+        const v0 = Q[k];
+        if (typeof v0 === 'boolean') etats.push({ [k]: true });
+        else if (typeof v0 === 'number') for (const n of [1, 3, 8, 15]) etats.push({ [k]: n });
+        else if (Array.isArray(v0)) etats.push({ [k]: v0.map(() => 1) });
+      }
+      // et deux états extrêmes : tout entrepris, puis tout achevé
+      const tout = {};
+      for (const k of cles) {
+        const v0 = Q[k];
+        tout[k] = typeof v0 === 'boolean' ? true
+                : typeof v0 === 'number' ? 99
+                : Array.isArray(v0) ? v0.map(() => 1) : v0;
+      }
+      etats.push(tout);
+      out.nbEtats = etats.length;
 
       const dialAvant = dial;
+      const fragAvant = J.fragments;
       for (const e of etats) {
         razQuetes(); Object.assign(Q, e);
+        // l'objectif courant et la doyenne dépendent aussi des étoiles
+        for (const f of [0, 1, 3]) { J.fragments = f; ajouter(objectifCourant(), 'objectif'); }
+        J.fragments = 3;
         // dialogues de tous les personnages, y compris la colporteuse
         for (const p of pnjs) {
           dial = null; dialoguePNJ(p);
@@ -60,7 +67,7 @@ module.exports = {
         for (const a of articles()) { ajouter(a.nom, 'boutique Bran'); }
         for (const a of articlesItinerants()) { ajouter(a.nom, 'boutique colporteuse'); }
       }
-      razQuetes(); dial = dialAvant;
+      razQuetes(); dial = dialAvant; J.fragments = fragAvant;
 
       // panneaux plantés dans le monde
       for (const s of panneaux) ajouter(s.txt, 'panneau');
@@ -74,6 +81,22 @@ module.exports = {
         for (const c of coffres) { c.ouvert = false; c.verrou = false; ouvrirCoffre(c); }
         ajouter(sauveEtat, 'témoin');
         window.dire = vraiDire; window.annonce = vraiAnnonce;
+      }
+
+      /* Second balayage, au niveau de la SOURCE. Le premier ne voit que ce
+         qu'il sait appeler : il a laissé passer « CŒUR DE CENDRE », qui est
+         écrit dans la table des noms de gardiens, affichée sur la barre de vie.
+         Le texte affiché du jeu est en capitales — c'est ce qui le distingue
+         des commentaires et des identifiants. */
+      {
+        const src = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n');
+        const litteraux = [...src.matchAll(/(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g)].map(m => m[2]);
+        const affichable = /^[A-ZÀ-ŸŒ0-9 .,:;!?'()[\]/%+×★♥…-]+$/;
+        for (const t of litteraux) {
+          if (t.length < 5 || !affichable.test(t)) continue;
+          if ((t.match(/[A-ZÀ-ŸŒ]/g) || []).length < 4) continue;
+          ajouter(t, 'source');
+        }
       }
 
       out.manquants = [...recolte.entries()].map(([c, ex]) => `${c} (${ex})`);
@@ -145,6 +168,10 @@ module.exports = {
     });
 
     v('la table de glyphes est fournie', r.nbGlyphes > 60, r.nbGlyphes);
+    /* Le balayage se déduit des drapeaux de quête : il doit suivre le contenu
+       tout seul. S'il retombe à une poignée d'états, c'est que l'énumération
+       ne voit plus rien et que le contrôle ne relit plus grand-chose. */
+    v('le balayage couvre tous les drapeaux de quête', r.nbEtats > 40, `${r.nbEtats} états`);
     v('la détection attrape bien un caractère absent', r.detecteBien, 'elle ne voit rien');
     v('AUCUN TEXTE DU JEU N\'EST INDESSINABLE',
       r.manquants.length === 0, r.manquants.join(' | '));

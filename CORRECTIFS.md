@@ -334,8 +334,12 @@ Autres pièges rencontrés en construisant la région :
   pied de page d'abord et donner le reste au contenu rend le débordement
   impossible par construction (cf. 11.1).
 - **La police pixel avale en silence ce qu'elle ne sait pas dessiner** : tout
-  nouveau texte affiché doit passer par `13-police.js`. `Œ` n'existe toujours
-  pas — écrire « COEUR » (cf. 12).
+  nouveau texte affiché doit passer par `13-police.js` (cf. 12). `Œ` **existe
+  désormais** : la règle « écrire COEUR » est caduque, et c'est voulu — une règle
+  qu'il faut se rappeler finit par être oubliée (cf. 12.2).
+- **Un balayage écrit à la main vieillit** : énumérer les drapeaux de `Q` plutôt
+  que lister les états de partie, sans quoi le contenu ajouté ensuite n'est
+  jamais relu (cf. 12.2).
 - **Une assertion doit pouvoir être fausse** : `largeurTexte(c) === 0` ne l'est
   jamais. Après avoir écrit un contrôle, lui donner exprès une entrée fautive
   et vérifier qu'il la refuse (cf. 12).
@@ -519,6 +523,29 @@ le bas et lui coupait la pointe. Corrigé.
 > et le corps de la lettre se décale. C'est net sur E, I, O, C ; plus discret sur
 > A et U, dont le sommet est déjà chargé. Les trois accents d'une même lettre
 > restent distincts, ce que le contrôle vérifie.
+
+### 12.2 Le piège du `Œ` s'est retendu — et le glyphe a fini par être écrit
+
+La règle « écrire COEUR, pas CŒUR » a tenu le temps d'être oubliée : les
+régions ajoutées ensuite ont ramené **sept textes affichés** contenant `Œ` —
+journal, objectifs, messages, et le **nom du gardien sur sa barre de vie**
+(`CŒUR DE CENDRE`, lu « C?UR DE CENDRE »).
+
+Un contournement qu'il faut se rappeler n'en est pas un : **le glyphe `Œ` a été
+ajouté**, la règle disparaît avec lui.
+
+Deux failles du contrôle, découvertes à cette occasion :
+
+- **Les états de partie étaient écrits à la main.** La liste ignorait les
+  drapeaux des régions ajoutées après elle, donc aussi les dialogues qu'ils
+  débloquent. Le balayage **énumère maintenant les clés de `Q`** (booléens,
+  nombres, tableaux) et suit le contenu tout seul — plus un état « tout
+  achevé ». Un contrôle vérifie que ce balayage ne s'effondre pas.
+- **Il ne voyait que ce qu'il savait appeler.** `CŒUR DE CENDRE` vit dans une
+  table de noms de gardiens, affichée par le HUD : aucun appel à parcourir. Un
+  second balayage lit donc les **littéraux de la source** et retient ceux qui
+  sont en capitales — ce qui distingue le texte affiché des commentaires et des
+  identifiants.
 
 ---
 
