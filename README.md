@@ -23,15 +23,16 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
 Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
-Cimes Gelées, Lagon d'Azur, Sables du Mirage — et chaque gardien a son thème.
+Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures — et chaque
+gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
 
-Le monde compte **cinq régions superposées**, chacune plus au sud que la
+Le monde compte **six régions superposées**, chacune plus au sud que la
 précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur,
-les Sables du Mirage.
+les Sables du Mirage, le Marais des Murmures.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
@@ -62,9 +63,18 @@ qui barrent l'arène et pour **renvoyer ses propres blocs** au **Colosse de Grè
 que rien d'autre n'entame. Prends garde aux **scarabées-bombes**, aux **lanciers
 d'os** et aux **djinns de sable**.
 
+**Le Marais des Murmures** — la tourbière : vase, eau croupie, ronces et **nuit
+permanente**. Le **fanal** dort au **Bosquet du Fanal** : équipé, il **éclaire**
+un halo dans le noir, **brûle les ronces** qui barrent les chemins et **rallume
+les veilleuses**. Il faut brûler le **rideau de ronces** qui scelle le **Cœur du
+Marais** pour y affronter la **Reine des Lucioles Noires**, qui **éteint ton
+fanal par vagues** — on se bat alors dans le noir jusqu'à ce qu'il se rallume.
+Méfie-toi des **feux follets** en essaim, des **crapauds-catapultes** qui
+crachent du venin, et des **ombres** que l'on ne touche **que dans la lumière**.
+
 ## Quêtes annexes
 
-Huit quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
+Neuf quêtes se mènent en parallèle de l'aventure. Le **journal** (SELECT) donne
 l'état de chacune ; les objets à trouver clignotent sur la carte.
 
 | Quête | Où | Récompense |
@@ -77,6 +87,7 @@ l'état de chacune ; les objets à trouver clignotent sur la carte.
 | **Les cloches de givre** | Cimes Gelées | carte des Cimes révélée, cœur de cristal |
 | **Les perles du naufragé** | Lagon d'Azur | 150 rubis et une potion |
 | **Les fresques de Nefa** | Sables du Mirage | 150 rubis et une potion |
+| **Les sept veilleuses** | Marais des Murmures | carte du marais révélée, cœur de cristal |
 
 **La lanterne du pêcheur** est une chaîne qui traverse les deux régions. Une
 fois sa tarte mangée, le vieux pêcheur parle de la lanterne qu'il a perdue dans
@@ -114,12 +125,15 @@ Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée l
 - **Le bracelet de force** — **Y** soulève un **bloc lourd** devant toi, **Y** le
   jette. Jeté dans les **sables mouvants**, il les **comble** ; posé sur un sol
   sec, il reste **récupérable** ; renvoyé au Colosse de Grès, il l'**entame**.
+- **Le fanal** — **Y** éclaire un **halo** dans la nuit du marais, **brûle les
+  ronces** qui barrent les chemins et **rallume les veilleuses**. L'**ombre** ne
+  se laisse frapper que dans sa lumière.
 
 Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
 et s'abat** droit devant, avec une onde de choc au sol.
 
-Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les quatre
-en jeu et les quatre à venir, jusqu'au boss final et à sa fin.
+Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les six
+en jeu et les deux à venir, jusqu'au boss final et à sa fin.
 
 ## Gemmes
 

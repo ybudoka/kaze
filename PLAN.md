@@ -24,11 +24,11 @@ restent valables à chaque ajout).
 | 3 | **Cimes Gelées** | neige, glace, granit | **boomerang** | Roi Yéti | briser la glace, cloches |
 | 4 | **Lagon d'Azur** | mer, corail, hauts-fonds | **palmes** | Léviathan | nage, courants, récifs |
 | 5 | **Sables du Mirage** ✅ | désert, dunes, sables mouvants | **bracelet de force** | Colosse de Grès | blocs lourds, sables mouvants à combler |
-| 6 | **Marais des Murmures** | tourbière, ronces, brume | **lanterne** | Reine des Lucioles Noires | lumière/ombre, séquences |
+| 6 | **Marais des Murmures** ✅ | tourbière, ronces, brume | **fanal** | Reine des Lucioles Noires | lumière/ombre, ronces |
 | 7 | **Cité des Nues** | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
 | 8 | **La Faille** | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
 
-Les **cinq premières lignes** (✅) sont **jouables aujourd'hui**. Les trois
+Les **six premières lignes** (✅) sont **jouables aujourd'hui**. Les deux
 suivantes sont le plan.
 
 ---
@@ -75,27 +75,27 @@ Lagon par un oued asséché.*
   - **niveau dur** : sables mouvants **chronométrés** — poser des blocs pour
     faire un pont avant de s'enfoncer, puis les récupérer au bracelet.
 
-## Monde 6 — Le Marais des Murmures
+## Monde 6 — Le Marais des Murmures ✅ *(en jeu)*
 
 *Tourbière noyée de brume, ronces vénéneuses, feux follets. Nuit permanente.*
 
-- **Nouvel outil : la lanterne.** Elle **éclaire** un halo autour du héros
-  (indispensable dans le noir), **brûle les ronces** qui barrent les chemins, et
-  **rallume** des veilleuses pour ouvrir des portes.
+- **Nouvel outil : le fanal.** Il **éclaire** un halo autour du héros
+  (indispensable dans le noir : un voile d'ombre couvre le marais hors des
+  lumières), **brûle les ronces** qui barrent les chemins, et **rallume** les
+  veilleuses.
 - **Monstres armés** : la **volée de feux follets** (harcèle, aveugle), le
-  **crapaud-catapulte** (crache des billes de poison), l'**ombre** (invisible
-  hors du halo de lanterne).
-- **Quête principale** : suivre la chaîne des **veilleuses** jusqu'au cœur du
-  marais, où règne la **Reine des Lucioles Noires** (elle éteint la lanterne par
-  vagues — il faut la rallumer sous le feu).
-- **Quêtes annexes** : rendre leur **lumière aux sept veilleuses** (carte
-  révélée) ; la **recette de la sorcière** (herbes rares dans la brume).
-- **Thème d'énigmes — lumière et ombre, mémoire** :
+  **crapaud-catapulte** (crache des billes de venin), l'**ombre** (touchable
+  seulement dans la lumière du fanal — elle blesse pourtant dans le noir).
+- **Quête principale** : brûler le **rideau de ronces** qui barre le Cœur du
+  Marais, où règne la **Reine des Lucioles Noires** (elle éteint le fanal par
+  vagues — il faut se battre dans le noir jusqu'à ce qu'il se rallume).
+- **Quête annexe** : rendre leur **lumière aux sept veilleuses** (carte révélée,
+  et un cœur au Bosquet).
+- **Thème d'énigmes — lumière et ombre** :
   - **facile** : brûler une ronce pour passer ;
-  - **moyen** : allumer des veilleuses **dans le bon ordre** (indice sur les
-    murs), sinon elles s'éteignent ;
-  - **dur** : des **ponts qui n'existent que dans le noir** (ou dans la
-    lumière), à alterner ; des plateformes qui suivent le halo.
+  - **moyen** : rallumer la chaîne des veilleuses éparpillées dans la brume ;
+  - **dur** : affronter l'ombre et la Reine en jouant de l'alternance
+    lumière/obscurité (l'ombre n'est vulnérable que dans le halo).
 
 ## Monde 7 — La Cité des Nues
 

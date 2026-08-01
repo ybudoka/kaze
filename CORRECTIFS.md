@@ -621,8 +621,9 @@ d'époque :
 - **Les nouveaux drapeaux de quête** prennent leur valeur par défaut :
   `razQuetes()` les pose tous *avant* `Object.assign(Q, d.Q)`, si bien qu'une
   vieille sauvegarde qui les ignore les laisse à zéro.
-- **`Q.inter`** (bascules) est **complété** à cinq entrées sans être réinitialisé
-  (`while(Q.inter.length<5) push(0)`) — on ne perd pas les bascules d'époque.
+- **`Q.inter`** (bascules) est **complété** à une entrée par région sans être
+  réinitialisé (`while(Q.inter.length<6) push(0)`) — on ne perd pas les bascules
+  d'époque.
 - **Les outils gagnés** (`Q.boomerang`/`grappin`/`bracelet`) sont **rééquipés**
   au chargement s'ils manquent du sac.
 - **Le brouillard** trop court est complété par des zéros (zones neuves = non
@@ -637,3 +638,43 @@ pas de brouillard), une de l'ère « quatre régions » (palmes et boomerang, au
 champ des Sables), une posée au bord — et prouve à chaque fois : **pas de crash,
 héros jamais coincé, progression intacte, et la suite du monde reste
 atteignable** (le portail, puis l'oued des Sables).
+
+---
+
+## 15. Le Marais des Murmures (sixième région)
+
+Une sixième bande de 80 rangées s'ajoute **sous** les Sables (`MH` passe de 400
+à 480, `Y_MARAIS = 400`). Comme toujours, on n'ajoute qu'en dessous : les
+indices de tuiles des régions existantes ne bougent pas, et une vieille
+sauvegarde reste lisible (voir § 14).
+
+- **Un nouvel outil, le fanal.** Ramassé au Bosquet du Fanal, il s'équipe seul
+  (`Q.fanal`, ajouté au sac et sélectionné). Il **éclaire** la nuit du marais,
+  **brûle les trois ronces** d'un rideau (`O.RONCE`, infranchissable autrement)
+  et **rallume les veilleuses** (`O.VEILLEUSE → O.VEILLEUSEVIVE`, une lumière de
+  plus).
+- **Une nuit qui se voit.** `voileMarais()` peint un voile sombre
+  (`darkCV`, composé en `destination-out`) percé de trous de lumière autour du
+  fanal, des veilleuses vives, des torches et des follets. Le voile se lève le
+  temps que la Reine éteint le fanal — c'est là tout le danger.
+- **Trois créatures armées.** Le **follet** (harcèle en essaim), le
+  **crapaud-catapulte** (crache des billes de venin), et l'**ombre** : elle
+  **n'est touchable que dans la lumière** (`e.fondu` converge vers 1 dans le
+  noir → coups renvoyés), mais **blesse même dans le noir**.
+- **La gardienne : la Reine des Lucioles Noires.** Entrer dans le Cœur du Marais
+  (l'arène, gardée par le rideau de ronces) la réveille (`boss.type==='reine'`,
+  32 pv, phases *attente / voile / gerbe / appel* — la phase *voile* éteint le
+  fanal et fait le noir). Vaincue, elle **révèle la carte** du marais et laisse
+  un **cœur maximum**.
+- **Une énigme de progression.** Le Cœur du Marais n'est atteignable qu'en
+  **brûlant le rideau de ronces** — corridor d'une case, muré, barré de trois
+  `O.RONCE` qui ne cèdent qu'au fanal. La quête annexe des **sept veilleuses**
+  (rallumées) ouvre la carte et dépose un cœur au Bosquet.
+- **Compatibilité.** `razQuetes()` pose `fanal:false, veilleuses:0,
+  reineTue:false` (et `Q.inter` gagne une sixième bascule) *avant*
+  `Object.assign(Q, d.Q)` : une sauvegarde d'avant le Marais les laisse à zéro,
+  le fanal est rééquipé s'il manque du sac, et `15-compat.js` prouve qu'aucune
+  vieille partie n'est bloquée. `16-marais.js` mesure sur le vrai jeu :
+  atteignabilité (fanal, veilleuses, arène barrée puis ouverte par le feu),
+  immunité de l'ombre hors lumière, réveil et chute de la Reine, journal,
+  mini-carte, et rechargement sans perte.

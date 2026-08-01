@@ -20,7 +20,7 @@ module.exports = {
       out.regions = [regionDe(Y_LAGON * TS), regionDe(Y_SABLES * TS)];
 
       const cnt = (y0, y1) => { const c = {}; for (let y = y0; y < y1; y++) for (let x = 0; x < MW; x++) { const s = Sol(x, y); c[s] = (c[s] || 0) + 1; } return c; };
-      const s = cnt(Y_SABLES, MH);
+      const s = cnt(Y_SABLES, Y_MARAIS);
       out.sols = [s[S.DESERT] || 0, s[S.SABLEMOU] || 0, s[S.DALLE] || 0];
 
       const t = {}; for (const e of ennemis) t[e.type] = (t[e.type] || 0) + 1;
@@ -144,7 +144,7 @@ module.exports = {
       return out;
     });
 
-    v('cinq régions, la dernière étant les Sables', r.MH === 400
+    v('six régions, les Sables en cinquième', r.MH === 480
       && r.bornes.join() === '80,160,240,320' && r.regions.join() === 'lagon,sables',
       `${r.MH} / ${r.bornes.join()} / ${r.regions.join()}`);
     v('les sols du désert existent', r.sols.every(n => n > 80),
