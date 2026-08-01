@@ -153,6 +153,7 @@ body.sanspad #pad{display:none}
   <button id="btPad">MANETTE</button>
   <button id="btSauve">SAUVEGARDES</button>
   <button id="btMus">MUSIQUE</button>
+  <button id="btDbg">DÉBUG</button>
 </div>
 
 <!-- Copie de secours des parties : le stockage du navigateur peut être effacé
@@ -7669,7 +7670,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.1';
+const VERSION='V1.2';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
@@ -8069,8 +8070,78 @@ function nouvellePartie(nom,slot){
 }
 
 /* ============================ BOUCLE ============================ */
+/* ======================== PANNEAU DE DÉBUG ========================
+   Il sert à diagnostiquer une saccade là où elle se produit — sur le téléphone
+   du joueur, pas sur une machine de développement. La mesure elle-même doit
+   donc être GRATUITE : tampon circulaire préalloué, aucun objet créé par image,
+   aucun tri. Un instrument qui produit des déchets mesurerait ses propres
+   déchets. */
+let debugOn=false;
+try{ debugOn=localStorage.getItem('kaze-debug')==='1'; }catch(e){}
+const DBG_N=120;                                   // deux secondes d'historique
+const dbgDurees=new Float64Array(DBG_N);           // durée de la boucle
+const dbgIntervalles=new Float64Array(DBG_N);      // temps entre deux images
+let dbgI=0, dbgPrec=0, dbgTravail=0;
+function basculerDebug(){
+  debugOn=!debugOn;
+  try{ localStorage.setItem('kaze-debug',debugOn?'1':'0'); }catch(e){}
+  const b=document.getElementById('btDbg'); if(b) b.textContent=debugOn?'DÉBUG ✕':'DÉBUG';
+  return debugOn;
+}
+/* Statistiques sans allocation ni tri : moyenne, pire, et nombre d'images
+   longues. Le pire cas dit bien plus que la moyenne quand on cherche un à-coup. */
+function dbgStats(tab){
+  let somme=0, pire=0, longues=0, n=0;
+  for(let i=0;i<DBG_N;i++){ const v=tab[i]; if(v<=0) continue;
+    n++; somme+=v; if(v>pire) pire=v; if(v>20) longues++; }
+  return {moy:n?somme/n:0, pire, longues, n};
+}
+function panneauDebug(){
+  const b=dbgStats(dbgIntervalles), t=dbgStats(dbgDurees);
+  const ips=b.moy>0?Math.round(1000/b.moy):0;
+  const tx=Math.floor(J.x/TS), ty=Math.floor(J.y/TS);
+  let bandesVives=0; for(let i=0;i<NB_BANDES;i++) if(bandes[i]) bandesVives++;
+  let triees=0; for(let i=0;i<_bacs.length;i++) triees+=_bacs[i].length;
+  const mem=(performance.memory)?Math.round(performance.memory.usedJSHeapSize/1048576):null;
+  /* Lignes courtes : le canvas descend à 200 px de large, soit 32 caractères.
+     Une ligne plus longue se faisait rogner sur le bord droit. */
+  const L=[
+    'IPS '+ips+'  IMG '+b.moy.toFixed(1)+'  PIRE '+b.pire.toFixed(0),
+    'LONGUES '+b.longues+'/'+b.n+'  TRAVAIL '+t.moy.toFixed(1),
+    (NOMS_REGION[regionIdx(ty)]||'?'),
+    'X'+tx+' Y'+ty+' Z'+Math.round(J.z)+'  ENN '+ennemis.length+'  TRI '+triees,
+    'PART '+parts.length+'  BANDES '+bandesVives+'/'+NB_BANDES
+     +'  TOILES '+toilesLibres.length,
+    (mem!==null?('MEM '+mem+' MO  '):'')+'ZONE '+W+'X'+H+' x'+(CV.clientWidth/W).toFixed(1)
+  ];
+  // filet : on tronque plutôt que de laisser déborder
+  const maxC=Math.max(8,Math.floor((W-10)/6));
+  for(let i=0;i<L.length;i++) if(L[i].length>maxC) L[i]=L[i].slice(0,maxC);
+  /* Posé SOUS le HUD et sur fond opaque : à demi transparent et collé en haut,
+     les cœurs, les rubis et les étoiles transparaissaient à travers les
+     chiffres, et l'on ne lisait plus ni l'un ni l'autre. */
+  const larg=Math.min(W-4,Math.max(...L.map(largeurTexte))+8);
+  const y0=22, haut=L.length*9+5;
+  X.fillStyle='#04060e'; X.fillRect(2,y0,larg,haut);
+  X.fillStyle='#2a3358'; X.fillRect(2,y0,larg,1); X.fillRect(2,y0+haut-1,larg,1);
+  for(let i=0;i<L.length;i++)
+    texte(X,L[i],6,y0+3+i*9, b.pire>32&&i===0?'#ff9a8a':'#8fe0b0','#050810');
+}
+/* La boucle a beaucoup de sorties (titre, carte, dialogue, boutique…). On
+   l'enveloppe donc plutôt que de semer des mesures à chaque `return`. */
 function boucle(){
   requestAnimationFrame(boucle);
+  if(debugOn){
+    const t=performance.now();
+    if(dbgPrec) dbgIntervalles[dbgI]=t-dbgPrec;
+    dbgDurees[dbgI]=dbgTravail;                    // le travail de l'image précédente
+    dbgPrec=t; dbgI=(dbgI+1)%DBG_N;
+  }
+  const t0=debugOn?performance.now():0;
+  boucleCorps();
+  if(debugOn){ dbgTravail=performance.now()-t0; panneauDebug(); }
+}
+function boucleCorps(){
   majEntrees(); tick++;
   if((tick&15)===0) majMusique();      // le morceau suit la situation
 
@@ -8239,6 +8310,8 @@ function outil(id,fn){
 outil('btPlein',basculerPlein);
 outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,30); });
 outil('btMus',()=>{ if(!AC) initSon(); basculerMusique(); majMusique(); });
+outil('btDbg',basculerDebug);
+if(debugOn) document.getElementById('btDbg').textContent='DÉBUG ✕';
 if(!musiqueOn) document.getElementById('btMus').textContent='MUSIQUE ✕';
 
 /* ====================== COPIE DE SECOURS DES PARTIES ======================

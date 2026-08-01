@@ -1075,3 +1075,46 @@ quelle version on a réellement sous les yeux.
 > Aucun test ne peut vérifier qu'un humain a pensé à monter un numéro. Il peut
 > en revanche rendre l'oubli bruyant.
 
+---
+
+## 19. Un panneau de débug, pour diagnostiquer là où ça se passe
+
+Les mesures de performance de ce journal ont toutes été prises sur une machine
+de développement — c'est-à-dire **pas là où la saccade se produit**. D'où un
+bouton **DÉBUG** dans la barre d'outils, qui affiche à l'écran :
+
+- **IPS**, durée moyenne d'une image, et surtout **la pire** — c'est elle qui
+  dit l'à-coup, la moyenne le cache ;
+- le nombre d'**images longues** (> 20 ms) sur les deux dernières secondes, et
+  le temps de **travail** de la boucle (hors attente d'affichage) ;
+- la **région**, la position, le nombre d'ennemis, d'entités **triées** et de
+  particules ;
+- les **bandes de sol** en mémoire, les toiles en réserve, la mémoire JS ;
+- la taille du canvas et son facteur d'agrandissement.
+
+La première ligne passe au **rouge** dès qu'une image dépasse 32 ms.
+
+### L'instrument doit être gratuit
+
+Un panneau qui alloue à chaque image mesurerait ses propres déchets, et le
+diagnostic serait faux. Donc : **tampons circulaires préalloués** (`Float64Array`
+de taille fixe), aucun objet créé par image, aucun tri — moyenne, pire et
+comptage se calculent en une passe. Éteint, il ne mesure ni ne dessine rien.
+
+Deux détails corrigés à l'œil : le panneau était d'abord **collé en haut, à demi
+transparent** — les cœurs, les rubis et les étoiles transparaissaient à travers
+les chiffres et l'on ne lisait plus ni l'un ni l'autre. Il est posé **sous le
+HUD**, sur fond opaque. Et ses lignes **débordaient à droite** sur un canvas de
+200 px (« MEM 10 MO » rogné) : elles sont compactées, et tronquées en dernier
+recours.
+
+### Deux contrôles verts pour de mauvaises raisons
+
+- « éteint, il ne dessine rien » appelait `boucleCorps()` à la main. Or le
+  panneau est dessiné par `boucle()`, qui l'enveloppe : le contrôle restait vert
+  même en le dessinant sans arrêt. Il compte désormais les appels que fait la
+  **vraie** boucle.
+- « aucune ligne ne déborde » ne débordait jamais, les lignes étant déjà courtes.
+  Un second contrôle **force un nom de région absurdement long** et vérifie que
+  la troncature s'applique.
+
