@@ -604,3 +604,36 @@ entrées. Au chargement, une vieille sauvegarde est **complétée** sans être
 réinitialisée (`while(Q.inter.length<5) Q.inter.push(0)`) : on ne perd pas les
 bascules déjà actionnées. Les outils gagnés (`Q.bracelet`) sont **rééquipés** au
 chargement s'ils manquent du sac.
+
+---
+
+## 14. Compatibilité des sauvegardes (aucun bloquant après un ajout)
+
+Chaque niveau ou fonctionnalité est ajouté **sans jamais casser une partie déjà
+enregistrée**. Le contrat, vérifié par `15-compat.js` sur de vraies sauvegardes
+d'époque :
+
+- **On ne change pas `VERSION_SAUVE`** tant que l'ancien format reste lisible.
+  Le monde est déterministe et régénéré au chargement ; on ne conserve que
+  l'état du héros, les drapeaux de quête, les différences de décor (`diff`,
+  indexées par `y*MW+x` — et **`MW` ne change jamais**), les coffres, les
+  lucioles et le brouillard.
+- **Les nouveaux drapeaux de quête** prennent leur valeur par défaut :
+  `razQuetes()` les pose tous *avant* `Object.assign(Q, d.Q)`, si bien qu'une
+  vieille sauvegarde qui les ignore les laisse à zéro.
+- **`Q.inter`** (bascules) est **complété** à cinq entrées sans être réinitialisé
+  (`while(Q.inter.length<5) push(0)`) — on ne perd pas les bascules d'époque.
+- **Les outils gagnés** (`Q.boomerang`/`grappin`/`bracelet`) sont **rééquipés**
+  au chargement s'ils manquent du sac.
+- **Le brouillard** trop court est complété par des zéros (zones neuves = non
+  explorées) sans erreur ; un **tableau de coffres** trop court laisse les
+  coffres neufs fermés ; une **position héritée** d'une carte plus petite est
+  bornée puis `degager()` la sort de tout obstacle.
+- **Le rattrapage du portail** reste : une partie à trois étoiles d'avant les
+  Cendres trouve le portail ouvert.
+
+Le test recharge trois sauvegardes — une d'avant les Cendres (trois coffres,
+pas de brouillard), une de l'ère « quatre régions » (palmes et boomerang, aucun
+champ des Sables), une posée au bord — et prouve à chaque fois : **pas de crash,
+héros jamais coincé, progression intacte, et la suite du monde reste
+atteignable** (le portail, puis l'oued des Sables).

@@ -6111,6 +6111,8 @@ async function chargerInterne(slot){
   for(const [drapeau,id] of [[Q.boomerang,'boomerang'],[Q.grappin,'grappin'],[Q.bracelet,'bracelet']])
     if(drapeau&&!J.objets.includes(id)) J.objets.push(id);
   J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
+  // une position héritée d'une carte plus petite reste dans les bornes de la nouvelle
+  J.x=clamp(J.x,TS*2,(MW-2)*TS); J.y=clamp(J.y,TS*2,(MH-2)*TS); J.z=J.z||0;
 
   degager(J);                       // au cas où la sauvegarde daterait d'avant le correctif
 
