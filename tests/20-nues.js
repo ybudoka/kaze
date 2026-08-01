@@ -150,7 +150,7 @@ module.exports = {
       return out;
     });
 
-    v('sept régions, la Cité des Nues en septième', r.MH === 560
+    v('huit régions, la Cité des Nues en septième', r.MH === 640
       && r.bornes.join() === '80,160,240,320,400,480' && r.regions.join() === 'marais,nues',
       `${r.MH} / ${r.bornes.join()} / ${r.regions.join()}`);
     v('les sprites de la Cité sont fabriqués', r.spritesManquants.length === 0, `manquants: ${r.spritesManquants.join()}`);

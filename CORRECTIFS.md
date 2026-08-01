@@ -814,3 +814,39 @@ est un pas d'envol.
   (atteignabilité, arène cernée puis ouverte en planant, immunité du golem-nuage,
   rafales de la Sentinelle, journal, mini-carte, rechargement) et par la reprise
   verte des tests des six régions précédentes.
+
+---
+
+## 20. La Faille (huitième région, monde final) et la fin
+
+Une huitième et dernière bande de 80 rangées s'ajoute **sous** la Cité des Nues
+(`MH` passe de 560 à 640, `Y_FAILLE = 560`). Le néant fracturé : basalte
+craquelé, coulées de lave, gouffres de vide. Pas de nouvel outil — **on y arrive
+avec tout**.
+
+- **Un sceau que nul outil ne brise.** L'entrée depuis les Nues est barrée par un
+  **MUR** (pas une roche noire : le marteau ne l'entame pas), dans un **puits
+  muré des deux côtés** pour qu'on ne le contourne pas par le champ de basalte.
+  Il ne cède qu'à `ouvrirFaille()`, appelée quand la **Sentinelle tombe** — « le
+  ciel se déchire ».
+- **Une gauntlet de trois paliers** qui rejouent les mondes en les durcissant :
+  un rideau de **glace** (boomerang), un mur de **roche noire** (marteau), une
+  douve de **vide** (cape). On les franchit avec les outils gagnés en route.
+- **Des échos** des gardiens précédents peuplent la Faille, par paires.
+- **Le boss final — le Rongeur d'Étoiles.** Il a dévoré les trois étoiles et
+  emprunte les armes des gardiens : charge de pierre, gerbe de braises, une
+  **carapace de givre que seul le boomerang brise**, et il **appelle des échos**
+  par paires. Très entamé (≤ 30 % de vie), son **cœur est à nu** : toute arme le
+  frappe. Vaincu, `Q.rongeurTue` et l'aventure **s'achève**.
+- **La fin, « plus cool ».** La victoire ne se gagne plus aux trois braises des
+  Cendres (ce n'était qu'un vestige) mais à la chute du Rongeur. L'écran de fin
+  joue alors un **grand travelling** : les **huit mondes apaisés** défilent, du
+  chaos au calme, chacun avec sa teinte, tandis que les **trois étoiles montent
+  et se rejoignent**. Puis un **bilan de complétion** — régions 8/8, gardiens,
+  outils, quêtes, cœurs, lucioles, temps — avant le menu.
+- **Compatibilité.** `razQuetes()` pose `failleOuverte, rongeurTue,
+  etoilesReprises` et une huitième bascule `inter` ; la portée figée des semis de
+  décor (§ 19) garde les sept régions du dessus **identiques au bit**. Vérifié
+  par `21-faille.js` (sceau qui coupe l'arène puis l'ouvre, réveil et chute du
+  Rongeur, carapace de givre, cœur à nu, bascule en victoire, travelling de fin
+  sans erreur) et par la reprise verte de toute la suite.

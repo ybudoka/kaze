@@ -2,9 +2,11 @@
 
 Ce document trace l'aventure complète : **huit mondes**, chacun plus vaste et
 plus retors que le précédent, jusqu'au monde final, son boss et sa fin. Les
-**quatre premiers mondes existent déjà** dans le jeu ; les **quatre suivants**
-sont planifiés ici, avec pour chacun son arme/outil, ses monstres armés, sa
-quête principale, ses quêtes annexes, son thème d'énigmes et son gardien.
+**huit mondes sont désormais tous en jeu** — ce plan reste comme mémoire de
+conception (arme/outil, monstres armés, quête principale, quêtes annexes, thème
+d'énigmes et gardien de chacun). Certaines idées de quêtes annexes « niveau
+dur » restent des pistes ; l'ossature de chaque monde, son outil et son gardien
+sont, eux, jouables.
 
 Principe directeur : **chaque monde enseigne une mécanique, les mondes suivants
 la combinent.** La courbe de difficulté des énigmes ne redescend jamais.
@@ -26,10 +28,10 @@ restent valables à chaque ajout).
 | 5 | **Sables du Mirage** ✅ | désert, dunes, sables mouvants | **bracelet de force** | Colosse de Grès | blocs lourds, sables mouvants à combler |
 | 6 | **Marais des Murmures** ✅ | tourbière, ronces, brume | **fanal** | Reine des Lucioles Noires | lumière/ombre, ronces |
 | 7 | **Cité des Nues** ✅ | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
-| 8 | **La Faille** | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
+| 8 | **La Faille** ✅ | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
 
-Les **sept premières lignes** (✅) sont **jouables aujourd’hui**. La dernière
-est le plan.
+Les **huit mondes** (✅) sont **jouables aujourd’hui** : l'aventure est complète,
+de la vallée jusqu'au Rongeur d'Étoiles et à la fin en grand travelling.
 
 ---
 
@@ -120,7 +122,7 @@ nuages. On y monte par une tour en spirale.*
   - **dur** : plateformes mobiles synchronisées + vents à couper au bon moment,
     en enchaînant grappin, cape et bascule.
 
-## Monde 8 — La Faille (monde final)
+## Monde 8 — La Faille (monde final) ✅ *(en jeu)*
 
 *Le néant fracturé où le ciel se déchire. Pas de nouvel outil : on arrive avec
 **tout** — épée de Cendre, arc, bombes, marteau, boomerang, palmes, bracelet,

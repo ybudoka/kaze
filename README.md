@@ -23,16 +23,16 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
 Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
-Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures, Cité des
-Nues — et chaque gardien a son thème.
+Cimes Gelées, Lagon d'Azur, Sables du Mirage, Marais des Murmures, Cité des Nues,
+la Faille — et chaque gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
 ## L'aventure
 
-Le monde compte **sept régions superposées**, chacune plus au sud que la
+Le monde compte **huit régions superposées**, chacune plus au sud que la
 précédente : la vallée, les Terres de Cendre, les Cimes Gelées, le Lagon d'Azur,
-les Sables du Mirage, le Marais des Murmures, la Cité des Nues.
+les Sables du Mirage, le Marais des Murmures, la Cité des Nues, la Faille.
 
 **La vallée** — réunis les **trois étoiles** (sanctuaire, ruine du lac, arène du
 gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
@@ -81,6 +81,17 @@ veille la **Sentinelle du Ciel**, un automate **intouchable pendant ses rafales*
 qu'on ne frappe qu'**entre deux**. Prends garde aux **tourbillons** qui
 repoussent, aux **aigles de foudre** qui fondent en piqué, et aux
 **golems-nuages** que **seul le marteau** disperse.
+
+**La Faille** — le néant fracturé, tout au sud, où le ciel se déchire quand la
+Sentinelle tombe. Pas de nouvel outil : tu y arrives **avec tout**. Un **sceau**
+que rien ne brise garde l'entrée jusqu'à la victoire des Nues ; au-delà, une
+**gauntlet** de trois paliers rejoue les mondes (glace au boomerang, roche au
+marteau, vide à la cape), gardée par des **échos** des anciens gardiens. Au
+centre veille **le Rongeur d'Étoiles**, le boss final : il a dévoré les trois
+étoiles et emprunte les armes des gardiens (sa **carapace de givre** ne cède
+qu'au boomerang), jusqu'à ce que son **cœur soit à nu**. Le vaincre **libère les
+trois étoiles** — et l'aventure s'achève sur un **grand travelling** à travers
+les huit mondes apaisés, avec le bilan de ta complétion.
 
 ## Quêtes annexes
 
@@ -146,8 +157,8 @@ Des **énigmes** parsèment les régions, de plus en plus retorses. La vallée l
 Le **marteau** ne balaie plus comme l'épée : il se **lève au-dessus de la tête
 et s'abat** droit devant, avec une onde de choc au sol.
 
-Voir [`PLAN.md`](PLAN.md) pour la feuille de route des **8 mondes** — les sept
-en jeu et le dernier à venir, jusqu'au boss final et à sa fin.
+Voir [`PLAN.md`](PLAN.md) pour la mémoire de conception des **8 mondes**, tous
+en jeu, de la vallée jusqu'au boss final et à la fin en grand travelling.
 
 ## Gemmes
 
