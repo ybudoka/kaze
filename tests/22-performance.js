@@ -101,6 +101,32 @@ module.exports = {
         return peints / (W * H);
       })();
 
+      /* ---------- la boucle de rendu n'alloue rien par image ----------
+         Chaque image créait une Map, un tableau par rangée et un objet par
+         entité — pour les 332 entités des huit régions, alors qu'une vingtaine
+         seulement est à l'écran. Invisible sur un ordinateur, saccade franche
+         sur un téléphone. */
+      {
+        J.x = 35 * TS; J.y = 45 * TS;
+        cam.x = clamp(J.x - W / 2, 0, MW * TS - W); cam.y = clamp(J.y - H / 2, 0, MH * TS - H - EH);
+        await dort(400);
+        rendreMonde();
+        out.entitesMonde = ennemis.length + butins.length + bombes.length + tirs.length
+          + coffres.length + structures.length + pnjs.length
+          + lucioles.filter(l => !l.pris).length + 1;
+        out.entitesTriees = _bacs.reduce((n, b) => n + b.length, 0);
+        /* On compare l'IDENTITÉ des enveloppes, pas la taille du pot : réallouer
+           `_env[i]={...}` à chaque image laisse la longueur inchangée, et une
+           mesure de taille resterait verte. Ce sont bien les MÊMES objets qui
+           doivent resservir. */
+        const temoin = _env[0], temoin2 = _env[Math.min(3, _env.length - 1)];
+        out.enveloppesAvant = _env.length;
+        for (let k = 0; k < 60; k++) rendreMonde();   // soixante images de plus
+        out.enveloppesApres = _env.length;
+        out.memesEnveloppes = (_env[0] === temoin)
+          && (_env[Math.min(3, _env.length - 1)] === temoin2);
+      }
+
       /* ---------- traverser une frontière n'alloue plus rien ---------- */
       creees = 0;
       document.createElement = (t) => { if (t === 'canvas') creees++; return vraiCreer(t); };
@@ -137,6 +163,14 @@ module.exports = {
       `créées=${r.toilesCreees1} résidentes=${r.residentesApres}/${r.residentes}`);
     v('MARCHER À TRAVERS LES HUIT RÉGIONS N\'ALLOUE RIEN',
       r.toilesEnMarchant === 0, `${r.toilesEnMarchant} toiles créées en chemin`);
+
+    v('SEULES LES ENTITÉS À L\'ÉCRAN SONT TRIÉES',
+      r.entitesTriees > 0 && r.entitesTriees < r.entitesMonde / 4,
+      `${r.entitesTriees} triées sur ${r.entitesMonde} dans le monde`);
+    v('LA BOUCLE DE RENDU N\'ALLOUE RIEN PAR IMAGE',
+      r.memesEnveloppes && r.enveloppesApres === r.enveloppesAvant,
+      r.memesEnveloppes ? `le pot passe de ${r.enveloppesAvant} à ${r.enveloppesApres}`
+                        : 'les enveloppes sont recréées à chaque image');
 
     v('LE SOL EST BIEN DESSINÉ, PAS UN FOND NU',
       r.solDessine > 0.9, `${(r.solDessine * 100).toFixed(0)} % de l'écran peint`);

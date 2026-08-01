@@ -1263,14 +1263,18 @@ function neuveBande(i){
   const {cv,g}=prendreToile();
   return {cv,g,oy:i*HB*TS-DEBORD,y0:i*HB,ligne:i*HB-2,passe:0,pret:false,vue:0};
 }
+/* Sans la moindre allocation : la version d'avant faisait map + filter + sort
+   à chaque image, soit trois tableaux jetés soixante fois par seconde. */
 function libererBandesLointaines(){
-  const vivantes=bandes.map((b,i)=>b?[i,b.vue]:null).filter(Boolean);
-  if(vivantes.length<=RESIDENTES) return;
-  vivantes.sort((a,b)=>a[1]-b[1]);
-  for(let k=0;k<vivantes.length-RESIDENTES;k++){
-    const i=vivantes[k][0];
-    toilesLibres.push(bandes[i].cv);        // la toile repart au pot commun
-    bandes[i]=null;
+  let n=0;
+  for(let i=0;i<NB_BANDES;i++) if(bandes[i]) n++;
+  while(n>RESIDENTES){
+    let pire=-1, plusVieille=Infinity;
+    for(let i=0;i<NB_BANDES;i++)
+      if(bandes[i]&&bandes[i].vue<plusVieille){ plusVieille=bandes[i].vue; pire=i; }
+    if(pire<0) break;
+    toilesLibres.push(bandes[pire].cv);     // la toile repart au pot commun
+    bandes[pire]=null; n--;
   }
 }
 /* Construit au plus `budget` rangées de la bande, et dit si elle est finie.
@@ -6794,6 +6798,8 @@ function voileMarais(ox,oy){
   X.drawImage(darkCV,0,0);
 }
 
+/* Bacs de profondeur et enveloppes, alloués une fois pour toutes. */
+const _bacs=[], _env=[]; let _envN=0;
 function rendreMonde(){
   majCamera();
   majBandes();                 // le sol se construit par tranches, jamais d'un bloc
@@ -6811,10 +6817,25 @@ function rendreMonde(){
   eauAnimee(X,x0,x1,y0,y1);
   laveAnimee(X,x0,x1,y0,y1);
 
-  // répartition des entités par rangée de profondeur
-  const bacs=new Map();
-  const add=(o,t)=>{ const r=clamp(Math.floor(o.y/TS),0,MH-1);
-    if(!bacs.has(r)) bacs.set(r,[]); bacs.get(r).push({o,t}); };
+  /* Répartition des entités par rangée de profondeur.
+     Tout est RÉUTILISÉ d'une image à l'autre, et tout ce qui est hors champ est
+     écarté AVANT d'allouer quoi que ce soit. L'ancienne version créait à chaque
+     image une Map, un tableau par rangée et un objet enveloppe par entité — pour
+     les 284 monstres des huit régions, alors qu'une vingtaine seulement est
+     visible. Soit ~20 000 objets éphémères par seconde : invisible sur une
+     machine de bureau, saccade franche sur un téléphone. */
+  const bacs=_bacs;
+  { const n=y1-y0+1;
+    while(bacs.length<n) bacs.push([]);
+    for(let i=0;i<n;i++) bacs[i].length=0; }
+  _envN=0;
+  const add=(o,t)=>{
+    const r=Math.floor(o.y/TS);
+    if(r<y0||r>y1) return;                    // hors champ : rien à allouer
+    let w=_env[_envN]; if(!w) w=_env[_envN]={o:null,t:''};
+    _envN++; w.o=o; w.t=t;
+    bacs[r-y0].push(w);
+  };
   /* Vue de dessus oblige, un monstre posté au fond d'une salle se projette
      au-dessus du mur qui le sépare du héros : il reste donc visible de
      l'extérieur alors que rien ne devrait le laisser voir. On garde les
@@ -6835,9 +6856,9 @@ function rendreMonde(){
   for(let ty=y0;ty<=y1;ty++){
     reliefRangee(X,ty,x0,x1);
     for(let tx=x0;tx<=x1;tx++) decorTuile(X,tx,ty);
-    const b=bacs.get(ty);
-    if(b){
-      b.sort((a,c)=>(a.o.y-c.o.y));
+    const b=bacs[ty-y0];
+    if(b&&b.length){
+      if(b.length>1) b.sort((a,c)=>(a.o.y-c.o.y));
       for(const {o,t} of b){
         if(t==='joueur') dessinerJoueur(X);
         else if(t==='e') dessinerEnnemi(X,o);
@@ -7644,7 +7665,11 @@ const CLE_ANCIENNE='kaze-partie';   // sauvegarde unique d'avant les emplacement
 const NB_SLOTS=3;
 const cleSlot=i=>'kaze-partie-'+(i+1);
 const VERSION_SAUVE=1;
-const VERSION='V0.6';             // version du jeu, affichée sur l'écran-titre (6 des 8 mondes)
+/* Version affichée sur l'écran-titre. Elle DOIT être montée à chaque livraison,
+   et rester égale à celle de package.json — un contrôle le vérifie, faute de
+   quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
+   « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
+const VERSION='V1.1';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours

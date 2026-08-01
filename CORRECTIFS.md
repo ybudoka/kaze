@@ -1022,3 +1022,56 @@ non le monde (640). Réinjection faite : rouge.
 > Leçon : un `drawImage` a deux rectangles. N'en mesurer qu'un, c'est ne mesurer
 > que la moitié de ce qu'on croit vérifier.
 
+---
+
+## 17. Saccade : ce qui est jeté à chaque image
+
+| | |
+|---|---|
+| **Symptôme** | « C'est encore lent. Saccadé. » — après le découpage du sol en bandes. |
+| **Cause** | La boucle de rendu **allouait à chaque image** : une `Map`, un tableau par rangée de profondeur, et **un objet enveloppe par entité**. Et elle les créait pour les **332 entités des huit régions**, alors qu'une vingtaine seulement est à l'écran. |
+| **Mesuré** | 332 entités triées par image contre **9 à 23 réellement visibles**. Le temps médian d'une image restait sous la milliseconde, mais le **p95 montait à 16,7 ms** sans qu'aucune phase mesurée ne l'explique : la signature d'un ramasse-miettes. |
+
+Sur une machine de bureau, vingt mille objets éphémères par seconde ne se voient
+pas. Sur un téléphone, ils saccadent.
+
+Correctif :
+
+- **On écarte le hors-champ AVANT d'allouer** : une entité dont la rangée sort
+  du cadre n'est plus enveloppée ni triée. 332 → 9-23 par image.
+- **Bacs et enveloppes sont réutilisés** d'une image à l'autre. 23 enveloppes
+  sont créées une fois pour toutes, et resservent indéfiniment.
+- `libererBandesLointaines()` faisait `map + filter + sort` **à chaque image**,
+  soit trois tableaux jetés soixante fois par seconde. Réécrite sans allocation.
+
+> Le premier réflexe avait été d'espacer ce ménage (une image sur trente-deux).
+> C'était traiter le symptôme : le pot de toiles s'en trouvait affamé, et une
+> nouvelle toile était allouée en chemin — ce que `22-performance.js` a
+> immédiatement signalé. La bonne réponse était de rendre la fonction gratuite,
+> pas de l'appeler moins souvent.
+
+### Le contrôle mesurait la mauvaise chose
+
+Première version de l'assertion : le pot d'enveloppes ne doit pas grossir. Or
+réallouer `_env[i] = {…}` à chaque image **laisse sa longueur inchangée** — le
+contrôle restait vert avec le défaut réinjecté. Il compare désormais
+l'**identité** des objets : ce doivent être les mêmes qui resservent.
+
+---
+
+## 18. La version affichée vieillissait en silence
+
+Elle est restée à **« V0.6 — 6 des 8 mondes »** pendant que les huit mondes
+étaient en ligne. Depuis un téléphone, ce numéro est le **seul** moyen de savoir
+quelle version on a réellement sous les yeux.
+
+- La version est montée à **V1.1**, et `package.json` avec elle.
+- La règle est consignée dans **`CLAUDE.md`**, à faire à chaque livraison.
+- `23-version.js` vérifie ce qui est vérifiable : que la version existe, qu'elle
+  est **réellement dessinée** sur l'écran-titre (une constante définie mais
+  jamais affichée n'apprendrait rien au joueur), et qu'elle **ne diverge pas de
+  `package.json`** — monter l'une oblige à monter l'autre.
+
+> Aucun test ne peut vérifier qu'un humain a pensé à monter un numéro. Il peut
+> en revanche rendre l'oubli bruyant.
+
