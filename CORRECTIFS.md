@@ -826,3 +826,89 @@ Vérifié dans `19-frontieres.js` : sur chaque frontière interne, un ennemi pla
 juste à côté avec le héros de l'autre côté ne la franchit **jamais** (poursuite
 vers le bas comme vers le haut, créatures au sol comme volantes), tout en
 continuant d'avancer vers le héros tant qu'ils partagent une région.
+
+---
+
+## 14. Les mondes 7 et 8, et la fin
+
+Le plan des huit mondes est achevé : **la Cité des Nues** (rangées 480-559) et
+**la Faille** (560-639). `MH` passe de 480 à 640.
+
+### 14.1 ⚠️ Agrandir la carte repeignait les régions déjà écrites
+
+C'est le défaut le plus grave rencontré ici, et il était **latent depuis les
+Cimes**.
+
+| | |
+|---|---|
+| **Symptôme** | En ajoutant deux régions, les brasiers des Terres de Cendre et l'atelier de Durn devenaient injoignables. |
+| **Cause** | Deux boucles de décor de la vallée tiraient leur rangée sur `MH` : `y = 3 + rnd()*(MH-6)`. Une carte plus haute les diluait, donc **moins de tirages tombaient sur l'herbe** — or le tirage de forme (`rnd()<.4?ROC:BUISSON`) n'était fait qu'en cas de succès. Le nombre d'appels à `rnd()` changeait, et tout le générateur se décalait derrière. |
+| **Mesuré** | La sortie sud de la Forge Noire passait de la cendre (`S.CENDRE`) aux braises (`S.BRAISE`) : infranchissable sans les bottes, alors qu'elle se traverse bien avant de les avoir. |
+
+Correctif en deux temps :
+
+1. les deux boucles sont **bornées à la vallée**, et le tirage de forme est fait
+   **dans tous les cas** — le flux ne dépend plus des tuiles touchées ;
+2. surtout, **chaque région reçoit sa propre graine** (`_s=…` en tête de chaque
+   `genererXXX()`). Un monde ne peut plus être repeint par ce qui se passe
+   ailleurs dans la génération. C'est l'invariant qui manquait : les index de
+   tuiles étaient protégés, le *terrain* ne l'était pas.
+
+> À retenir : une génération déterministe ne suffit pas. Si le **nombre** de
+> tirages dépend d'une donnée globale, tout ce qui suit bouge. Isoler la graine
+> par région coûte une ligne et supprime la classe entière de bugs.
+
+### 14.2 Cité des Nues — le vide, la cape, les colonnes
+
+Rien ne s'y traverse à pied : la région est du **vide** semé d'îles. Le vide
+n'est pas un mur, on y entre et **on tombe** — un cœur perdu, retour au dernier
+sol ferme foulé (mémorisé en continu ; sans lui, une chute au milieu d'un grand
+vide renverrait n'importe où, voire dans le vide à nouveau).
+
+La **cape des courants** (touche Y) fait planer : la chute est freinée et le
+vide ne reprend pas. Les **colonnes d'air** relancent le vol — mais seulement
+pour qui a la cape, sans quoi la Cité resterait franchissable sans elle.
+
+Le **Parvis des Vents**, où dort la cape, se gagne **à pied** : on ne peut pas
+enfermer un outil derrière lui-même. Le Belvédère, lui, est de l'autre côté du
+vide. Les deux sont mesurés.
+
+Quête annexe : les **huit carillons du vent**, suspendus au-dessus du vide, que
+seul le **boomerang** fait sonner — pas l'épée.
+
+### 14.3 La Faille — trois paliers, une salle finale, cinq phases
+
+Pas de nouvel outil : on arrive avec tout. Trois paliers rejouent chacun
+l'épreuve d'un monde traversé (glace/boomerang, bloc lourd/bracelet,
+ronces/fanal), chacun gardant un **sceau**. Les trois brisés effacent les éclats
+noirs qui ferment la **salle finale**, où les quatre mécaniques s'enchaînent.
+
+Le **Rongeur d'Étoiles** emprunte, par tranches de points de vie, les armes des
+gardiens qu'il a dévorés : charge, gerbe, glace, plongée, puis **le cœur à nu**.
+
+Deux défauts de conception trouvés par le contrôle d'atteignabilité, et non à
+l'œil :
+
+- **on contournait les trois barrières** : elles laissaient deux colonnes libres
+  contre les murs. Elles courent maintenant de mur à mur.
+- **on entrait dans la salle finale par en dessous**, sans avoir brisé un seul
+  sceau : le couloir qui descend vers l'arène débouchait en plein néant, or le
+  néant se marche. Le couloir est désormais muré sur ses flancs. Et le chemin
+  qui mène à la salle finale **contourne les paliers** : tracé tout droit, il
+  perçait la barrière de blocs lourds du deuxième.
+
+### 14.4 La fin
+
+Ce n'est pas un écran mais un **état de jeu** (`epilogue`) : les trois étoiles
+reprises s'élèvent, puis la caméra remonte **les huit mondes d'un seul
+mouvement**, chacun ramenant son propre morceau, jusqu'au village. Puis le
+bilan : armes, gardiens, quêtes, énigmes, cœurs, lucioles, rubis, temps.
+
+Au passage, un reliquat corrigé : **la victoire se déclenchait encore à la fin
+du monde 2** (trois braises), alors que six régions suivaient. Les braises
+ouvrent maintenant la route des Cimes, et la fin attend le Rongeur.
+
+`20-nues-faille.js` et `21-fin.js` mesurent tout cela sur le vrai jeu : chute et
+vol plané, colonnes avec et sans cape, carillons à l'épée puis au boomerang,
+sceaux, paliers du Rongeur, parcours réel de la caméra et morceaux traversés.
+

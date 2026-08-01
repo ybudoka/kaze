@@ -3364,18 +3364,19 @@ function genererFaille(){
   /* --- palier 1 : la glace, comme aux Cimes — le boomerang la brise --- */
   {const s=FAILLE.palier1, cx=s.x0+(s.w>>1);
    rectS(s.x0+2,s.y0+2,s.w-4,s.h-4,S.GLACE);
-   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.GLACON);
-   for(let y=s.y0+7;y<=s.y0+8;y++){ putO(cx,y,O.GLACON); }
+   /* Toute la largeur INTÉRIEURE, de mur à mur : deux colonnes libres sur les
+      bords suffisaient à contourner l'épreuve et à cueillir le sceau. */
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,y,O.GLACON);
    putO(cx,s.y0+s.h-3,O.SCEAU);
    panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE BOOMERANG BRISE LA GLACE."});}
   /* --- palier 2 : le bloc lourd, comme aux Sables — le bracelet le soulève --- */
   {const s=FAILLE.palier2, cx=s.x0+(s.w>>1);
-   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.BLOCLOURD);
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,y,O.BLOCLOURD);
    putO(cx,s.y0+s.h-3,O.SCEAU);
    panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE BRACELET SOULÈVE LE BLOC LOURD."});}
   /* --- palier 3 : les ronces, comme au Marais — le fanal les brûle --- */
   {const s=FAILLE.palier3, cx=s.x0+(s.w>>1);
-   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+2;x<s.x0+s.w-2;x++) putO(x,y,O.RONCE);
+   for(let y=s.y0+7;y<=s.y0+8;y++)for(let x=s.x0+1;x<s.x0+s.w-1;x++) putO(x,y,O.RONCE);
    putO(cx,s.y0+s.h-3,O.SCEAU);
    panneaux.push({x:(cx-3)*TS+8,y:(s.y0+4)*TS+8,txt:"LE FANAL BRÛLE LES RONCES."});}
 
@@ -3383,7 +3384,12 @@ function genererFaille(){
      un gouffre (grappin), un vide (cape), une glace (boomerang), un bloc
      lourd (bracelet). Elle est fermée tant que les trois sceaux tiennent. */
   {const s=FAILLE.finale, y0=s.y0;
-   voie(hub[0],hub[1],s.x0+(s.w>>1),y0-1);
+   /* Le chemin vers la salle finale CONTOURNE les paliers : tracé tout droit,
+      il descendait au travers du palier 2 et perçait sa barrière de blocs
+      lourds — on cueillait le sceau sans jamais soulever un bloc. La colonne
+      x=30 passe entre le premier palier (x 8-27) et le deuxième (x 34-53). */
+   voie(hub[0],hub[1],30,hub[1]);
+   voie(30,hub[1],s.x0+(s.w>>1),y0-2);
    // bande 1 : le gouffre, franchi au grappin (une ancre au-delà)
    for(let x=s.x0+2;x<s.x0+s.w-2;x++){ putS(x,y0+4,S.VIDE); putS(x,y0+5,S.VIDE); }
    putO(s.x0+(s.w>>1),y0+3,O.ANCRE);
@@ -3402,8 +3408,13 @@ function genererFaille(){
 
   /* --- l'arène du Rongeur, sous la salle finale --- */
   {const f=FAILLE.finale, a=FAILLE.arene, cx=a.x0+(a.w>>1);
-   for(let y=f.y0+f.h-1;y<=a.y0;y++)for(let k=-1;k<=1;k++){
-     putS(cx+k,y,S.FRACTURE); putO(cx+k,y,O.RIEN); putE(cx+k,y,0); }
+   /* Le couloir est MURÉ sur ses flancs. Sans cela, il débouchait en plein
+      néant — praticable de partout — et l'on entrait dans la salle finale par
+      en dessous sans avoir brisé un seul sceau. */
+   for(let y=f.y0+f.h-1;y<=a.y0;y++){
+     for(let k=-1;k<=1;k++){ putS(cx+k,y,S.FRACTURE); putO(cx+k,y,O.RIEN); putE(cx+k,y,0); }
+     putO(cx-2,y,O.MUR); putO(cx+2,y,O.MUR);
+   }
    rectS(a.x0+2,a.y0+2,a.w-4,a.h-4,S.NEANT);
    rectS(a.x0+3,a.y0+3,a.w-6,a.h-6,S.FRACTURE);
   }
@@ -7297,7 +7308,7 @@ const VERROU_FIN=52;
    il se rend comme le monde, avec le vrai décor — pas une image fixe. */
 let epiT=0, epiY=0, epiPause=0;
 const EPI_ETOILES=150;                 // les étoiles montent
-const EPI_MONTEE=1150;                 // le travelling
+const EPI_MONTEE=850;                  // le travelling (~14 s, huit mondes)
 function lancerEpilogue(){
   if(etat==='epilogue') return;
   epiT=0; epiPause=0;

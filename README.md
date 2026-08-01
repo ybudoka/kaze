@@ -39,7 +39,19 @@ gardien). Les huit **lucioles d'or** rapportées à la fée du bosquet allongent
 ton épée.
 
 **Les Terres de Cendre** — les trois étoiles ouvrent le portail du sud. Marteau,
-bottes de cendre, et le Cœur de Cendre au bout. Un **col** descend ensuite vers
+bottes de cendre, et le Cœur de Cendre au bout.
+
+**Huit mondes en tout**, empilés du nord au sud : la Vallée, les Terres de
+Cendre, les Cimes Gelées, le Lagon d'Azur, les Sables du Mirage, le Marais des
+Murmures, la **Cité des Nues** et la **Faille**. Chacun enseigne une mécanique
+que les suivants combinent, et donne un outil : arc, bombes, grappin, marteau,
+boomerang, palmes, bracelet de force, fanal, **cape des courants**.
+
+À la **Cité des Nues**, rien ne se traverse à pied : le vide sépare les îles.
+La cape fait planer, les colonnes d'air rallongent le vol. À la **Faille**, on
+arrive avec tout : trois paliers rejouent les épreuves des mondes traversés,
+puis vient le **Rongeur d'Étoiles**, qui emprunte les armes des gardiens qu'il
+a dévorés. Un **col** descend ensuite vers
 la montagne.
 
 **Les Cimes Gelées** — neige, lacs de glace et arêtes de granit. Le **boomerang**

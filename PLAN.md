@@ -25,11 +25,13 @@ restent valables à chaque ajout).
 | 4 | **Lagon d'Azur** | mer, corail, hauts-fonds | **palmes** | Léviathan | nage, courants, récifs |
 | 5 | **Sables du Mirage** ✅ | désert, dunes, sables mouvants | **bracelet de force** | Colosse de Grès | blocs lourds, sables mouvants à combler |
 | 6 | **Marais des Murmures** ✅ | tourbière, ronces, brume | **fanal** | Reine des Lucioles Noires | lumière/ombre, ronces |
-| 7 | **Cité des Nues** | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vent, gravité, plateformes |
-| 8 | **La Faille** | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
+| 7 | **Cité des Nues** ✅ | ruines volantes, vent | **cape des courants** | Sentinelle du Ciel | vide, colonnes d'air, vol plané |
+| 8 | **La Faille** ✅ | néant fracturé | *(toutes les armes)* | **le Rongeur d'Étoiles** | gauntlet de tout |
 
-Les **six premières lignes** (✅) sont **jouables aujourd'hui**. Les deux
-suivantes sont le plan.
+**Les huit mondes sont jouables.** Le plan est achevé : la Cité des Nues, la
+Faille, le Rongeur d'Étoiles et la fin ont été livrés — voir `CORRECTIFS.md`
+§ 14 pour ce qu'il a fallu corriger en chemin (notamment : agrandir la carte
+repeignait le terrain des régions déjà écrites).
 
 ---
 
@@ -97,7 +99,7 @@ Lagon par un oued asséché.*
   - **dur** : affronter l'ombre et la Reine en jouant de l'alternance
     lumière/obscurité (l'ombre n'est vulnérable que dans le halo).
 
-## Monde 7 — La Cité des Nues
+## Monde 7 — La Cité des Nues ✅ *(en jeu)*
 
 *Ruines flottantes reliées par des courants d'air, très haut au-dessus des
 nuages. On y monte par une tour en spirale.*
@@ -120,7 +122,7 @@ nuages. On y monte par une tour en spirale.*
   - **dur** : plateformes mobiles synchronisées + vents à couper au bon moment,
     en enchaînant grappin, cape et bascule.
 
-## Monde 8 — La Faille (monde final)
+## Monde 8 — La Faille ✅ *(en jeu, monde final)*
 
 *Le néant fracturé où le ciel se déchire. Pas de nouvel outil : on arrive avec
 **tout** — épée de Cendre, arc, bombes, marteau, boomerang, palmes, bracelet,
