@@ -2689,3 +2689,91 @@ Réinjections, une par une — chacune fait rougir son contrôle, et lui seul :
 - **Toute entité posée sur la carte doit naître à la hauteur de son sol.**
   `pondre()` l'ignorait ; les butins, les coffres et les lucioles, eux, portaient
   déjà leur étage.
+
+## 41. Les six fleurs de givre étaient invisibles sur la carte
+
+### Le symptôme
+
+« Je ne vois vraiment pas les fleurs de givre. » Borve, guide du col, ouvre sa
+quête au refuge ; la carte des Cimes ne montrait **aucune** des six fleurs.
+
+### La mesure : la fleur se voit très bien, c'est son REPÈRE qui manquait
+
+Premier réflexe : la fleur est blanche sur la neige, elle doit se confondre avec
+le décor. **Faux.** Rendu de la même image deux fois, tick figé, une fois avec la
+fleur et une fois sans, puis comparaison pixel à pixel :
+
+| butin | pixels changés | écart moyen | écart max |
+|---|---|---|---|
+| fleur de givre, sur la neige | 1 146 | 44,2 | 366 |
+| papillon *(témoin : on le voit)* | 1 216 | 44,6 | 331 |
+| perle, dans le lagon | 1 252 | 43,4 | 458 |
+| fragment de fresque, sur le sable | 1 146 | 41,3 | 352 |
+
+Contrôle à blanc — deux rendus identiques : **0 pixel**. Au sol, à deux pas, la
+fleur se détache donc exactement autant que le papillon. Le problème n'est pas
+de la voir : c'est de savoir **où aller**.
+
+### La cause réelle : le repère de carte était sous le brouillard
+
+`rep2` refuse toute case non explorée :
+
+```js
+if(!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
+```
+
+Debout au col, la quête de Borve ouverte, relevé au tracé :
+
+| | repères de fleur dessinés |
+|---|---|
+| quête fermée | 0 |
+| **quête ouverte, brouillard réel** | **1** — et c'est la pastille de la légende, pas un repère |
+| brouillard levé | 7 = 6 repères + la pastille |
+
+**0 des 6 cases** des fleurs était explorée ; **3 %** des Cimes l'étaient. Les
+repères n'apparaissaient qu'une fois les **trois cloches sonnées** — ce sont
+elles qui lèvent le brouillard de toute la région. Autant dire jamais, pour qui
+cherche les fleurs d'abord : Borve est à [36, 179], juste après le col, et les
+fleurs à 21 à 65 cases de là dans une région de 6 400.
+
+Le repère de la fleur avait pourtant été ajouté (§ 38) *précisément* pour qu'on
+n'ait pas à les chercher à l'œil. Le brouillard l'annulait.
+
+### Le correctif
+
+`rep2` accepte un quatrième argument, `horsBrouillard`. La fleur le reçoit dès
+que Borve a parlé, le papillon dès qu'on a le filet — les deux seuls ramassages
+posés à la volée par `perchoirLibre`, donc les deux seuls sans table de
+positions. Rien ne se donne pour rien : c'est le guide du col qui sait où pousse
+la fleur, et le filet qui se paie. Tout le reste — cloches, boomerang, perles,
+fresques, coffres — demeure sous le brouillard.
+
+Les Cimes étaient par ailleurs la **seule** région dont la ligne d'objectif
+taisait sa collecte annexe : le Lagon annonce ses perles, les Sables leurs
+fresques. `objectifCourant()` dit maintenant, une fois la voie principale
+faite : `FLEURS DE GIVRE : n/6 À BORVE`.
+
+### Le contrôle
+
+`tests/32-reperes-de-quete.js`. Le contrôle existant était **vert pour une
+mauvaise raison** : il forçait `vu[i] = 1` partout avant de compter, et
+mesurait donc une carte sans brouillard, que le joueur ne voit jamais. On rejoue
+désormais la scène réelle — `vu.fill(0)`, quête ouverte, joueur au col — et l'on
+recompte. Les **cloches** servent de témoin : elles restent soumises au
+brouillard, et doivent rester à 0 dans ce même relevé.
+
+| réinjection | contrôle qui rougit |
+|---|---|
+| repère de fleur rendu au brouillard | au col, sous le vrai brouillard : les six fleurs se voient *(1 au lieu de 7)* |
+
+À la réinjection, les quatre autres contrôles du fichier restent verts — ils
+étaient bien aveugles au défaut.
+
+### À ne pas réintroduire
+
+- **Un contrôle qui force `vu` à 1 ne mesure pas la carte du joueur.** Tout
+  relevé de repère doit être doublé d'un relevé sous le brouillard réel.
+- **Un repère posé pour qu'on trouve une chose doit survivre au brouillard**,
+  sinon il n'apparaît qu'une fois la chose trouvée.
+- **Toute collecte annexe a sa ligne dans `objectifCourant()`**, comme les
+  perles et les fresques.

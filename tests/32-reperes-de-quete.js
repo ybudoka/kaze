@@ -43,6 +43,26 @@ module.exports = {
       out.repCloches = compte(cimes, REPS.cloche);   // témoin : les cloches en avaient déjà
       const vallee = releve(0);
       out.repPapillonVallee = compte(vallee, REPS.papillon);
+
+      /* ---- CORRECTIFS.md § 41 — et sous le VRAI brouillard ?
+         Le relevé ci-dessus force `vu` à 1 partout : il était vert alors que la
+         carte, en jeu, ne montrait aucune fleur. On rejoue donc la scène réelle
+         — brouillard rendu à son état neuf, quête de Borve ouverte, joueur au
+         col — et l'on recompte. Les CLOCHES servent de témoin : elles restent
+         soumises au brouillard, et doivent rester invisibles ici. */
+      vu.fill(0);
+      Q.guideParle = true;
+      const col = [(CIMES.col.x0 + CIMES.col.x1) >> 1, Y_CIMES + 4];
+      J.x = col[0] * TS + 8; J.y = col[1] * TS + 8; J.z = Etg(col[0], col[1]) * EH;
+      etat = 'jeu'; await dort(400);
+      etat = 'carte'; await dort(200);
+      const auCol = releve(2);
+      /* 6 repères + la pastille de la légende « FLEUR », de la même teinte. */
+      out.repFleursAuCol = compte(auCol, REPS.fleur);
+      out.repClochesAuCol = compte(auCol, REPS.cloche);
+      out.partExploreeCimes = +(Array.from(vu.slice(Y_CIMES * MW, Y_LAGON * MW))
+        .reduce((a, b) => a + b, 0) / ((Y_LAGON - Y_CIMES) * MW) * 100).toFixed(1);
+
       X.fillRect = vraiFill;
       etat = 'jeu';
 
@@ -75,6 +95,12 @@ module.exports = {
       r.repFleurs === 6, `${r.repFleurs} repère(s) pour 6 fleurs`);
     v('contrôle à blanc : les cloches, elles, en avaient déjà',
       r.repCloches === 3, `${r.repCloches} cloche(s)`);
+    v('AU COL, SOUS LE VRAI BROUILLARD : LES SIX FLEURS SE VOIENT',
+      r.repFleursAuCol === 7,        // 6 repères + la pastille de la légende
+      `${r.repFleursAuCol} rectangle(s) pour 6 fleurs + 1 pastille` +
+      ` — ${r.partExploreeCimes} % des Cimes exploré`);
+    v('témoin : les cloches, elles, restent sous le brouillard',
+      r.repClochesAuCol === 0, `${r.repClochesAuCol} cloche(s) au col`);
     v('le papillon de la vallée a le sien aussi',
       r.repPapillonVallee === 1, `${r.repPapillonVallee}`);
     v('fleur, perle et fresque s\'auréolent au sol',

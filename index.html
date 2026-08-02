@@ -5395,6 +5395,10 @@ function objectifCourant(){
     if(!Q.boomerang) return 'TEMPLE DE GIVRE, À L OUEST : LE BOOMERANG';
     if(!Q.yetiTue) return 'ARÈNE DU SOMMET : BRISE LA GLACE, BATS LE ROI YÉTI';
     if(Q.cloches<3) return 'CLOCHES DE GIVRE : '+Q.cloches+'/3 AU BOOMERANG';
+    /* Les fleurs étaient la SEULE collecte annexe sans ligne d'objectif : le
+       Lagon annonce ses perles, les Sables leurs fresques, les Cimes ne
+       disaient rien des six fleurs de Borve. */
+    if(Q.guideParle&&!Q.fleursRendues) return 'FLEURS DE GIVRE : '+Q.fleurs+'/6 À BORVE';
     return 'AU SUD : LA DESCENTE VERS LE LAGON';
   }
   if(!Q.parleDoyenne) return 'PARLE À LA DOYENNE, AU VILLAGE';
@@ -9187,8 +9191,8 @@ function ecranCarte(){
   /* Repères — seulement ceux de la région montrée. Chacun reçoit une entrée de
      `REPS` : c'est elle qui porte les deux teintes ET le rythme, et c'est la
      même que dessine la légende. */
-  const rep2=(tx,ty,pal)=>{
-    if(!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
+  const rep2=(tx,ty,pal,horsBrouillard)=>{
+    if(!dansCarte(tx,ty)||(!horsBrouillard&&!vu[ty*MW+tx])) return;
     if(ty<y0R||ty>=y0R+HR) return;
     const px=mx+tx*sc, py=my+(ty-y0R)*sc, t=Math.max(2,Math.ceil(sc));
     X.fillStyle=coulRep(pal); X.fillRect(px-1,py-1,t+2,t+2);
@@ -9216,10 +9220,17 @@ function ecranCarte(){
   for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE) rep2(vx,vy,REPS.veilleuse);
   /* Fleurs de givre et papillons : pas de table de positions — `perchoirLibre`
      les pose où il trouve de la place. On lit donc les butins eux-mêmes, ce qui
-     a l'avantage de suivre le papillon, qui volette. */
+     a l'avantage de suivre le papillon, qui volette.
+     Leur repère IGNORE le brouillard, et c'est tout son objet. Mesuré debout au
+     col, la quête de Borve ouverte : la carte n'en montrait AUCUN des six. Zéro
+     des six cases des fleurs était explorée — 3 % des Cimes l'étaient. Le
+     repère n'arrivait qu'une fois les trois cloches sonnées, qui lèvent le
+     brouillard de toute la région : autant dire jamais, pour qui cherche les
+     fleurs d'abord. Rien ne se donne pour rien : c'est Borve, guide du col, qui
+     sait où pousse la fleur, et le filet qui se paie. */
   for(const o of butins){
-    if(o.type==='fleurgivre') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.fleur);
-    else if(o.type==='papillon') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.papillon);
+    if(o.type==='fleurgivre') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.fleur,Q.guideParle);
+    else if(o.type==='papillon') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.papillon,Q.filet);
   }
   for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert)
     rep2(Math.floor(c.x/TS),Math.floor(c.y/TS),REPS.coffre);
@@ -9491,7 +9502,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.4';
+const VERSION='V2.5';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
