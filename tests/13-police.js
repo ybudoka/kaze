@@ -91,10 +91,27 @@ module.exports = {
       {
         const src = [...document.querySelectorAll('script')].map(s => s.textContent).join('\n');
         const litteraux = [...src.matchAll(/(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g)].map(m => m[2]);
-        const affichable = /^[A-ZÀ-ŸŒ0-9 .,:;!?'()[\]/%+×★♥…-]+$/;
+        /* On ne filtre PLUS sur une liste de caractères permis. C'était le
+           défaut du tamis : une chaîne contenant un signe absent de la liste
+           échouait au test et se trouvait donc ÉCARTÉE — alors que ce signe
+           inconnu était exactement ce qu'on cherchait. « SELECT = RETOUR » est
+           passé au travers ainsi, et s'est affiché « SELECT ? RETOUR ».
+           On retient maintenant tout ce qui RESSEMBLE à du texte de jeu — des
+           capitales, aucune minuscule, aucune syntaxe de code — puis on
+           inspecte chacun de ses caractères. */
+        const ressembleAuJeu = t =>
+          (t.match(/[A-ZÀ-ŸŒ]/g) || []).length >= 4
+          && !/[a-zà-ÿ]/.test(t)
+          && !/[<>{}$\\|_@&*`~^#]/.test(t);
+        /* Les libellés des boutons HTML au-dessus du jeu (PLEIN ÉCRAN, MUSIQUE,
+           DÉBUG…) sont écrits par le navigateur, avec SA police : ils n'ont
+           jamais à passer par les glyphes pixel. Ceux-là seuls sont exemptés,
+           et nommément — une exemption par motif finirait par couvrir du vrai
+           texte de jeu. */
+        const horsPolicePixel = new Set(['MUSIQUE ✕', 'DÉBUG ✕']);
         for (const t of litteraux) {
-          if (t.length < 5 || !affichable.test(t)) continue;
-          if ((t.match(/[A-ZÀ-ŸŒ]/g) || []).length < 4) continue;
+          if (t.length < 5 || !ressembleAuJeu(t)) continue;
+          if (horsPolicePixel.has(t)) continue;
           ajouter(t, 'source');
         }
       }

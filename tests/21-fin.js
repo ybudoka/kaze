@@ -92,12 +92,17 @@ module.exports = {
 
       /* ---------- l'épilogue ---------- */
       // on se donne une partie complète, pour que le bilan ait quelque chose à dire
-      J.objets = ['arc', 'bombe', 'marteau', 'boomerang', 'grappin', 'bracelet', 'fanal', 'cape'];
+      J.objets = ['arc', 'bombe', 'marteau', 'boomerang', 'grappin', 'bracelet', 'fanal',
+                  'cape', 'filet'];
+      /* `cloches: 5` ne prouvait rien : elles sont TROIS, et le bilan exigeait
+         `>=5` — la ligne était donc fausse des deux côtés à la fois, et le
+         contrôle passait. On met le vrai compte. */
       Object.assign(Q, { chefTue: true, coeurTue: true, yetiTue: true, leviathanTue: true,
         colosseTue: true, reineTue: true, sentinelleTue: true, rongeurTue: true,
         epeeLongue: true, coeurCristal: true, primeRendue: true, lanterne: 3, brasiers: 3,
-        cloches: 5, perlesRendues: true, fresquesRendues: true, veilleuses: 7, carillons: 8,
-        lucioles: 8 });
+        cloches: 3, fleursRendues: true, perlesRendues: true, fresquesRendues: true,
+        veilleuses: 7, carillons: 8, lucioles: 8,
+        papillonsPris: [1, 1, 1, 1, 1, 1, 1, 1], papillonsRendus: true });
       J.pvmax = 20; J.rubis = 421;
       out.bilan = bilanComplétion();
 
@@ -150,11 +155,22 @@ module.exports = {
     v('le voyage se termine sur le thème de la victoire',
       r.themesTraverses.includes('victoire'), r.themesTraverses.join(','));
     v('le bilan s\'ouvre à la fin', r.pauseFinale, 'jamais posé');
-    v('le bilan compte ce qui a été fait',
-      r.bilan.some(l => l[0] === 'ARMES ET OUTILS' && l[1] === '8/8')
-      && r.bilan.some(l => l[0] === 'GARDIENS ABATTUS' && l[1] === '8/8')
-      && r.bilan.some(l => l[0] === 'QUÊTES ANNEXES' && l[1] === '10/10'),
-      JSON.stringify(r.bilan));
+    /* Une partie où TOUT est fait doit afficher le plein partout. On ne fige
+       plus les totaux (« 8/8 », « 10/10 ») : ils changent dès qu'on ajoute un
+       outil ou une quête, et le contrôle se mettait alors à mentir sur l'un
+       pendant qu'il vérifiait l'autre. On exige simplement que les deux
+       nombres de chaque ligne soient égaux. */
+    {
+      const plein = nom => {
+        const l = r.bilan.find(x => x[0] === nom);
+        if (!l) return false;
+        const m = /^(\d+)\/(\d+)$/.exec(l[1]);
+        return !!m && m[1] === m[2];
+      };
+      v('LE BILAN AFFICHE LE PLEIN QUAND TOUT EST FAIT',
+        ['ARMES ET OUTILS', 'GARDIENS ABATTUS', 'QUÊTES ANNEXES', 'PAPILLONS']
+          .every(plein), JSON.stringify(r.bilan));
+    }
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },

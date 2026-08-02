@@ -1893,3 +1893,244 @@ Plus un **témoin** : une modification qui ne change rien laisse tout vert.
   position.
 - **Un dialogue fige le héros.** Tout ce qui ouvre une boîte de texte doit se
   demander si quelque chose peut frapper pendant ce temps.
+
+---
+
+## 29. Neuf butins de quête étaient dessinés en FLÈCHE, par terre
+
+### Le symptôme, et ce qu'on a mesuré
+
+Le boomerang qui dort au fond du Temple de Givre — le trésor de tout un monde —
+est posé au sol comme un objet à ramasser. À l'écran, c'était **une flèche**.
+
+Le choix du sprite d'un butin posé n'était pas une table mais une suite de
+`?:` traitant cinq cas, avec un fourre-tout final :
+
+```js
+const nom = VALEUR_GEMME[o.type] ? … : o.type==='eclat' ? 'eclat' : 'fleche';
+```
+
+Tout ce qui n'était pas une gemme, un cœur, une bombe, un champignon, la clé ou
+un éclat retombait donc sur `'fleche'`. Relevé depuis le jeu, la liste des
+laissés-pour-compte : **boomerang, palmes, grappin, bracelet, fanal, cape,
+fragments de fresque, perles du Lagon, et TOUS les cœurs de cristal** — neuf
+types, dont six avaient pourtant déjà leur icône cuite (`boomerangItem`,
+`grappinItem`, `braceletItem`, `fanalItem`, `capeItem`, `coeurMaxItem`).
+
+C'est exactement le défaut du § 26 (« Cinq objets montraient le dessin d'un
+autre »), mais **au sol** au lieu de la boîte d'objet — corrigé d'un côté,
+laissé intact de l'autre.
+
+### Le correctif
+
+Une **table** (`SPR_BUTIN`), et trois icônes qui manquaient encore
+(`palmesItem`, `perleItem`, `fresqueItem`). Une table se relit : ajouter un
+butin sans son icône se voit du premier coup d'œil, là où une chaîne de `?:`
+absorbait le nouveau venu en silence.
+
+`LUEUR_BUTIN` dit à part ce qui s'auréole — la clé, les outils, les cœurs.
+
+### Le contrôle
+
+`28-cimes-enrichies.js` rejoue le calcul de sprite de la boucle de rendu pour
+**tous** les types que le jeu sait poser, et exige qu'aucun ne retombe sur
+`'fleche'` ni ne vise un sprite absent. Réinjection : `boomerang:` retiré de la
+table → **rouge**.
+
+---
+
+## 30. La troisième région était la plus VASTE du jeu, et la plus vide
+
+### Ce qu'on a mesuré
+
+En créatures pour mille cases praticables, région par région :
+
+| région | cases | créatures | densité |
+|---|---|---|---|
+| vallée | 4 357 | 56 | **12,9** |
+| Cendres | 3 756 | 44 | 11,7 |
+| **Cimes Gelées** | **5 954** | **37** | **6,2** |
+| Lagon | 2 606 | 32 | 12,3 |
+| Sables | 5 039 | 33 | 6,6 |
+| Marais | 5 230 | 22 | **4,2** |
+| Nues | 1 996 | 36 | 18,0 |
+| Faille | 2 938 | 24 | 8,2 |
+
+Les Cimes : **le plus grand terrain du jeu, la moitié moins peuplé que le
+premier pré**. Et rien d'autre à y faire — **0 personnage** à qui parler,
+**0 coffre**, **1 seul butin** (le boomerang), contre 1 PNJ et 6 butins au
+Lagon comme aux Sables. Sa seule quête annexe comptait trois cloches, quand le
+Marais en demandait sept et les Nues huit.
+
+Pire : le bilan de fin exigeait `Q.cloches>=5` alors que `sonnerCloche`
+plafonne à **trois**. La condition ne pouvait jamais être vraie — les Cimes
+étaient la seule région dont la quête annexe ne comptait pas dans le bilan.
+Le contrôle de fin, lui, se donnait `cloches: 5` : **faux des deux côtés à la
+fois**, donc vert.
+
+### Les correctifs
+
+- **La glace glisse.** Elle couvre un sixième du sol de la région et se
+  traversait comme une prairie. Le pouce ne fixe plus la vitesse, il la
+  *pousse* (`J.gx`, `J.gy`, retour lent) : on dérape, on rate son virage. Le
+  sol ferme est inchangé au pixel près — `J.gx` y vaut l'ancienne valeur.
+- **Le Refuge du Col**, une cabane de rondins, zone de paix, et **Borve le
+  guide** : la région a enfin un visage. Manteau rouge brique — la robe verte
+  du pêcheur, essayée d'abord, disparaissait dans la neige et se confondait
+  avec la tunique de Kaze.
+- **Les six fleurs de givre**, sa quête annexe, du même calibre que les perles
+  du naufragé et les fresques de Nefa.
+- **La Crevasse**, son énigme (voir plus bas), et son cœur de cristal.
+- **64 créatures au lieu de 34** : densité 6,2 → 11,4.
+
+### La Crevasse : une énigme qui ne se terminait pas
+
+Premier jet : une crevasse en travers de la salle, l'interrupteur emmuré de
+glaçons sur l'autre rive, le trésor derrière une barrière bleue. Le contrôle
+passait au vert.
+
+**La réinjection l'a démasqué.** En comblant la crevasse, le contrôle « le
+cristal est hors d'atteinte à pied » **restait vert** : les glaçons suffisaient
+à eux seuls, la crevasse ne prouvait rien. Et en poussant la vérification
+jusqu'au bout — *le cœur est-il ATTEIGNABLE ?* — la réponse était **non** :
+rien ne permettait de traverser. Le cœur de cristal était posé là pour
+personne.
+
+La salle a donc été refaite : **ancre de grappin sur la rive lointaine**, et
+**une seconde pour revenir** (la leçon du § 22, la douve qui scellait le héros
+sur l'autre bord). On passe au grappin, on brise la glace au boomerang, on
+bascule le cristal, la barrière tombe. Deux outils, deux mondes.
+
+### Ce que le contrôle a appris à faire
+
+- **Interroger la collision DU JEU** (`solide`), pas une table. Les blocs à
+  bascule ne sont pas durs dans `DUR_O` : leur solidité se décide à la volée
+  selon l'interrupteur. Le premier parcours réimplémentait la règle et
+  traversait donc allègrement la barrière bleue.
+- **Piloter le vrai grappin** : on ne vérifie pas que l'ancre existe, on lance
+  le grappin et l'on regarde **où le héros atterrit**, à l'aller et au retour.
+- **Mesurer depuis le bon endroit** : « le trésor est enfermé » était vrai
+  depuis l'entrée à cause de la seule crevasse, et restait vert la barrière
+  retirée. C'est **depuis la rive lointaine** qu'il fallait regarder.
+
+---
+
+## 31. Le cabinet des huit, et le filet à papillons
+
+Une quête qui traverse les **huit tableaux** : un papillon par région, et un
+filet pour les prendre. Orla la naturaliste le donne au village, dès le début —
+placée dans une région tardive, elle aurait obligé à refaire le monde à
+l'envers.
+
+**Le filet est un outil, pas un jeton.** Il cueille les papillons, et il
+**renvoie au vol ce qu'on lui jette** : un javelot de lancier, un éclat de
+harpie, une boule de venin repartent vers celui qui les a lancés et le
+frappent. Sans ce second usage, il n'aurait servi qu'une fois par région.
+
+**Le papillon fuit.** Il volette autour de son perchoir et s'écarte dès qu'on
+approche — sans quoi on l'aurait cueilli du bout de l'épée comme le reste, et
+le filet n'aurait servi à rien. Les **trois** chemins de ramassage (le pas, le
+coup d'épée, le boomerang) l'excluent nommément.
+
+**`papillonsPris` est un tableau de huit, pas un compteur.** Un compteur aurait
+laissé repousser dans la vallée celui de la Faille.
+
+### Le perchoir : mesuré, puis corrigé
+
+On ne fige pas la case d'un papillon — le terrain de chaque région est tiré au
+sort. On donne un **point d'ancre**, et l'on cherche autour la première case
+libre, en carrés concentriques.
+
+Le contrôle a rougi du premier coup : le papillon de la Cité des Nues s'était
+posé sur un **îlot de 5 cases** perdu au-dessus du vide. `perchoirLibre` exige
+désormais une poche d'au moins 240 cases (remplissage avec arrêt anticipé).
+
+---
+
+## 32. Le journal n'affichait qu'un tiers de ce qu'il écrivait
+
+### Ce qu'on a mesuré
+
+Le journal ne défilait pas : il écrivait jusqu'en bas de l'écran, puis
+`break`. Sur un canevas de téléphone (200 × 280), une partie avancée produit
+**69 lignes dont 21 tenaient** : **48 perdues, en silence**. Tout le bas —
+l'équipement, les pièces rares de la colporteuse — n'a jamais été lisible.
+
+### Les correctifs
+
+Le journal **défile** (haut/bas, L/R par pages), avec une barre qui dit qu'il
+reste à lire, et un défilement **borné** — sans borne on défilait dans le vide
+et l'on croyait le journal terminé. Titre et pied sont écrits par-dessus deux
+bandeaux opaques : le texte passe dessous au lieu de les chevaucher.
+
+Et il dit enfin **tout** : le cabinet des huit avec la liste des pays faits
+(`★ ★ ★ 4 ★ 6 7 8` — un compteur seul laisse chercher les manquants dans tout
+le monde), les fleurs de Borve, la Crevasse, les **sept cœurs de cristal des
+énigmes** (rien ne disait, une fois la salle quittée, si on les avait pris),
+les outils un par un — la liste en affichait deux fois « BRACELET - FANAL » et
+taisait le filet.
+
+### La police a encore remplacé en silence
+
+`SELECT = RETOUR` s'est affiché **`SELECT ? RETOUR`** : la police n'a pas de
+signe égal (§ 12).
+
+Le balayage de `13-police.js` ne l'a pas vu, et la raison est instructive : son
+tamis exigeait que la chaîne ne contienne **que** des caractères d'une liste
+permise. Une chaîne portant un signe inconnu échouait au test et se trouvait
+donc **écartée** — alors que ce signe inconnu était exactement ce qu'on
+cherchait. **Le filtre protégeait le bug.**
+
+Il retient maintenant tout ce qui *ressemble* à du texte de jeu (des capitales,
+aucune minuscule, aucune syntaxe de code), puis inspecte chaque caractère. Au
+premier essai il a trouvé **deux tirets cadratins** de plus, dont un vieux de
+plusieurs versions (« LES QUATRE RÉGIONS SONT LIBÉRÉES — LA PERLE… »).
+
+Les pieds de page sont sortis de la fonction de dessin (`PIEDS_JOURNAL`) pour
+que le balayage puisse les relire.
+
+---
+
+## 33. Les régions TARDIVES étaient les plus désertes
+
+Le jeu devenait plus facile à mesure qu'on avançait, et c'est mesurable :
+Marais 4,2 · Nues… mais surtout, **un loup des Cimes, un djinn des Sables et un
+écho de la Faille enlevaient tous UN cœur**, exactement comme le premier gluant
+du premier pré — alors qu'entre-temps le héros a gagné jusqu'à quatorze cœurs,
+une épée double et un bouclier renforcé. La courbe montait d'un côté et pas de
+l'autre.
+
+- **Le sud frappe plus fort** : +1 à partir des Sables, +2 dans les Nues et la
+  Faille. Bouclier, bouclier renforcé et amulette amortissent toujours tout —
+  qui se défend ne subit pas la montée.
+- **L'invincibilité après un coup passe de 76 à 60 images** (1,27 s → 1,0 s) :
+  encore le temps de se dégager, plus celui de traverser un groupe entier à
+  l'aveugle. Mesuré, planté au milieu d'un groupe : 3,4 s → 2,7 s.
+- **Les quatre régions creuses** (Cimes, Sables, Marais, Faille) reviennent
+  autour de 11 pour mille. Sans coût par image : au-delà de 210 px, une
+  créature est déjà sautée.
+
+### La faune du Marais courait dans deux autres mondes
+
+Toutes les régions bornent leur tirage à leur propre frontière. Une seule ne le
+faisait pas :
+
+```js
+y = Y_MARAIS + 4 + rnd()*(MH - Y_MARAIS - 9)     // 240 rangées au lieu de 80
+```
+
+Mesuré : **23 des 59 créatures du marais (39 %)** naissaient hors du marais —
+follets, crapauds et ombres jusque dans la Cité des Nues et la Faille. Le
+marais s'en trouvait dépeuplé et les deux derniers mondes brouillés. Après
+correctif : **0**.
+
+### À ne pas réintroduire
+
+- **Une suite de `?:` avec un fourre-tout final absorbe les nouveaux venus en
+  silence.** Table, et contrôle qui énumère.
+- **Un contrôle qui dit « c'est inaccessible » ne dit pas « c'est jouable ».**
+  Vérifier aussi qu'on peut atteindre la récompense, et **revenir**.
+- **Deux bornes fausses à la fois font un contrôle vert** (`cloches>=5` d'un
+  côté, `cloches: 5` de l'autre). Ne pas figer un total dans un contrôle : le
+  comparer à lui-même.
+- **Un tamis par liste permise protège précisément ce qu'il devrait attraper.**

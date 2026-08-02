@@ -2775,8 +2775,39 @@ const FLEURS_ANCRE=[[16,170],[62,174],[24,206],[76,210],[52,228],[38,186]];
 /* La première case libre autour d'un point, en carrés concentriques : ni salle
    close, ni zone de paix, ni relief — un papillon posé sur un plateau serait
    hors de portée du filet, qui ne balaie qu'à hauteur d'homme. */
+/* Une case est-elle sur un vrai morceau de terrain, ou sur un caillou isolé ?
+   On remplit à partir d'elle et l'on s'arrête DÈS qu'on a compté `min` cases :
+   inutile de parcourir la région entière, seule la question « assez grand ? »
+   compte. Sans ce garde-fou, le papillon de la Cité des Nues s'est posé sur un
+   îlot de 5 cases perdu au-dessus du vide — mesuré par le test 27, qui a rougi
+   du premier coup. */
+const _pocheVus=new Uint8Array(MW*MH), _pocheFile=new Int32Array(4096);
+let _pocheJeton=0;
+function pocheAssezGrande(sx,sy,min){
+  _pocheJeton++;
+  const marque=_pocheJeton&255;
+  if(marque===0){ _pocheVus.fill(0); }        // le jeton reboucle : on remet à zéro
+  let tete=0, queue=0, n=0;
+  _pocheFile[queue++]=sy*MW+sx; _pocheVus[sy*MW+sx]=marque;
+  while(tete<queue&&n<min){
+    const c=_pocheFile[tete++]; n++;
+    const x=c%MW, y=(c/MW)|0;
+    for(let k=0;k<4;k++){
+      const nx=x+(k===0?1:k===1?-1:0), ny=y+(k===2?1:k===3?-1:0);
+      if(!dansCarte(nx,ny)) continue;
+      const i=ny*MW+nx;
+      if(_pocheVus[i]===marque) continue;
+      const s=Sol(nx,ny), o=Obj(nx,ny);
+      if(s===S.VIDE||s===S.NEANT||s===S.LAVE) continue;
+      if(o&&DUR_O[o]&&!FRANCH_O[o]) continue;
+      if(queue>=_pocheFile.length) return n>=min;   // file pleine : on tranche ici
+      _pocheVus[i]=marque; _pocheFile[queue++]=i;
+    }
+  }
+  return n>=min;
+}
 function perchoirLibre(ax,ay,y0,y1){
-  for(let r=0;r<14;r++){
+  for(let r=0;r<20;r++){
     for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
       if(r>0&&Math.abs(dx)!==r&&Math.abs(dy)!==r) continue;   // le bord du carré
       const x=ax+dx, y=ay+dy;
@@ -2784,6 +2815,7 @@ function perchoirLibre(ax,ay,y0,y1){
       if(!libre(x,y)||Etg(x,y)!==0) continue;
       if(salleDe(x*TS+8,y*TS+8)) continue;
       if(dansRefuge(x*TS+8,y*TS+8,2*TS)) continue;
+      if(!pocheAssezGrande(x,y,240)) continue;   // pas sur un caillou isolé
       return [x,y];
     }
   }
@@ -2844,7 +2876,16 @@ function bakeQuete(){
                ['#8a2a3a','#b04a58'],['#3a7a4a','#5a9a68'],
                /* Le forgeron des Cendres : tablier de cuir. Une robe grise se
                   serait fondue dans le basalte de sa clairière. */
-               ['#6a3428','#8f4c36']];
+               ['#6a3428','#8f4c36'],
+               /* Orla la naturaliste : vert-de-gris d'herbier. Sur la place en
+                  dalles du village, aucune des six autres robes n'était libre —
+                  deux personnages de même teinte se confondent de loin. */
+               ['#4a6a4a','#6e9068'],
+               /* Borve, guide du col : manteau rouge brique. La robe verte du
+                  pêcheur, empruntée d'abord, le rendait presque invisible dans
+                  la neige — et le confondait avec la tunique de Kaze. Une
+                  teinte CHAUDE est la seule qui ressorte sur du blanc. */
+               ['#a03a2a','#c8604a']];
   robes.forEach((c,i)=>faireSprite('pnj'+i,20,28,g=>{
     rc(g,6,24,4,3,'#5a3a1a'); rc(g,11,24,4,3,'#5a3a1a');
     rc(g,4,13,12,12,c[0]); rc(g,5,14,10,6,c[1]); rc(g,4,22,12,3,c[0]);
@@ -2877,6 +2918,24 @@ function bakeQuete(){
     for(let i=0;i<12;i++) rc(g,0+i*2,10+i*1.4,54-i*4,3,i%2?t:t2);
     rc(g,0,24,54,4,t3); rc(g,0,22,54,2,t2);
     rc(g,24,2,6,10,'#7a6a5a'); rc(g,23,0,8,3,'#9a8a7a');
+  });
+  /* Le Refuge du Col : une cabane de rondins sous la neige. Toit très pentu et
+     débordant — c'est ce qui la fait lire comme une CABANE DE MONTAGNE et non
+     comme une maison du village, à quinze pixels de haut. */
+  faireSprite('refugecol',46,44,g=>{
+    rc(g,5,20,36,20,'#6a4a30');                            // les rondins
+    rc(g,5,20,36,3,'#8a6440'); rc(g,5,25,36,2,'#5a3e28');
+    rc(g,5,30,36,2,'#5a3e28'); rc(g,5,35,36,2,'#5a3e28');
+    rc(g,17,26,12,14,'#3a2a1c');                           // la porte
+    rc(g,18,27,10,12,'#6a4a30'); rc(g,25,32,2,2,'#e8c24a');
+    rc(g,8,26,7,6,'#2a3040'); rc(g,9,27,5,3,'#7a9ec8');    // la fenêtre, éclairée
+    rc(g,31,26,7,6,'#2a3040'); rc(g,32,27,5,3,'#7a9ec8');
+    rc(g,1,14,44,7,'#4a3a2a');                             // l'auvent, débordant
+    rc(g,3,10,40,5,'#5a4636');
+    rc(g,7,5,32,6,'#4a3a2a');
+    rc(g,1,12,44,3,'#e8f0ff');                             // la neige sur le toit
+    rc(g,3,8,40,3,'#e8f0ff'); rc(g,7,3,32,3,'#e8f0ff');
+    rc(g,20,0,5,5,'#5c6070'); rc(g,20,0,5,2,'#8a8f9e');    // la cheminée
   });
   faireSprite('puits',30,32,g=>{
     rc(g,3,16,24,14,'#7c8194'); rc(g,4,17,22,4,'#9298ac'); rc(g,3,27,24,3,'#5c6070');
@@ -3008,7 +3067,7 @@ function genererVillage(){
      d'un papillon : sa quête traverse les huit tableaux, elle doit donc se
      donner AVANT le premier départ — sinon on la recevrait une fois la moitié
      du monde déjà traversée, et il faudrait tout refaire à l'envers. */
-  P('naturaliste',38,48,'pnj5','ORLA LA NATURALISTE');
+  P('naturaliste',38,48,'pnj6','ORLA LA NATURALISTE');
 
   // clairière autour de la fée et du pêcheur
   for(let y=31;y<36;y++)for(let x=57;x<63;x++){ putO(x,y,O.RIEN); putE(x,y,0); }
@@ -3250,10 +3309,14 @@ const CIMES={
   col:{x0:41,x1:45},                   // l'entrée, alignée sur le col des Cendres
   temple:{x0:11,y0:184,w:15,h:13},     // le Temple de Givre : le boomerang
   sommet:{x0:50,y0:206,w:21,h:19},     // l'Arène du Sommet : le Roi Yéti
+  crevasse:{x0:60,y0:186,w:13,h:11},   // la Crevasse : l'énigme des Cimes
   sortie:{x0:39,x1:43}                 // la descente vers le Lagon
 };
 const CLOCHES_POS=[[20,172],[71,180],[30,220]];   // les trois cloches de givre
 const BOOMERANG_POS=[18,190];          // au cœur du Temple de Givre
+const REFUGE_POS=[36,178];             // le Refuge du Col, et Borve son guide
+/* Le trésor de la Crevasse, dans l'alcôve du fond. */
+const TRESOR_CIMES=[CIMES.crevasse.x0+6,CIMES.crevasse.y0+1];
 function genererCimes(){
   /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
      ailleurs dans la génération repeindrait tout ce terrain (cf. CORRECTIFS
@@ -3347,6 +3410,58 @@ function genererCimes(){
   }
   panneaux.push({x:CLOCHES_POS[0][0]*TS+8,y:(CLOCHES_POS[0][1]+2)*TS+8,
     txt:"CLOCHE DE GIVRE. SEUL LE BOOMERANG LA FAIT SONNER."});
+
+  /* --- LA CREVASSE : l'énigme des Cimes ---
+     La région enseignait le boomerang sans jamais le faire RÉFLÉCHIR. Ici il
+     faut les deux mécaniques du monde en un seul lancer : la crevasse coupe la
+     salle en deux — on ne la franchit pas à pied — et l'interrupteur est de
+     l'autre côté, derrière un mur de glaçons. Il faut donc BRISER la glace,
+     puis ATTEINDRE le cristal, ce qu'aucun coup d'épée ne peut faire.
+     (Salle de la vallée : on frappait le cristal du bout de la lame.) */
+  {const s=CIMES.crevasse;
+   salle(s);
+   const g=s.x0+1, d=s.x0+s.w-2;                      // bords intérieurs
+   const yMur=s.y0+3, yRive=s.y0+4, yFond=s.y0+6, yBord=s.y0+7;
+   const ex=s.x0+2;                                   // l'entrée, en bas
+   for(const x of [ex,ex+1]){ putO(x,s.y0+s.h-1,O.RIEN); putS(x,s.y0+s.h-1,S.DALLE); }
+   /* le mur de bascule qui ferme l'alcôve : bleu, donc PLEIN au repos */
+   for(let x=g;x<=d;x++) putO(x,yMur,O.BLOCB);
+   putO(TRESOR_CIMES[0],TRESOR_CIMES[1],O.RIEN);
+   /* la crevasse : toute la largeur intérieure, aucun détour à pied */
+   for(let x=g;x<=d;x++){ putS(x,yFond,S.VIDE); putO(x,yFond,O.RIEN); }
+   /* On la franchit AU GRAPPIN — l'ancre est sur la rive lointaine — et l'on
+      revient par la seconde, contre le bord ouest. Sans ancre de retour, on
+      cueillait le cœur et l'on restait scellé de l'autre côté pour toujours
+      (c'est exactement ce qui était arrivé à la douve de la vallée, § 22). */
+   putO(s.x0+6,yRive,O.ANCRE);
+   putO(g,yBord+2,O.ANCRE);
+   /* L'interrupteur est sur la rive lointaine, emmuré de glaçons : même une
+      fois passé, la main ne l'atteint pas. Seul le boomerang brise la glace,
+      et seul le boomerang va ensuite frapper le cristal. */
+   const ix=d-1, iy=yRive;
+   putO(ix,iy,O.INTER);
+   putO(ix-1,iy,O.GLACON); putO(ix+1,iy,O.GLACON); putO(ix,iy+1,O.GLACON);
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,
+     txt:"LA CREVASSE. LE GRAPPIN POUR PASSER, LE BOOMERANG POUR LE CRISTAL."});
+  }
+
+  /* --- LE REFUGE DU COL : la seule halte des Cimes ---
+     Trois régions sur huit n'avaient aucun visage à qui parler ; celle-ci était
+     en plus la plus VASTE du jeu. Borve y tient la porte, et la cabane est une
+     zone de paix : on souffle avant de monter à l'arène. */
+  {const [rx,ry]=REFUGE_POS;
+   for(let y=ry-3;y<=ry+3;y++)for(let x=rx-4;x<=rx+4;x++){
+     putS(x,y,S.NEIGE); putO(x,y,O.RIEN); putE(x,y,0); }
+   rectS(rx-2,ry-1,5,3,S.DALLE);
+   putO(rx-3,ry-2,O.TORCHE); putO(rx+3,ry-2,O.TORCHE);
+   structures.push({x:rx*TS+8,y:(ry-1)*TS,spr:'refugecol'});
+   pnjs.push({id:'guide',x:rx*TS+8,y:(ry+1)*TS+12,spr:'pnj7',
+              nom:'BORVE LE GUIDE',anim:rnd()*90,dir:2});
+   refuges.push({x0:(rx-4)*TS,y0:(ry-3)*TS,x1:(rx+5)*TS,y1:(ry+4)*TS});
+   panneaux.push({x:(rx-4)*TS+8,y:(ry+3)*TS+8,
+     txt:"REFUGE DU COL. LA GLACE NE PARDONNE PAS : ON Y GLISSE."});
+   voie(entree[0],entree[1],rx,ry+3);
+  }
 
   /* la descente vers le Lagon, plein sud */
   const so=CIMES.sortie;
@@ -3976,6 +4091,9 @@ function genererFaille(){
 
 /* ------------------------------- DIALOGUES ------------------------------- */
 let dial=null, boutique=null, journal=false;
+/* Défilement du journal, en pixels. Borné dans `ecranJournal`, qui seul connaît
+   la hauteur réelle du texte une fois découpé à la largeur de l'écran. */
+let journalDefil=0;
 
 function decouper(txt,maxC){
   const mots=String(txt).split(' '); const out=[]; let cur='';
@@ -4247,6 +4365,63 @@ function dialoguePNJ(p){
     return parler(p.nom,
       ["LES PERLES BRILLENT DANS LES CORAUX, AU LARGE.",
        "IL EN MANQUE ENCORE. PERLES : "+Q.perles+" SUR CINQ."]);
+  /* Orla la naturaliste : LE CABINET DES HUIT, la seule quête qui traverse les
+     huit tableaux. Elle donne le filet dès la première conversation — sans lui,
+     rien à attraper nulle part. */
+  case 'naturaliste':
+    if(Q.papillonsRendus) return parler(p.nom,
+      ["LES HUIT SONT SOUS VERRE, ET LE MONDE ENTIER TIENT DANS MA VITRINE.",
+       "TU AS VU PLUS DE PAYS QUE MOI EN QUARANTE ANS, KAZE."]);
+    if(nbPapillons()>=8) return parler(p.nom,
+      ["LES HUIT ! DU MACHAON D'OR À L'OMBRE POURPRE.",
+       "PLUS PERSONNE N'AVAIT RÉUNI CE CABINET DEPUIS LES ANCIENS.",
+       "PRENDS CE CŒUR DE CRISTAL. ET DE QUOI TE REFAIRE UNE SANTÉ."],
+      ()=>{ Q.papillonsRendus=true; autoSauver();
+            J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
+            J.rubis=Math.min(999,J.rubis+300);
+            Q.potions=Math.min(9,Q.potions+2);
+            SFX.coffre(); secousse=10;
+            particules(J.x,J.y,J.z+12,32,'#ffe86a',3,44);
+            annonce('LE CABINET DES HUIT');
+            dire("+2 CŒURS, 300 RUBIS ET DEUX POTIONS !",320); });
+    if(!Q.naturalisteParle) return parler(p.nom,
+      ["ORLA. JE TIENS LE CABINET DES PAPILLONS DU VILLAGE.",
+       "IL Y EN A UN PAR PAYS. HUIT EN TOUT, ET MA VITRINE EST VIDE.",
+       "JE N'AI PLUS L'ÂGE DE COURIR APRÈS. TOI, SI.",
+       "PRENDS MON FILET. IL PREND CE QUI VOLE - ET PAS QUE LES PAPILLONS."],
+      ()=>{ Q.naturalisteParle=true; Q.filet=true;
+            if(!J.objets.includes('filet')) J.objets.push('filet');
+            J.objSel=J.objets.indexOf('filet');
+            autoSauver(); SFX.coffre(); secousse=6;
+            particules(J.x,J.y,J.z+12,24,'#dff0ff',2.6,34);
+            annonce('LE FILET À PAPILLONS');
+            dire("NOUVELLE QUÊTE : HUIT PAPILLONS, UN PAR PAYS. Y POUR BALAYER.",340); });
+    return parler(p.nom,
+      ["UN PAR PAYS, ET AUCUN NE SE LAISSE PRENDRE À LA MAIN.",
+       "BALAIE AU FILET : ILS S'ÉCARTENT DÈS QU'ON APPROCHE.",
+       "PAPILLONS : "+nbPapillons()+" SUR HUIT."]);
+  /* Borve, le guide du col : la quête des six fleurs de givre, aux Cimes. */
+  case 'guide':
+    if(Q.fleursRendues) return parler(p.nom,
+      ["SIX FLEURS DE GIVRE. LE COL NE ME FAIT PLUS PEUR.",
+       "SI TU MONTES ENCORE, PRENDS GARDE À LA CREVASSE, À L'EST."]);
+    if(Q.fleurs>=6) return parler(p.nom,
+      ["SIX ! DE QUOI TENIR TOUT L'HIVER SANS DESCENDRE.",
+       "VOILÀ MA BOURSE, ET UNE POTION. TU L'AS GAGNÉE."],
+      ()=>{ Q.fleursRendues=true; autoSauver();
+            J.rubis=Math.min(999,J.rubis+150);
+            Q.potions=Math.min(9,Q.potions+1); SFX.coffre();
+            dire("150 RUBIS ET UNE POTION ROUGE !"); });
+    if(!Q.guideParle) return parler(p.nom,
+      ["BORVE, GUIDE DU COL. ENFIN QUELQU'UN QUI MONTE.",
+       "LA FLEUR DE GIVRE POUSSE SUR LES PLATEAUX, ICI, ET NULLE PART AILLEURS.",
+       "IL M'EN FAUT SIX POUR PASSER L'HIVER. RAMÈNE-LES-MOI.",
+       "ET MÉFIE-TOI DE LA GLACE : ON N'Y TIENT PAS DEBOUT."],
+      ()=>{ Q.guideParle=true; autoSauver(); annonce('LES FLEURS DE GIVRE');
+            dire("NOUVELLE QUÊTE : SIX FLEURS DE GIVRE, DANS LES CIMES.",300); });
+    return parler(p.nom,
+      ["ELLES BRILLENT SUR LA NEIGE, LOIN DES SENTIERS.",
+       "FLEURS DE GIVRE : "+Q.fleurs+" SUR SIX."]);
   /* Nefa l'archéologue : la quête des cinq fresques. */
   case 'archeo':
     if(Q.fresquesRendues) return parler(p.nom,
@@ -4680,6 +4855,14 @@ function lignesJournal(){
   L.push([f(Q.coeurCristal)+'TARTE DE MIRA : '+
     (Q.coeurCristal?'TERMINÉ':Q.perle?'PERLE A LA DOYENNE':Q.tarte?'VOIR LE PÊCHEUR':'CHAMPIGNONS '+Q.champignons+'/4'),'#c8d0e8']);
   L.push([f(Q.primeRendue)+'PRIME DE LA GARDE : '+Math.min(Q.prime,15)+'/15','#c8d0e8']);
+  /* LE CABINET DES HUIT : la seule quête qui court sur les huit tableaux. On
+     n'affiche pas qu'un compteur — la ligne suivante dit QUELS pays sont faits,
+     sinon « 5/8 » laisse chercher les trois manquants dans tout le monde. */
+  L.push([f(Q.papillonsRendus)+'CABINET DES HUIT : '+
+    (Q.papillonsRendus?'COMPLET':Q.naturalisteParle?nbPapillons()+'/8'
+     :'PARLER À ORLA, AU VILLAGE'),'#ffd84a']);
+  if(Q.naturalisteParle&&!Q.papillonsRendus)
+    L.push(['  '+Q.papillonsPris.map((p,i)=>p?'★':(i+1)).join(' '),'#ffd84a']);
   L.push([f(Q.lanterne>=3)+'LANTERNE DU PÊCHEUR : '+
     (Q.lanterne>=3?'RENDUE':Q.lanterne===2?'LA RAPPORTER À LA GRÈVE'
      :Q.lanterne===1?'CLAIRIÈRE AUX PINS, BOIS DU NORD':'PARLER AU PÊCHEUR'),'#c8d0e8']);
@@ -4699,6 +4882,11 @@ function lignesJournal(){
     L.push([f(Q.boomerang)+'BOOMERANG : '+(Q.boomerang?'PRIS':'TEMPLE DE GIVRE, À L OUEST'),'#aee0ff']);
     L.push([f(Q.yetiTue)+'ROI YÉTI : '+(Q.yetiTue?'VAINCU':'ARÈNE DU SOMMET - IL FAUT LE BOOMERANG'),'#aee0ff']);
     L.push([f(Q.cloches>=3)+'CLOCHES DE GIVRE : '+Q.cloches+'/3','#aee0ff']);
+    L.push([f(Q.fleursRendues)+'FLEURS DE BORVE : '+
+      (Q.fleursRendues?'RENDUES':Q.guideParle?Q.fleurs+'/6'
+       :'PARLER AU GUIDE, AU REFUGE DU COL'),'#aee0ff']);
+    L.push([f(Q.tresorCimes)+'TRÉSOR DE LA CREVASSE : '+
+      (Q.tresorCimes?'PRIS':'À L EST - AU BOOMERANG'),'#aee0ff']);
   }
   if(vuLagon){
     L.push(['','#000']);
@@ -4737,41 +4925,89 @@ function lignesJournal(){
     L.push([f(Q.epreuveFinale)+'ÉPREUVE FINALE','#e08aff']);
     L.push([f(Q.rongeurTue)+"RONGEUR D'ÉTOILES",'#e08aff']);
   }
+  /* LES CŒURS DE CRISTAL DES ÉNIGMES. Ils étaient les seules récompenses du
+     jeu dont RIEN ne disait, une fois la salle quittée, si on les avait prises
+     — on refaisait l'énigme pour trouver l'alcôve vide. */
+  {const cof=[[Q.tresorInter,'SALLE DU CRISTAL'],[Q.tresorGouffre,'SALLE DU GOUFFRE'],
+              [Q.tresorCendre,'SALLE DES CENDRES'],[Q.tresorCimes,'LA CREVASSE'],
+              [Q.tresorSables,'RUINES DES SABLES'],[Q.tresorMarais,'TOURBIÈRE'],
+              [Q.tresorNues,'PARVIS DES VENTS']];
+   const vus=cof.filter(c=>c[0]).length;
+   if(vus||Q.grappin){
+     L.push(['','#000']);
+     L.push(['CŒURS DE CRISTAL : '+vus+'/'+cof.length,'#ff8fa4']);
+     for(const [pris,nom] of cof) L.push([f(pris)+nom,'#e8b0c0']);
+   }}
   L.push(['','#000']);
   L.push(['ÉQUIPEMENT','#ffb0c0']);
   L.push(['ÉPÉE '+(Q.epeeLongue?'LONGUE':'COURTE')+(Q.epeeCendre?' DE CENDRE':''),'#c8d0e8']);
-  L.push([(J.objets.includes('arc')?'ARC':'-')+'   '+(J.objets.includes('bombe')?'BOMBES':'-'),'#c8d0e8']);
-  /* équipement des Cendres : les bottes ne se voient nulle part ailleurs */
-  if(Q.portailOuvert||J.objets.includes('marteau')||Q.bottes)
-    L.push([(J.objets.includes('marteau')?'MARTEAU':'-')+'   '
-           +(Q.bottes?'BOTTES DE CENDRE':'-'),'#e8b0a0']);
-  if(Q.boomerang||Q.palmes||Q.grappin)
-    L.push([(Q.boomerang?'BOOMERANG':'-')+'  '+(Q.palmes?'PALMES':'-')+'  '+(Q.grappin?'GRAPPIN':'-'),'#aee0ff']);
-  if(Q.bracelet||Q.fanal||Q.cape)
-    L.push([(Q.bracelet?'BRACELET':'-')+'  '+(Q.fanal?'FANAL':'-')+'  '+(Q.cape?'CAPE':'-'),'#c8d8f8']);
-  if(Q.bracelet||Q.fanal) L.push([(Q.bracelet?'BRACELET':'-')+'   '+(Q.fanal?'FANAL':'-'),'#f0c878']);
+  L.push(['CŒURS '+J.pv+'/'+J.pvmax+'   RUBIS '+J.rubis,'#c8d0e8']);
+  /* Un outil par ligne DÈS QU'ON L'A, jamais avant : la liste disait
+     « BRACELET - FANAL » deux fois de suite, et taisait le filet. */
+  {const sac=[[J.objets.includes('arc'),'ARC'],[J.objets.includes('bombe'),'BOMBES'],
+              [J.objets.includes('marteau'),'MARTEAU'],[Q.bottes,'BOTTES DE CENDRE'],
+              [Q.boomerang,'BOOMERANG'],[Q.palmes,'PALMES'],[Q.grappin,'GRAPPIN'],
+              [Q.bracelet,'BRACELET'],[Q.fanal,'FANAL'],[Q.cape,'CAPE'],
+              [Q.filet,'FILET À PAPILLONS']];
+   const eus=sac.filter(o=>o[0]).map(o=>o[1]);
+   for(let i=0;i<eus.length;i+=2)
+     L.push([eus[i]+(eus[i+1]?'   '+eus[i+1]:''),'#aee0ff']);
+   L.push(['ARMES ET OUTILS : '+eus.length+'/'+sac.length,'#8fa8d8']);}
   L.push(['BOUCLIER '+(Q.bouclierFort?'RENFORCÉ':'DE BOIS')+'   POTIONS '+Q.potions,'#c8d0e8']);
+  L.push(['FLÈCHES '+J.fleches+'/'+maxFleches()+'   BOMBES '+J.bombes+'/'+maxBombes(),'#c8d0e8']);
   /* Les pièces rares de la colporteuse : sans cette ligne, rien à l'écran ne
      dit qu'on les a — elles n'agissent que par leurs effets. */
   if(Q.amulette||Q.fioleFee||Q.rune)
     L.push([(Q.amulette?'AMULETTE':'-')+'  '+(Q.fioleFee?'FIOLE':'-')+'  '+(Q.rune?'RUNE':'-'),'#ffe06a']);
   return L;
 }
+/* Les trois pieds de page du journal, SORTIS de la fonction de dessin pour que
+   le contrôle de police puisse les relire. Ils lui avaient échappé, et
+   « SELECT = RETOUR » s'est affiché « SELECT ? RETOUR » : la police n'a pas de
+   signe égal, et elle remplace en silence (cf. CORRECTIFS § 12). Le choix se
+   fait sur la largeur — à 6 px par caractère, la version longue déborde d'un
+   canevas de 200 px, celui d'un téléphone. */
+const PIEDS_JOURNAL=['SELECT POUR REVENIR',
+                     'HAUT/BAS POUR LIRE   SELECT POUR REVENIR',
+                     'HAUT/BAS   SELECT : RETOUR'];
 function ecranJournal(){
   rendreMonde();
   X.fillStyle='rgba(6,8,18,.88)'; X.fillRect(0,0,W,H);
-  texteCentre(X,'JOURNAL DE KAZE',W/2,8,'#f0f4ff');
+  /* Le titre et le pied sont écrits APRÈS le texte, par-dessus deux bandeaux
+     opaques : le texte qui défile passe sous eux au lieu de les chevaucher. */
   const L=lignesJournal();
   const x0=Math.max(6,Math.round(W/2-104));
   const maxC=Math.max(16,Math.floor((W-2*Math.max(6,x0-0)+x0*0)/6)-2);
-  let y=24;
+  const HAUT=24, BAS=H-22;                       // la fenêtre de lecture
+  /* On mesure d'abord la hauteur totale du texte une fois découpé, puis on
+     borne le défilement : sans cette borne on faisait défiler dans le vide, et
+     l'on croyait le journal vide alors qu'on était passé dessous. */
+  let total=0;
+  for(const [t] of L) total += t?decouper(t,maxC).length*11:6;
+  const debord=Math.max(0,total-(BAS-HAUT));
+  journalDefil=clamp(journalDefil,0,debord);
+  let y=HAUT-journalDefil;
   for(const [t,c] of L){
     if(!t){ y+=6; continue; }
     const parts=decouper(t,maxC);
-    parts.forEach((li,i)=>{ if(y<=H-22) texte(X,li,x0+(i?12:0),y,c); y+=11; });
-    if(y>H-22) break;
+    for(let i=0;i<parts.length;i++){
+      if(y>=HAUT-10&&y<=BAS) texte(X,parts[i],x0+(i?12:0),y,c);
+      y+=11;
+    }
+    if(y>BAS+40) break;                          // inutile de mesurer plus bas
   }
-  texteCentre(X,'SELECT POUR REVENIR',W/2,H-14,'#8b96b4');
+  /* La barre de défilement : sans elle, rien ne dit qu'il reste à lire. */
+  if(debord>0){
+    const bx=W-5, h=BAS-HAUT;
+    X.fillStyle='rgba(140,152,190,.28)'; X.fillRect(bx,HAUT,2,h);
+    const hp=Math.max(12,h*(h/total)), py=HAUT+(h-hp)*(journalDefil/debord);
+    X.fillStyle='#8fa8d8'; X.fillRect(bx,Math.round(py),2,Math.round(hp));
+  }
+  X.fillStyle='rgba(6,8,18,.88)';
+  X.fillRect(0,0,W,HAUT-10); X.fillRect(0,BAS+2,W,H-BAS);
+  texteCentre(X,'JOURNAL DE KAZE',W/2,8,'#f0f4ff');
+  const pied=debord>0?(W>=252?PIEDS_JOURNAL[1]:PIEDS_JOURNAL[2]):PIEDS_JOURNAL[0];
+  texteCentre(X,pied,W/2,H-14,'#8b96b4');
 }
 
 /* -------------------- OBJECTIF COURANT -------------------- */
@@ -4957,12 +5193,19 @@ function peupler(){
   }
 
   /* --- la faune des Cimes Gelées : harpies, piquiers, loups --- */
+  /* Mesurée avant correctif, la montagne était la région la plus VASTE du jeu
+     (5 954 cases praticables) et la moins peuplée : 37 créatures, soit 6,2 pour
+     mille cases, contre 12,9 dans la vallée et 18,0 dans les Nues. On y
+     marchait des minutes sans rien croiser. 34 -> 64 la met au niveau de ses
+     voisines sans la rendre infranchissable. */
   let ni=0; g=0;
-  while(ni<34&&g++<9000){
+  while(ni<64&&g++<12000){
     const x=5+Math.floor(rnd()*(MW-10)), y=Y_CIMES+4+Math.floor(rnd()*(Y_LAGON-Y_CIMES-9));
     if(!libre(x,y)) continue;
     const s=CIMES.sommet;
     if(x>s.x0-1&&x<s.x0+s.w+1&&y>s.y0-1&&y<s.y0+s.h+1) continue;    // l'arène reste vide
+    if(salleDe(x*TS+8,y*TS+8)) continue;                 // ni dans la Crevasse
+    if(dansRefuge(x*TS+8,y*TS+8,2*TS)) continue;         // ni sur le pas du refuge
     const r=rnd();
     pondre(r<.40?'loup':r<.72?'piquier':'harpie',x,y);
     ni++;
@@ -4980,8 +5223,14 @@ function peupler(){
     nl++;
   }
   /* --- la faune des Sables du Mirage : scarabées, lanciers d'os, djinns --- */
+  /* Densités mesurées avant correctif, en créatures pour mille cases
+     praticables : vallée 12,9 · Cendres 11,7 · Cimes 6,2 · Lagon 12,3 ·
+     Sables 6,6 · Marais 4,2 · Nues 18,0 · Faille 8,2. Les régions TARDIVES
+     étaient les plus vides du jeu — on finissait le monde en croisant moins de
+     monde qu'au premier village. Les quatre creuses sont ramenées autour de 11.
+     Rien à craindre côté image : au-delà de 210 px, une créature est sautée. */
   let nsa=0; g=0;
-  while(nsa<30&&g++<9000){
+  while(nsa<52&&g++<12000){
     const x=5+Math.floor(rnd()*(MW-10)), y=Y_SABLES+4+Math.floor(rnd()*(Y_MARAIS-Y_SABLES-9));
     if(!libre(x,y)) continue;
     const ar=SABLES.arene;
@@ -4999,8 +5248,14 @@ function peupler(){
 
   /* --- la faune du Marais des Murmures : follets, crapauds, ombres --- */
   let nma=0; g=0;
-  while(nma<30&&g++<9000){
-    const x=5+Math.floor(rnd()*(MW-10)), y=Y_MARAIS+4+Math.floor(rnd()*(MH-Y_MARAIS-9));
+  while(nma<56&&g++<12000){
+    /* `MH-Y_MARAIS` couvrait 240 rangées — le Marais, la Cité des Nues ET la
+       Faille. Mesuré : 23 des 59 créatures du marais (39 %) naissaient hors du
+       marais, follets et crapauds compris, jusque dans l'arène finale. Le
+       marais s'en trouvait dépeuplé et les deux derniers mondes brouillés.
+       Toutes les autres régions bornent à leur propre frontière ; celle-ci
+       était la seule à ne pas le faire. */
+    const x=5+Math.floor(rnd()*(MW-10)), y=Y_MARAIS+4+Math.floor(rnd()*(Y_NUES-Y_MARAIS-9));
     if(!libre(x,y)) continue;
     const ar=MARAIS.arene;
     if(x>ar.x0-2&&x<ar.x0+ar.w+2&&y>ar.y0-2&&y<ar.y0+ar.h+2) continue;
@@ -5030,7 +5285,7 @@ function peupler(){
 
   /* --- la Faille : des échos des gardiens vaincus, par paires --- */
   let nfa=0; g=0;
-  while(nfa<20&&g++<9000){
+  while(nfa<32&&g++<12000){
     const x=5+Math.floor(rnd()*(MW-10)), y=Y_FAILLE+4+Math.floor(rnd()*(MH-Y_FAILLE-9));
     if(!libre(x,y)) continue;
     const ar=FAILLE.arene;
@@ -5060,6 +5315,7 @@ function peupler(){
   tresor(Q.tresorInter,TRESOR_INTER,'coeurmax','tresorInter');
   tresor(Q.tresorGouffre,TRESOR_GOUFFRE,'coeurmax','tresorGouffre');
   tresor(Q.tresorCendre,TRESOR_CENDRE,'coeurmax','tresorCendre');
+  tresor(Q.tresorCimes,TRESOR_CIMES,'coeurmax','tresorCimes');
   // Sables du Mirage : le bracelet, les fragments de fresque restants
   tresor(Q.bracelet,BRACELET_POS,'bracelet');
   for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k];
@@ -5210,10 +5466,23 @@ function blesser(deg,sx,sy,parable=true){
       J.kx=-vd[0]*1.6; J.ky=-vd[1]*1.6; return;
     }
   }
+  /* LE SUD FRAPPE PLUS FORT. Un loup des Cimes, un djinn des Sables et un écho
+     de la Faille enlevaient tous UN cœur, exactement comme le premier gluant
+     du premier pré — alors qu'entre-temps le héros a gagné jusqu'à quatorze
+     cœurs, une épée double et un bouclier renforcé. La courbe montait d'un
+     côté et pas de l'autre : c'est là que le jeu devenait facile.
+     +1 à partir des Sables, +2 dans les Nues et la Faille. Le bouclier, le
+     bouclier renforcé et l'amulette continuent de tout amortir — celui qui se
+     défend ne subit pas la montée. */
+  const rg=regionIdx(Math.floor(J.y/TS));
+  if(rg>=6) deg+=2; else if(rg>=4) deg+=1;
   if(Q.bouclierFort) deg=Math.max(1,deg-1);
   // l'amulette de garde encaisse la moitié — jamais jusqu'à zéro
   if(Q.amulette) deg=Math.max(1,Math.ceil(deg/2));
-  J.pv-=deg; J.invuln=76; J.degatFlash=10; gel=Math.max(gel,5); secousse=Math.max(secousse,7);
+  /* 76 images d'invincibilité, c'était 1,27 s : le temps de traverser un groupe
+     entier sans rien risquer. 60 images (1,0 s) laisse encore le temps de se
+     dégager, mais plus celui de le faire à l'aveugle. */
+  J.pv-=deg; J.invuln=60; J.degatFlash=10; gel=Math.max(gel,5); secousse=Math.max(secousse,7);
   const a=Math.atan2(J.y-sy,J.x-sx);
   J.kx=Math.cos(a)*3.6; J.ky=Math.sin(a)*3.6;
   SFX.degat();
@@ -5385,7 +5654,19 @@ function majJoueur(){
   if(J.porte) v*=.72;                            // les bras chargés d'un bloc, on ralentit
   if(nage) v*=.78;
   if(solJ===S.VASE) v*=.6;                        // la vase du marais colle aux bottes
-  bouger(J,dx*v+J.kx,dy*v+J.ky);
+  /* --- LA GLACE GLISSE ---
+     Les Cimes étaient la plus vaste région du jeu et la plus vide : on les
+     traversait exactement comme une prairie. La glace y couvre pourtant un
+     sixième du sol. Elle a maintenant sa propre physique : le pouce n'impose
+     plus la vitesse, il la POUSSE, et elle ne retombe que lentement — on
+     dérape, on rate son virage, on repart. Le sol ferme, lui, ne change pas
+     d'un poil : `J.gx` y vaut exactement l'ancienne valeur. */
+  if(solJ===S.GLACE&&!J.enAir&&!J.grap){
+    J.gx=lerp(J.gx,dx*v,.085); J.gy=lerp(J.gy,dy*v,.085);
+    if(tick%4===0&&(Math.abs(J.gx)+Math.abs(J.gy))>.5)
+      particules(J.x,J.y,J.z+1,1,'#dff0ff',.7,12);
+  } else { J.gx=dx*v; J.gy=dy*v; }
+  bouger(J,J.gx+J.kx,J.gy+J.ky);
   J.kx*=.80; J.ky*=.80;
   if(nage&&bouge&&tick%10===0)
     particules(J.x,J.y,0,2,'#bfe4f0',1.0,16);      // sillage
@@ -5455,6 +5736,7 @@ function majJoueur(){
 
   if(J.invuln>0) J.invuln--;
   if(J.degatFlash>0) J.degatFlash--;
+  if(J.filetT>0) J.filetT--;
 
   /* --- animation --- */
   J.animT += bouge?(J.atk>0?0:1):0;
@@ -5671,7 +5953,7 @@ function ramasserButin(o){
     J.objSel=J.objets.indexOf('filet');
     SFX.coffre(); secousse=6; annonce('LE FILET À PAPILLONS');
     particules(o.x,o.y,o.z+10,22,'#dff0ff',2.6,32);
-    dire("LE FILET ! Y POUR BALAYER. IL PREND LES PAPILLONS — ET RENVOIE CE QU'ON TE JETTE.",340);
+    dire("LE FILET ! Y POUR BALAYER. IL PREND LES PAPILLONS, ET RENVOIE CE QU'ON TE JETTE.",340);
     autoSauver(); }
   /* Un papillon est marqué de SA région : c'est ce qui empêche d'en prendre
      deux dans la même et de croire la collection finie. */
@@ -6342,7 +6624,7 @@ function majKraken(){
     for(let y=Y_LAGON;y<Y_SABLES;y++)for(let x=0;x<MW;x++) vu[y*MW+x]=1;
     butins.push({x:B.x,y:B.y,z:B.z+6,vz:2,type:'coeurmax',t:0});
     annonce('LE LÉVIATHAN SOMBRE');
-    dire("LE LARGE S'APAISE. LES QUATRE RÉGIONS SONT LIBÉRÉES — LA PERLE DES ABYSSES EST À TOI.",340);
+    dire("LE LARGE S'APAISE. LES QUATRE RÉGIONS SONT LIBÉRÉES : LA PERLE DES ABYSSES EST À TOI.",340);
     setTimeout(autoSauver,600); return;
   }
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
@@ -7376,6 +7658,25 @@ function dessinerArmeMain(g,derriere){
   if((derr===1)!==derriere) return;
   const cx=Math.round(J.x)+dx, cy=Math.round(J.y-J.z)+dy;
   const spr=armeAuPoing();
+  /* Le balayage du filet : il décrit un arc DEVANT le héros, dans la direction
+     où il regarde. Tenu immobile comme les autres outils, rien à l'écran
+     n'aurait distingué un coup porté d'un coup manqué. */
+  if(spr==='filetItem'&&J.filetT>0){
+    if(derriere) return;                               // le balayage passe devant
+    const base=[-Math.PI/2,Math.PI,Math.PI/2,0][J.dir];
+    const u=1-J.filetT/FILET_DUR;                      // 0 -> 1 pendant le coup
+    const a=base-1.15+u*2.30;                          // l'arc, d'un bord à l'autre
+    const R=17;
+    const hx=Math.round(J.x), hy=Math.round(J.y-J.z)-13;
+    const px=hx+Math.cos(a)*R, py=hy+Math.sin(a)*R;
+    // la traînée de la gaze, comme celle de la lame
+    trainee(g,hx,hy,a+1.2,R+4,Math.sin(u*Math.PI),3,['#f4faff','#a9c0d8']);
+    const im=SPR.filetItem, w=im.width, h=im.height;
+    g.save(); g.translate(px,py); g.rotate(a+Math.PI/2);
+    g.drawImage(im,-(w>>1),-(h>>1));
+    g.restore();
+    return;
+  }
   if(spr&&SPR[spr]){
     const im=SPR[spr], w=im.width, h=im.height;
     g.save(); g.translate(cx,cy);
@@ -7554,6 +7855,7 @@ const SALLES=[
      Le Large reste à ciel ouvert : ce n'est pas une salle fermée. */
   {x0:CIMES.temple.x0, y0:CIMES.temple.y0, x1:CIMES.temple.x0+CIMES.temple.w-1, y1:CIMES.temple.y0+CIMES.temple.h-1},
   {x0:CIMES.sommet.x0, y0:CIMES.sommet.y0, x1:CIMES.sommet.x0+CIMES.sommet.w-1, y1:CIMES.sommet.y0+CIMES.sommet.h-1},
+  {x0:CIMES.crevasse.x0,y0:CIMES.crevasse.y0,x1:CIMES.crevasse.x0+CIMES.crevasse.w-1,y1:CIMES.crevasse.y0+CIMES.crevasse.h-1},
   {x0:LAGON.temple.x0, y0:LAGON.temple.y0, x1:LAGON.temple.x0+LAGON.temple.w-1, y1:LAGON.temple.y0+LAGON.temple.h-1},
   /* Sables du Mirage : le Temple du Bracelet et l'Arène du Colosse */
   {x0:SABLES.temple.x0, y0:SABLES.temple.y0, x1:SABLES.temple.x0+SABLES.temple.w-1, y1:SABLES.temple.y0+SABLES.temple.h-1},
@@ -8519,20 +8821,28 @@ function ecranEpilogue(){
 }
 /* Le compte de ce qui a été fait — armes, cœurs, quêtes, énigmes. */
 function bilanComplétion(){
-  const armes=['arc','bombe','marteau','boomerang','grappin','bracelet','fanal','cape']
-    .filter(a=>J.objets.includes(a)).length;
-  const quetes=[Q.epeeLongue,Q.coeurCristal,Q.primeRendue,Q.lanterne>=3,Q.brasiers>=3,
-                Q.cloches>=5,Q.perlesRendues,Q.fresquesRendues,Q.veilleuses>=7,
-                Q.carillons>=8].filter(Boolean).length;
+  const SAC=['arc','bombe','marteau','boomerang','grappin','bracelet','fanal',
+             'cape','filet'];
+  const armes=SAC.filter(a=>J.objets.includes(a)).length;
+  /* `Q.cloches>=5` ne pouvait JAMAIS être vrai : les cloches de givre sont
+     trois, et `sonnerCloche` plafonne à trois. Les Cimes étaient donc la seule
+     région dont la quête annexe ne comptait pas dans le bilan de fin. */
+  const QUETES=[Q.epeeLongue,Q.coeurCristal,Q.primeRendue,Q.lanterne>=3,
+                Q.brasiers>=3,Q.cloches>=3,Q.fleursRendues,Q.perlesRendues,
+                Q.fresquesRendues,Q.veilleuses>=7,Q.carillons>=8,
+                Q.papillonsRendus];
+  const quetes=QUETES.filter(Boolean).length;
   const gardiens=[Q.chefTue,Q.coeurTue,Q.yetiTue,Q.leviathanTue,Q.colosseTue,
                   Q.reineTue,Q.sentinelleTue,Q.rongeurTue].filter(Boolean).length;
-  const enigmes=[Q.tresorInter,Q.tresorGouffre,Q.tresorCendre,Q.tresorSables,
-                 Q.tresorMarais,Q.tresorNues,Q.epreuveFinale].filter(Boolean).length;
+  const ENIGMES=[Q.tresorInter,Q.tresorGouffre,Q.tresorCendre,Q.tresorCimes,
+                 Q.tresorSables,Q.tresorMarais,Q.tresorNues,Q.epreuveFinale];
+  const enigmes=ENIGMES.filter(Boolean).length;
   return [
-    ['ARMES ET OUTILS', armes+'/8'],
+    ['ARMES ET OUTILS', armes+'/'+SAC.length],
     ['GARDIENS ABATTUS', gardiens+'/8'],
-    ['QUÊTES ANNEXES', quetes+'/10'],
-    ['ÉNIGMES', enigmes+'/7'],
+    ['QUÊTES ANNEXES', quetes+'/'+QUETES.length],
+    ['PAPILLONS', nbPapillons()+'/8'],
+    ['ÉNIGMES', enigmes+'/'+ENIGMES.length],
     ['CŒURS', (J.pvmax/2)+''],
     ['LUCIOLES', Q.lucioles+'/8'],
     ['RUBIS', J.rubis+''],
@@ -8605,7 +8915,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.9';
+const VERSION='V2.0';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
@@ -9133,8 +9443,17 @@ function boucleCorps(){
   }
   // jeu
   if(journal){
+    /* Le journal DÉFILE. Mesuré sur un téléphone (canevas 200 × 280), une
+       partie bien avancée écrit 69 lignes et 21 seulement tenaient à l'écran :
+       48 étaient perdues, sans que rien ne le signale — l'équipement et les
+       pièces rares, tout en bas, n'ont jamais été lisibles. */
+    if(presse('Haut')) journalDefil-=2.2;
+    if(presse('Bas'))  journalDefil+=2.2;
+    if(appui('L')){ pris('L'); journalDefil-=60; }
+    if(appui('R')){ pris('R'); journalDefil+=60; }
     ecranJournal();
-    if(appui('Select')||appui('Start')||appui('B')){ pris('Select','Start','B'); journal=false; SFX.menu(); }
+    if(appui('Select')||appui('Start')||appui('B')){
+      pris('Select','Start','B'); journal=false; journalDefil=0; SFX.menu(); }
     return;
   }
   if(dial){
