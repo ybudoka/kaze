@@ -28,6 +28,25 @@ gardien a son thème.
 
 Au clavier : flèches/WASD · J=B · K=A · U=Y · I=X · Q/E=L/R · Entrée=Start.
 
+### Manette Bluetooth (ou USB)
+
+Le jeu reconnaît les **vraies manettes** — Xbox, PlayStation, 8BitDo, Switch
+Pro… — appairées au téléphone comme branchées à l'ordinateur. Appuie sur
+n'importe quel bouton pour qu'elle se signale : la manette affichée à l'écran
+s'efface alors d'elle-même (le bouton **MANETTE** la ramène).
+
+| Manette | Jeu |
+|---|---|
+| bouton du **bas** / **droite** | **B** épée · **A** saut |
+| bouton de **gauche** / **haut** | **Y** objet · **X** bouclier |
+| **tranches** (et gâchettes) | **L/R** changer d'objet |
+| **START** · **SELECT** | carte · journal |
+| **croix** ou **stick gauche** | se déplacer — le stick dose la vitesse |
+
+Deux manettes branchées jouent indifféremment. Les manettes qui n'annoncent pas
+la disposition « standard » sont gérées aussi : leur croix est lue sur l'axe
+chapeau.
+
 ## L'aventure
 
 Le monde compte **six régions superposées**, chacune plus au sud que la

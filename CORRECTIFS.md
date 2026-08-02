@@ -1155,3 +1155,79 @@ n'apparaît pendant une attaque.
 >
 > À retenir : **tester la fonction, ce n'est pas tester qu'elle est appelée.**
 
+
+---
+
+## 21. Les manettes Bluetooth ne faisaient rien du tout
+
+### Le symptôme, et la vraie cause
+
+Une manette appairée au téléphone (ou branchée à l'ordinateur) laissait le jeu
+de marbre. Le réflexe est d'aller chercher un mauvais code de touche ; la cause
+était plus radicale : **le jeu n'a jamais lu l'API Gamepad**. Il n'écoutait que
+`keydown`/`keyup` et les pointeurs. Or une manette n'envoie **ni touche ni
+contact** : elle n'existe que si on la *relève*, image par image, dans
+`navigator.getGamepads()`. Il n'y avait donc rien à corriger — tout à écrire.
+
+### Ce qui coûte cher quand on l'écrit naïvement
+
+**`getGamepads()` rend un tableau NEUF à chaque appel.** L'interroger à chaque
+image, c'est jeter un objet par image — exactement ce que § 17 avait chassé de
+la boucle. D'où la règle retenue : on n'interroge l'API **que si une manette
+s'est annoncée** (`gamepadconnected`), et l'on retombe à zéro appel dès qu'il
+n'en reste plus. Mesuré : sans manette, **0 appel** en 19 images ; le garde-fou
+retiré, **38**.
+
+**Les boutons sont relevés, pas événementiels.** Sans mémoire de l'image
+précédente, un bouton maintenu vaut un appui **par image**. Mesuré en tenant
+la tranche droite : **59 changements d'objet** au lieu d'un seul. On ne
+déclenche donc que sur le front montant, et l'on compare par *nom* de bouton —
+les gâchettes 6/7 doublant les tranches 4/5, relever l'index n'aurait pas
+suffi.
+
+**Toutes les manettes n'annoncent pas la disposition « standard ».** Beaucoup de
+manettes Bluetooth n'ont pas de boutons 12-15 : la croix arrive sur l'axe
+chapeau `axes[9]`, codé de −1 (haut) à 1 (haut-gauche), au repos **hors** de
+cet intervalle. Piège dans le piège : `Math.round((0+1)*3.5) === 4`, donc un
+axe simplement **inutilisé, resté à 0**, se lit « bas » — le héros descendait
+tout seul. Mesuré : **55,8 px** de dérive vers le bas. Comme 0 n'est jamais une
+direction valide de ce codage, on l'exclut.
+
+**Un stick usé dérive.** Zone morte à 0,22, puis **remise à l'échelle** du reste
+de la course : sans elle, le dosage s'écrase (le héros va presque aussi vite
+effleuré qu'à fond — 41,6 px contre 55,8, au lieu de 26,5 contre 55,8).
+
+**Un appui manette n'est pas un « geste de l'utilisateur ».** Le contexte audio
+créé là naît *suspendu*, et `if(!AC) initSon()` ne réessayait jamais : le jeu
+restait muet pour toujours. D'où `reveillerSon()`, qui crée **ou relance** le
+contexte, appelé à chaque occasion — le premier vrai geste le réveille.
+
+### Vérifié
+
+`26-manette.js` pilote le **vrai jeu** avec une manette simulée au seul endroit
+où le navigateur nous parle d'elle : `navigator.getGamepads()` et les deux
+événements de branchement. Rien du jeu n'est remplacé. Le héros se déplace,
+l'épée sort, l'objet change — et l'on mesure des pixels.
+
+Les six défauts ont été **réinjectés** un à un ; les chiffres ci-dessus en
+viennent. Retirer `majManette()` de la boucle fait tomber **8 contrôles sur 13**.
+
+> Un contrôle a d'abord été vert pour une mauvaise raison, puis rouge par
+> hasard : il lisait `J.atk` **une seule fois**, 120 ms après l'appui — or le
+> coup d'épée ne dure que 14 images (~117 ms à 120 Hz). Il tombait donc au
+> hasard du planning, et n'a rougi qu'en suite complète. Il échantillonne
+> désormais pendant tout l'appui.
+>
+> À retenir : **guetter d'un seul coup d'œil un état qui ne dure que quelques
+> images, c'est tirer à pile ou face.**
+
+### À ne pas réintroduire
+
+- **Ne jamais appeler `navigator.getGamepads()` sans manette annoncée** : c'est
+  un tableau jeté par image.
+- **Un bouton relevé n'est pas un événement** : sans mémoire de l'image
+  précédente, il se répète soixante fois par seconde.
+- **`Math.round((0+1)*3.5)` vaut 4** : un axe chapeau inutilisé se lit « bas »
+  si l'on ne refuse pas explicitement la valeur 0.
+- **Le son ne démarre pas sur un appui manette** : passer par `reveillerSon()`,
+  jamais par `if(!AC) initSon()`.

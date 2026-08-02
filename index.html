@@ -210,7 +210,8 @@ body.sanspad #pad{display:none}
 <div id="aide">
   <b>B</b> épée (maintenir = tourbillon) · <b>A</b> saut · <b>Y</b> objet · <b>X</b> bouclier ·
   <b>L/R</b> changer d'objet · <b>START</b> carte<br>
-  Clavier : <b>flèches/WASD</b> · <b>J</b>=B · <b>K</b>=A · <b>U</b>=Y · <b>I</b>=X · <b>Q/E</b>=L/R · <b>Entrée</b>=Start
+  Clavier : <b>flèches/WASD</b> · <b>J</b>=B · <b>K</b>=A · <b>U</b>=Y · <b>I</b>=X · <b>Q/E</b>=L/R · <b>Entrée</b>=Start<br>
+  Manette Bluetooth : appuie sur un bouton pour qu'elle se signale
 </div>
 
 <script>
@@ -366,7 +367,7 @@ addEventListener('keydown',e=>{
   if(e.code.startsWith('Arrow')||e.code==='Space') e.preventDefault();
   clavier[e.code]=1;
   const b=MAP_CLAVIER[e.code]; if(b&&!e.repeat) enfoncer(b);
-  if(!AC) initSon();
+  reveillerSon();
 });
 addEventListener('keyup',e=>{ clavier[e.code]=0; const b=MAP_CLAVIER[e.code]; if(b) BTN[b]=0; });
 
@@ -420,7 +421,7 @@ document.addEventListener('pointerdown',e=>{
   const b=zoneSous(e.clientX,e.clientY);
   if(!b) return;
   e.preventDefault(); majDoigt(e.pointerId,e.clientX,e.clientY);
-  if(!AC) initSon();
+  reveillerSon();
 },{passive:false});
 document.addEventListener('pointermove',e=>{
   if(e.pointerId===stickId) return;
@@ -488,7 +489,7 @@ zone.addEventListener('pointerdown',e=>{
   try{ zone.setPointerCapture(e.pointerId); }catch(_){}
   zone.classList.add('actif');
   stickPose(e);
-  if(!AC) initSon();
+  reveillerSon();
 });
 zone.addEventListener('pointermove',e=>{
   if(e.pointerId!==stickId) return;
@@ -501,6 +502,119 @@ zone.addEventListener('pointermove',e=>{
 });
 addEventListener('pointerup',stickFin,true);
 addEventListener('pointercancel',stickFin,true);
+
+/* ------------- MANETTE PHYSIQUE (Bluetooth ou USB) — API Gamepad -------------
+   Une manette appairée au téléphone n'envoie NI touche NI contact : sans cette
+   section elle ne fait rien du tout. Quatre précautions, apprises des manettes
+   réelles :
+
+   - `navigator.getGamepads()` rend un NOUVEAU tableau à chaque appel. On ne
+     l'interroge donc QUE si une manette s'est annoncée : sans manette, la
+     boucle continue de n'allouer rien du tout (§ 17).
+   - les boutons sont RELEVÉS, pas événementiels. Sans mémoire de l'image
+     précédente, le tampon d'entrées se remplirait à chaque image et un appui
+     vaudrait cent : on ne déclenche que sur le front montant.
+   - toutes les manettes n'annoncent pas la disposition « standard ». Quand la
+     croix n'est pas aux boutons 12-15, on la lit sur l'axe chapeau `axes[9]`,
+     là où la rangent les manettes non standard.
+   - un appui manette n'est pas un « geste de l'utilisateur » pour le
+     navigateur : le son doit être réveillé à part (`reveillerSon`).
+
+   Disposition standard : bouton 0 en bas, 1 à droite, 2 à gauche, 3 en haut.
+   On la lit comme une SNES — B en bas (épée), A à droite (saut) — et les
+   gâchettes 6/7 doublent les tranches 4/5. */
+const BTN_MANETTE=['B','A','Y','X','L','R','L','R','Select','Start'];
+const MORT_MANETTE=.22;                  // un stick usé dérive : marge large
+let manetteVue=false, padRange=false;
+const padAvant={}, padMaint={};
+for(const b in BTN){ padAvant[b]=0; padMaint[b]=0; }
+const padAxe={x:0,y:0,actif:false};
+
+/* Les entrées de `buttons` sont des objets ; d'anciennes implémentations
+   rendent un simple nombre. */
+const presseMan=b=>b==null?false:(typeof b==='number'?b>.5:!!(b.pressed||b.value>.5));
+
+/* Manette débranchée ou fenêtre perdue : rien ne doit rester enfoncé. */
+function relacherManette(){
+  for(const b in padAvant){ if(padAvant[b]) BTN[b]=0; padAvant[b]=0; }
+  padAxe.x=padAxe.y=0; padAxe.actif=false;
+}
+
+addEventListener('gamepadconnected',()=>{
+  manetteVue=true;
+  /* De vraies touches sous les doigts : la manette à l'écran ne mérite plus
+     la moitié de l'écran. Le bouton MANETTE la ramène quand on veut. */
+  if(!padRange){
+    padRange=true;
+    document.body.classList.add('sanspad');
+    setTimeout(redim,30);
+  }
+});
+addEventListener('gamepaddisconnected',relacherManette);
+
+function majManette(){
+  if(!manetteVue) return;
+  const pads=navigator.getGamepads?navigator.getGamepads():null;
+  if(!pads){ manetteVue=false; relacherManette(); return; }
+
+  for(const b in padMaint) padMaint[b]=0;
+  let ax=0, ay=0, amp=0, aucune=true;
+
+  for(let i=0;i<pads.length;i++){
+    const gp=pads[i];
+    if(!gp||!gp.connected) continue;
+    aucune=false;
+    const bs=gp.buttons||[], axs=gp.axes||[];
+
+    for(let k=0;k<BTN_MANETTE.length;k++)
+      if(k<bs.length&&presseMan(bs[k])) padMaint[BTN_MANETTE[k]]=1;
+
+    /* --- croix directionnelle --- */
+    let cx=0, cy=0;
+    if(bs.length>15){
+      if(presseMan(bs[12])) cy-=1;
+      if(presseMan(bs[13])) cy+=1;
+      if(presseMan(bs[14])) cx-=1;
+      if(presseMan(bs[15])) cx+=1;
+    }
+    /* Axe chapeau : huit directions codées de -1 (haut) à 1 (haut-gauche), le
+       repos hors de [-1,1]. 0 n'est pas une direction valide — sans quoi un axe
+       inutilisé resté à 0 passerait pour un « bas » permanent. */
+    if(!cx&&!cy&&axs.length>9){
+      const h=axs[9];
+      if(h>=-1.05&&h<=1.05&&Math.abs(h)>.05){
+        const d=Math.round((h+1)*3.5);
+        if(d===0||d===1||d===7) cy-=1;
+        if(d>=1&&d<=3) cx+=1;
+        if(d>=3&&d<=5) cy+=1;
+        if(d>=5&&d<=7) cx-=1;
+      }
+    }
+
+    /* --- stick gauche --- zone morte, puis remise à l'échelle : le dosage est
+       conservé (le héros va d'autant plus vite que le stick est poussé). */
+    let sx=axs.length>0?axs[0]:0, sy=axs.length>1?axs[1]:0;
+    const m=Math.hypot(sx,sy);
+    if(m>MORT_MANETTE){ const g=Math.min(1,(m-MORT_MANETTE)/(1-MORT_MANETTE)); sx=sx/m*g; sy=sy/m*g; }
+    else { sx=0; sy=0; }
+    if(cx||cy){ const mc=Math.hypot(cx,cy); sx=cx/mc; sy=cy/mc; }   // la croix pousse à fond
+
+    const ms=Math.hypot(sx,sy);
+    if(ms>amp){ amp=ms; ax=sx; ay=sy; }      // à deux manettes, la plus engagée l'emporte
+  }
+
+  if(aucune){ manetteVue=false; relacherManette(); return; }
+
+  padAxe.x=ax; padAxe.y=ay; padAxe.actif=amp>0;
+
+  let nouvelAppui=false;
+  for(const b in padMaint){
+    if(padMaint[b]&&!padAvant[b]){ enfoncer(b); nouvelAppui=true; }
+    else if(!padMaint[b]&&padAvant[b]) BTN[b]=0;
+    padAvant[b]=padMaint[b];
+  }
+  if(nouvelAppui) reveillerSon();
+}
 
 /* ---- Verrouillage global : la page ne doit jamais bouger sous le doigt ----
    touchstart est intercepté en phase de capture : c'est lui qui amorce le
@@ -595,7 +709,7 @@ document.addEventListener('touchstart',e=>{
 /* si la fenêtre perd le focus, on relâche tout */
 function relacherTout(){
   for(const k in BTN) BTN[k]=0;
-  clavier={}; stickFin(null);
+  clavier={}; stickFin(null); relacherManette();
   document.querySelectorAll('#pad .on').forEach(el=>el.classList.remove('on'));
   for(const k in compte) compte[k]=0;
   for(const k in doigts) delete doigts[k];
@@ -610,8 +724,12 @@ function majEntrees(){
      Prudent : uniquement pour un contact tactile, et après un délai. */
   if(stickId!==null&&stickType==='touch'&&aucunContact()&&++stickIdle>45) stickFin(null);
   for(const k in buf) if(buf[k]>0) buf[k]--;
+  majManette();
+  /* Trois sources pour une seule direction : clavier, manette, pavé tactile.
+     La première qui bouge l'emporte — on ne les additionne pas. */
   if(!majAxeClavier()){
-    if(tactile.actif){ axe.x=tactile.x; axe.y=tactile.y; }
+    if(padAxe.actif){ axe.x=padAxe.x; axe.y=padAxe.y; }
+    else if(tactile.actif){ axe.x=tactile.x; axe.y=tactile.y; }
     else { axe.x=0; axe.y=0; }
   }
 }
@@ -623,6 +741,17 @@ function initSon(){
     AC=new (window.AudioContext||window.webkitAudioContext)();
     maitre=AC.createGain(); maitre.gain.value=.5; maitre.connect(AC.destination);
   }catch(e){}
+}
+/* Le contexte audio ne démarre qu'à un vrai geste de l'utilisateur. Un appui
+   MANETTE n'en est pas un : le contexte créé là naît « suspendu » et resterait
+   muet pour toujours, puisque `if(!AC)` ne réessaie jamais. On le relance donc
+   à chaque occasion — le premier vrai geste (doigt, touche, bouton) le
+   réveille. */
+function reveillerSon(){
+  if(!AC){ initSon(); return; }
+  if(AC.state==='suspended'){
+    try{ const p=AC.resume(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+  }
 }
 function son(f,d,type='square',vol=.06,glide=0,delai=0){
   if(!AC) return;
@@ -7710,7 +7839,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.3';
+const VERSION='V1.4';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
@@ -8349,7 +8478,7 @@ function outil(id,fn){
 }
 outil('btPlein',basculerPlein);
 outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,30); });
-outil('btMus',()=>{ if(!AC) initSon(); basculerMusique(); majMusique(); });
+outil('btMus',()=>{ reveillerSon(); basculerMusique(); majMusique(); });
 outil('btDbg',basculerDebug);
 if(debugOn) document.getElementById('btDbg').textContent='DÉBUG ✕';
 if(!musiqueOn) document.getElementById('btMus').textContent='MUSIQUE ✕';
