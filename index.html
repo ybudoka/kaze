@@ -5388,7 +5388,14 @@ function pondre(type,tx,ty){
             /* la Faille */ echo:8,echonoir:12}[type]||2;
   const r={mini:4,chef:9,golem:9,crabe:8,piquier:6,scarabee:7,cactus:8,
            golemnuage:9,tourbillon:8,echonoir:9}[type]||6;
-  ennemis.push({type,x:tx*TS+8,y:ty*TS+8,z:0,vz:0,r,dir:2,
+  /* ON NAÎT SUR SON SOL, PAS À LA HAUTEUR ZÉRO. Une créature pondue sur un
+     plateau (étage 1) gardait `z=0` : elle était dessinée SEIZE PIXELS SOUS LA
+     SURFACE, enfoncée jusqu'à la taille. Sa mise à jour aurait bien corrigé sa
+     hauteur — mais elle est court-circuitée tant que la bête n'a pas vu le
+     héros (`if(d>210||(!e.vz&&!e.voit)) continue`), et c'est justement dans cet
+     état qu'on la découvre de loin. Mesuré : 39 créatures sur 374 à la
+     génération, dont tout le plateau nord de la vallée. */
+  ennemis.push({type,x:tx*TS+8,y:ty*TS+8,z:Etg(tx,ty)*EH,vz:0,r,dir:2,
     pv,pvmax:pv,t:Math.floor(rnd()*120),cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*100,stun:0});
 }
 function libre(x,y){
@@ -8658,18 +8665,81 @@ function mode7(ang,camX,camY){
 }
 function ecranTitre(){
   const hor=HOR();
+  /* ---------------------- LA MISE EN PAGE, D'ABORD ----------------------
+     Le bloc-titre grandit avec la LARGEUR (le logo suit W), le menu grandit
+     avec le nombre d'emplacements occupés, et tous deux étaient posés à partir
+     du seul horizon, sans jamais se connaître. Sur un écran large et bas —
+     1512×760 donne 620×240 en interne — ils se recouvraient de 4 696 px² : le
+     panneau du menu tombait pile sur « KAZE » et sur le sous-titre. En paysage
+     (900×400 → 620×180), 11 792 px².
+
+     `clamp(v,hor+10,H-52-hMenu)` y ajoutait sa part : quand la borne HAUTE
+     passe sous la borne BASSE, `clamp` renvoie la haute — le menu remontait
+     donc au-dessus de son propre plancher, en silence.
+
+     On empile maintenant de bas en haut, une seule fois, avant de dessiner :
+     aide, menu, titre posé sur l'horizon, bête au-dessus. Ce qui manque de
+     place est pris au logo, puis à la bête, puis au héros. Jamais au
+     recouvrement. */
+  const opts=optionsEcranTitre();
+  const hMenu=opts.reduce((a,o)=>a+(o.sous?20:14),0)+10;
+  /* La largeur du menu suit sa ligne la plus longue. Elle était figée à 212 px,
+     et « PIERRES 3/3   LUCIOLES 8/8   209:02 » en fait 209 : le résumé touchait
+     les deux bords du panneau. */
+  const largMenu=Math.min(W-8,
+    opts.reduce((m,o)=>Math.max(m,largeurTexte(o.txt),o.sous?largeurTexte(o.sous):0),0)+28);
+  /* L'aide du bas tient sur UNE ligne dès que l'écran est large : les deux
+     lignes coûtaient 12 px de ciel à un écran qui n'en a que 110. */
+  const aide1=W>=460;
+  const yAide=H-(aide1?22:34);
+  const basMenu=(persistant()?yAide:yAide-12)-6;
+  const yPan=Math.max(20,basMenu-hMenu);  // haut du panneau du menu
+  const hBloc=s=>28+7*s;                  // « LA LÉGENDE DE » + logo + sous-titre
+  const espace=yPan-10;                   // tout ce qui est au-dessus du menu
+  /* La bête garde deux cinquièmes du ciel : c'est elle qu'on vient voir. Le
+     logo rétrécit avant elle. On compare ce que la bête OBTIENDRA vraiment
+     (`espace-hBloc-8`, marges comprises) et non la place brute : sur 620×240,
+     comparer la place brute laissait passer un logo de 42 px et ne donnait plus
+     que 40 px à une bête à qui on en avait promis 44. */
+  const minBete=Math.round(hor*.40);
+  let sc=Math.max(3,Math.min(6,Math.floor(W/64)));
+  while(sc>3&&espace-hBloc(sc)-8<minBete) sc--;
+  /* Le titre se pose juste au-dessus du menu. On lui fait la place de reculer
+     de 42 px — l'emprise réelle du héros, ombre comprise : sprite de 40 px dont
+     31 peints, dessiné pieds à `hy`, ombre jusqu'à `hy+5` — mais seulement si
+     la bête garde malgré tout ses deux cinquièmes de ciel. Entre le héros et la
+     bête, c'est la bête qui gagne. */
+  const bas=espace-hBloc(sc);
+  const yT=Math.max(2,(bas-42-8>=minBete)?bas-42:bas);
+  const yBasTitre=yT+hBloc(sc);
   // ciel
   const g=X.createLinearGradient(0,0,0,hor);
   g.addColorStop(0,'#0a0c1e'); g.addColorStop(.55,'#1b2148'); g.addColorStop(1,'#4a3a68');
   X.fillStyle=g; X.fillRect(0,0,W,hor);
+  /* Les étoiles étaient posées en `(i*79)%W, (i*47)%(hor-14)` : deux modulos de
+     pas constant, donc des ARCS et des rangées parfaitement régulières — sur un
+     écran large on lisait une ligne d'étoiles horizontale en haut du ciel.
+
+     Un mélange entier les disperse vraiment, et reste déterministe : le ciel ne
+     scintille pas d'une image à l'autre. PAS `hash()` : il multiplie sans
+     `imul`, donc au-delà de 2^53 il perd ses bits de poids faible, et pour de
+     petites entrées (i de 0 à 109) il ne rend que la moitié basse de sa plage —
+     mesuré, les 110 étoiles tombaient toutes dans le quart HAUT-GAUCHE du ciel
+     (quarts en x : 53/57/0/0, en y : 56/54/0/0 ; ici 23/31/27/29 et
+     25/34/26/25). On ne touche pas à `hash()` lui-même : il ensemence le
+     terrain des huit régions. */
   for(let i=0;i<110;i++){
-    const x=(i*79)%W, y=(i*47)%(hor-14);
+    let n=Math.imul(i+1,2654435761); n^=n>>>15; n=Math.imul(n,2246822519); n^=n>>>13;
+    let m=Math.imul(i+1,1597334677); m^=m>>>13; m=Math.imul(m,3812015801); m^=m>>>16;
+    const x=(n>>>0)%W, y=(m>>>0)%(hor-14);
     const s=Math.sin(tick*.05+i)*.5+.5;
     X.fillStyle=i%4?`rgba(210,225,255,${.25+s*.5})`:`rgba(255,225,150,${.4+s*.5})`;
     X.fillRect(x,y,1,1);
   }
-  // lune, repoussée dans un coin : le ciel appartient désormais au Rongeur
-  const lx=22, ly=Math.round(hor*.16);
+  /* Lune, repoussée dans un coin : le ciel appartient désormais au Rongeur.
+     Dans le coin GAUCHE, elle passait sous le numéro de version (80 px² de
+     recouvrement) et « V2.2 » devenait illisible. */
+  const lx=W-24, ly=Math.round(hor*.16);
   X.fillStyle='#f4e8c0'; X.beginPath(); X.arc(lx,ly,9,0,6.2832); X.fill();
   X.fillStyle='#e0d2a4'; X.beginPath(); X.arc(lx-3,ly-2,2,0,6.2832); X.fill();
   /* ---- LE RONGEUR D'ÉTOILES, énorme, dans le ciel ----
@@ -8679,47 +8749,59 @@ function ecranTitre(){
      yeux battent, et les trois étoiles pulsent : c'est le seul mouvement du
      ciel, donc c'est là que l'œil va. */
   {
-    /* Il tient la moitié haute du ciel, quelle que soit la taille de l'écran :
-       c'est l'échelle qui raconte l'histoire, pas un nombre de pixels fixe. */
-    const rh=Math.round(hor*.56), ech=rh/52, rw=rh;
-    const rx=Math.round(W/2-rw/2);
-    const ry=Math.round(hor*.02)+Math.round(Math.sin(tick*.018)*3);
-    const sp=SPR['rongeur'+(Math.floor(tick/26)%2)];
-    // l'aura : elle le décolle du ciel, sinon il s'y confond
-    X.globalCompositeOperation='lighter'; X.globalAlpha=.20;
-    X.drawImage(glowCV,W/2-rw*.42,ry+rh*.22,rw*.84,rh*.62);
-    X.globalAlpha=1; X.globalCompositeOperation='source-over';
-    X.globalAlpha=.92;
-    X.drawImage(sp,rx,ry,rw,rh);
-    X.globalAlpha=1;
-    // les trois étoiles avalées, ravivées par-dessus : elles battent
-    const bat=.55+Math.sin(tick*.07)*.45;
-    X.globalCompositeOperation='lighter'; X.globalAlpha=bat*.9;
-    for(const [ex,ey] of [[22,28],[26,32],[30,28]])
-      X.drawImage(SPR.etoile,rx+ex*ech-ech*2,ry+ey*ech-ech*2,ech*6,ech*6);
-    X.globalAlpha=1; X.globalCompositeOperation='source-over';
+    /* Il prend tout le ciel resté libre au-dessus du titre, sans dépasser 62 %
+       de la hauteur du ciel : c'est l'échelle qui raconte l'histoire, pas un
+       nombre de pixels fixe. Les 6 px de marge absorbent sa respiration (±3).
+       Sous 20 px il ne raconte plus rien : sur un écran très bas il s'efface,
+       plutôt que de passer sur le titre. */
+    const ry0=Math.round(hor*.02);
+    const rh=Math.min(yT-6-ry0,Math.round(hor*.62)), ech=rh/52, rw=rh;
+    if(rh>=20){
+      const rx=Math.round(W/2-rw/2);
+      const ry=ry0+Math.round(Math.sin(tick*.018)*3);
+      const sp=SPR['rongeur'+(Math.floor(tick/26)%2)];
+      // l'aura : elle le décolle du ciel, sinon il s'y confond
+      X.globalCompositeOperation='lighter'; X.globalAlpha=.20;
+      X.drawImage(glowCV,W/2-rw*.42,ry+rh*.22,rw*.84,rh*.62);
+      X.globalAlpha=1; X.globalCompositeOperation='source-over';
+      X.globalAlpha=.92;
+      X.drawImage(sp,rx,ry,rw,rh);
+      X.globalAlpha=1;
+      // les trois étoiles avalées, ravivées par-dessus : elles battent
+      const bat=.55+Math.sin(tick*.07)*.45;
+      X.globalCompositeOperation='lighter'; X.globalAlpha=bat*.9;
+      for(const [ex,ey] of [[22,28],[26,32],[30,28]])
+        X.drawImage(SPR.etoile,rx+ex*ech-ech*2,ry+ey*ech-ech*2,ech*6,ech*6);
+      X.globalAlpha=1; X.globalCompositeOperation='source-over';
+    }
   }
   // sol Mode 7
   mode7(tick*.006,tick*.55,0);
   X.fillStyle='rgba(20,26,52,.65)'; X.fillRect(0,hor-4,W,6);
   /* Kaze, minuscule au bord de l'horizon, face à lui. C'est l'échelle qui
-     raconte : la bête tient tout le ciel, le héros fait douze pixels. */
+     raconte : la bête tient tout le ciel, le héros fait douze pixels.
+     Son sprite fait 40 px dont 31 peints (de `hy-32` à `hy-1`) et son ombre
+     descend à `hy+5` : il ne tient que dans la bande laissée entre le
+     sous-titre et le menu. Ailleurs il disparaissait DERRIÈRE le panneau — une
+     silhouette à moitié mangée ne raconte plus rien. */
   {
-    const hx=Math.round(W/2), hy=hor+22;   // sous le sous-titre, pas dedans
-    X.globalAlpha=.30; X.fillStyle='#05070f';
-    X.beginPath(); X.ellipse(hx,hy+2,9,3,0,0,6.2832); X.fill();
-    X.globalAlpha=1;
-    const hs=SPR['h0m'+(Math.floor(tick/14)%4)]||SPR['h0m0'];
-    if(hs) X.drawImage(hs,hx-20,hy-33);
+    const hMin=yBasTitre+34, hMax=yPan-8;
+    if(hMin<=hMax){
+      const hx=Math.round(W/2), hy=clamp(hor+22,hMin,hMax);
+      X.globalAlpha=.30; X.fillStyle='#05070f';
+      X.beginPath(); X.ellipse(hx,hy+2,9,3,0,0,6.2832); X.fill();
+      X.globalAlpha=1;
+      const hs=SPR['h0m'+(Math.floor(tick/14)%4)]||SPR['h0m0'];
+      if(hs) X.drawImage(hs,hx-20,hy-33);
+    }
   }
 
   /* Le titre passe SOUS la bête. Posé par-dessus, il lui couvrait exactement la
      gueule et les trois étoiles du ventre — c'est-à-dire tout ce qu'on voulait
-     montrer. Il occupe donc le bas du ciel, elle occupe le haut. */
-  const yT=Math.round(hor*.60);
+     montrer. Il occupe donc le bas du ciel, elle occupe le haut.
+     `yT` et `sc` sont calculés en tête de fonction, avec le reste. */
   texteCentre(X,'LA LÉGENDE DE',W/2,yT,'#b9c6ee','#0a0c18');
   const t='KAZE';
-  const sc=Math.max(3,Math.min(6,Math.floor(W/64)));
   const lw=t.length*6*sc-sc; let cx=Math.round(W/2-lw/2);
   const yK=yT+14;
   for(const ch of t){
@@ -8732,24 +8814,25 @@ function ecranTitre(){
   texteCentre(X,"ET LE RONGEUR D'ÉTOILES",W/2,yK+7*sc+6,'#e8b0c0','#0a0c18');
   texte(X,VERSION,6,6,'#6a74a0','#0a0c18');       // numéro de version, discret dans le ciel
 
-  const opts=optionsEcranTitre();
-  // trois emplacements tiennent plus de place qu'une entrée « CONTINUER » :
-  // on mesure le menu et on le remonte s'il déborderait sur l'aide du bas.
-  const hMenu=opts.reduce((a,o)=>a+(o.sous?20:14),0)+10;
-  const larg=Math.min(W-12,212);
-  const yM=clamp(hor+Math.round((H-hor)*.22),hor+10,H-52-hMenu);
-  X.fillStyle='rgba(8,11,24,.55)';
-  X.fillRect(Math.round(W/2-larg/2),yM-8,larg,hMenu);
-  dessinerMenu(opts,W/2,yM,larg-4);
-  if(!persistant()) texteCentre(X,'SAUVEGARDE NON PERSISTANTE ICI',W/2,H-46,'#a08a6a','#0a0c18');
+  /* Un vrai panneau, cadre compris, et non plus un voile à 55 % : le menu se
+     lit sur un sol qui défile en permanence. */
+  panneau(X,Math.round(W/2-largMenu/2),yPan,largMenu,hMenu);
+  dessinerMenu(opts,W/2,yPan+8,largMenu-6);
+  if(!persistant()) texteCentre(X,'SAUVEGARDE NON PERSISTANTE ICI',W/2,yAide-12,'#a08a6a','#0a0c18');
   /* L'aide déborde des deux côtés dès que le canevas descend sous ~236 px :
-     on lisait « EPEE  A SAUT  Y OBJET  X BOUCLI ». Deux jeux de libellés, le
-     court quand le long ne rentre pas. */
-  const large=W>=236;
-  texteCentre(X,large?'B EPEE   A SAUT   Y OBJET   X BOUCLIER'
-                     :'B EPEE  A SAUT  Y OBJET  X BOUCL.',W/2,H-34,'#93a0cc','#0a0c18');
-  texteCentre(X,large?'START CARTE   SELECT JOURNAL   B PARLER'
-                     :'START CARTE  SELECT JOURNAL',W/2,H-22,'#7f8ab8','#0a0c18');
+     on lisait « EPEE  A SAUT  Y OBJET  X BOUCLI ». Trois jeux de libellés :
+     tout sur une ligne quand l'écran est large (le ciel y gagne 12 px), sinon
+     deux lignes, et la version courte quand même celles-ci ne rentrent pas. */
+  if(aide1){
+    texteCentre(X,'B EPEE  A SAUT  Y OBJET  X BOUCLIER  START CARTE  SELECT JOURNAL  B PARLER',
+      W/2,yAide,'#93a0cc','#0a0c18');
+  } else {
+    const large=W>=236;
+    texteCentre(X,large?'B EPEE   A SAUT   Y OBJET   X BOUCLIER'
+                       :'B EPEE  A SAUT  Y OBJET  X BOUCL.',W/2,yAide,'#93a0cc','#0a0c18');
+    texteCentre(X,large?'START CARTE   SELECT JOURNAL   B PARLER'
+                       :'START CARTE  SELECT JOURNAL',W/2,yAide+12,'#7f8ab8','#0a0c18');
+  }
 }
 
 /* ============================ CARTE (START) ============================ */
@@ -9292,7 +9375,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.2';
+const VERSION='V2.3';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

@@ -2431,3 +2431,140 @@ contrôle, et lui seul :
   quand il n'y a pas de table de positions.
 - **Un point de reprise unique pour huit mondes** : le progrès de déplacement
   fait partie du progrès.
+
+## 39. L'écran-titre se recouvrait lui-même
+
+Une capture, et six mots : « c'est pas super beau et clair ». Sur la copie, le
+panneau des emplacements de sauvegarde tombait **exactement** sur le logo
+« KAZE » et sur le sous-titre, le résumé de la partie touchait les deux bords du
+panneau, le numéro de version se lisait par-dessus la lune, et les étoiles du
+ciel dessinaient des diagonales régulières.
+
+### Ce qui se recouvrait, en px²
+
+Le bloc-titre grandit avec la **largeur** (le logo suit `W` : `sc` va de 3 à 6),
+le menu grandit avec le **nombre d'emplacements occupés** (20 px par emplacement
+avec résumé, 14 sans), et tous deux étaient posés à partir du seul horizon, sans
+jamais se connaître. Mesuré en détournant `texte`, `fillRect` et `drawImage` le
+temps d'une image, puis en croisant les boîtes :
+
+| fenêtre | interne | recouvrement titre × menu |
+|---|---|---|
+| 1512×760, 1 emplacement occupé | 620×240 | **4 696 px²** |
+| 1512×760, 3 emplacements | 620×240 | **7 576 px²** |
+| 1512×760, aucune partie | 620×240 | 744 px² |
+| 900×400 (paysage), 3 emplacements | 620×180 | **11 792 px²** |
+| 320×480, 3 emplacements | 306×266 | 959 px² |
+
+L'écran du joueur — un portable, donc **large et bas** — est le pire cas
+réaliste : 620×240 en interne, dont 110 px de ciel pour loger une bête, un titre
+haut de 70 px, un menu de 72 px et deux lignes d'aide.
+
+### La cause : deux mises en page qui s'ignorent, et un `clamp` inversé
+
+```js
+const yT = Math.round(hor*.60);                             // le titre
+const yM = clamp(hor+Math.round((H-hor)*.22), hor+10, H-52-hMenu);   // le menu
+```
+
+Aucune des deux expressions ne connaît l'autre. Pire, la seconde se retourne :
+`clamp(v, lo, hi)` vaut `Math.min(Math.max(v,lo),hi)`, donc **quand la borne
+haute passe sous la borne basse, c'est la borne haute qui gagne**. Sur 620×240
+avec un emplacement occupé, `H-52-hMenu` = 116 alors que `hor+10` = 120 : le
+menu remontait au-dessus de son propre plancher, en silence, et allait se poser
+sur le titre.
+
+### Le correctif : empiler avant de dessiner
+
+`ecranTitre()` calcule maintenant toute sa mise en page **en tête de fonction**,
+de bas en haut — aide, menu, titre, bête — puis dessine. Ce qui manque de place
+est pris au logo, puis à la bête, puis au héros ; jamais au recouvrement.
+
+- Le menu est ancré au-dessus de l'aide, sa largeur suit **sa ligne la plus
+  longue** (« PIERRES 3/3   LUCIOLES 8/8   209:00 » fait 209 px et le panneau
+  était figé à 212 : le résumé ne débordait pas, il *touchait* les deux bords).
+  Il est tracé par `panneau()`, cadre compris, au lieu d'un voile à 55 % — il se
+  lit sur un sol qui défile en permanence.
+- Le titre se pose juste au-dessus du menu, et recule de 42 px — l'emprise
+  réelle du héros, ombre comprise — **si la bête garde malgré tout ses deux
+  cinquièmes de ciel**. Entre le héros et la bête, la bête gagne.
+- La bête prend tout le ciel resté libre au-dessus du titre, plafonnée à 62 % de
+  sa hauteur. Sous 20 px elle ne raconte plus rien : elle s'efface plutôt que de
+  passer sur le titre (cas du paysage 620×180).
+- Le héros n'est dessiné que si la bande entre le sous-titre et le menu peut le
+  contenir. Ailleurs il disparaissait **derrière** le panneau.
+- L'aide tient sur **une seule ligne** dès que `W ≥ 460` : les deux lignes
+  coûtaient 12 px de ciel à un écran qui n'en a que 110. Sur 620×240, la bête
+  passe ainsi de 40 à 52 px sans que le logo rétrécisse.
+- La lune passe dans le coin **droit** : à gauche elle croisait le numéro de
+  version sur 80 px², et « V2.2 » devenait illisible.
+
+### Le ciel : un treillis, pas des étoiles
+
+Les 110 étoiles étaient posées en `(i*79)%W, (i*47)%(hor-14)`. Deux modulos de
+pas constant : d'une étoile à la suivante, le déplacement est **toujours le même
+vecteur**. Sur un écran large cela se lit comme des arcs et une rangée
+horizontale nette en haut du ciel.
+
+Premier remède, `hash(i,17)` — **pire que le mal**. `hash` multiplie sans
+`Math.imul`, dépasse 2^53 et perd ses bits de poids faible ; pour de petites
+entrées (i de 0 à 109) il ne rend que la moitié basse de sa plage. Mesuré, les
+110 étoiles se tassaient dans le quart **haut-gauche** :
+
+| répartition par quart | x | y |
+|---|---|---|
+| `(i*79)%W` / `(i*47)%(hor-14)` | 27/28/27/28 | 25/31/24/30 |
+| `hash(i,17)` / `hash(i,29)` | **53/57/0/0** | **56/54/0/0** |
+| mélange `Math.imul` | 23/31/27/29 | 25/34/26/25 |
+
+Le mélange entier retenu est local à l'écran-titre : **on ne touche pas à
+`hash()`**, qui ensemence le terrain des huit régions.
+
+### Ce qui le vérifie
+
+`tests/33-ecran-titre.js` relève ce qui est **réellement dessiné** pendant une
+image d'écran-titre — `texte`, `fillRect`, `drawImage` et `arc` détournés — en
+fait des boîtes, et mesure les aires d'intersection sur huit combinaisons de
+taille d'écran et de remplissage d'emplacements. Il ne connaît aucune formule de
+mise en page : une future mise en page qui recouvrirait autrement rougira tout
+autant.
+
+| réinjection | contrôle qui rougit |
+|---|---|
+| `yT = hor*.60` (titre à l'ancienne place) | le menu ne recouvre pas le titre *(137 puis 3 256 px²)* |
+| + logo jamais réduit, + `yM` à l'ancien `clamp` | le menu ne recouvre pas le titre *(**4 696** et **11 792 px²**)* |
+| lune remise dans le coin gauche | la version ne recouvre pas la lune *(80 px²)* |
+| largeur de panneau figée à 212 px | le menu respire dans son panneau *(1 px de marge, 6 attendus)* |
+| étoiles remises en `(i*79)%W` | les étoiles ne suivent pas un pas constant *(109 écarts sur 109)* |
+| étoiles posées par `hash()` | les étoiles occupent toute la largeur / la hauteur *(53/57/0/0)* |
+
+Deux de ces contrôles ont d'abord été **verts pour de mauvaises raisons**, et ne
+l'ont montré qu'à la réinjection :
+
+- *la version ne recouvre pas la lune* calculait la boîte de la lune à partir
+  d'une position codée en dur dans le test. Remettre `lx=22` ne la déplaçait pas
+  aux yeux du contrôle. Il relève maintenant l'appel à `arc()`.
+- *aucune rangée d'étoiles alignées* et *les étoiles occupent les quatre quarts*
+  passaient tous deux avec le motif d'origine : `79` et `47` sont premiers avec
+  leurs modulos, donc le treillis remplit uniformément et ne répète aucune
+  ordonnée. Il fallait mesurer le **pas** lui-même, pas l'occupation.
+
+### À ne pas réintroduire
+
+- **Deux blocs qui se placent chacun de leur côté finiront par se rencontrer.**
+  Dès que deux éléments d'un même écran ont des tailles variables, la mise en
+  page se calcule **une fois, en entier, avant de dessiner** — et l'on décide
+  explicitement qui cède.
+- **`clamp(v, lo, hi)` ment quand `hi < lo`** : il renvoie `hi`, donc une valeur
+  sous le plancher qu'on croyait garantir. Quand les deux bornes sont calculées,
+  vérifier laquelle peut passer sous l'autre.
+- **`hash()` est biaisé pour de petites entrées** (il multiplie sans
+  `Math.imul`). Il convient aux coordonnées de tuiles, pas à un compteur de 0 à
+  110. Ne pas le corriger sans mesurer ce que cela repeint : il ensemence les
+  huit régions.
+- **Un motif « aléatoire » à pas constant est un treillis.** Une répartition
+  uniforme par quadrant ne le détecte pas ; l'écart entre deux points
+  consécutifs, si.
+- **Un élément qu'on ne peut pas placer se retire.** Une bête de 4 px ou un héros
+  à moitié caché derrière un panneau ne racontent rien — mieux vaut ne pas les
+  dessiner.
