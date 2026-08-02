@@ -1410,3 +1410,113 @@ seul, avec le bon chiffre (`4 trou(s), pire écart 0.961s` ; `victoire (36/33)` 
   plus courte se déphase à chaque tour de boucle.
 - **Rien sous 30 Hz** : une basse écrite trop bas ne s'entend sur aucun
   haut-parleur d'ordinateur, de téléphone ou de téléviseur.
+
+---
+
+## 25. La carte : tout se ressemblait, et tout clignotait pareil
+
+**Demande du joueur** : « améliore les couleurs sur la mini-carte et varie les
+clignotements pour mieux différencier les choses. »
+
+### Ce qu'on a mesuré d'abord
+
+Deux mesures, sur la vraie carte du vrai jeu.
+
+**Les couleurs**, en écart perceptif ΔE\*ab entre les teintes qui se côtoient
+dans une même région (sous 10, deux teintes ne se séparent plus sur un pixel) :
+
+```
+  mur #767b8b × roche des Cimes #6a7183 ....... ΔE 4,3   (12,8 % × 18,5 %)
+  néant #0b0713 × vide #0a0d1c ................ ΔE 4,8
+  eau profonde #164a9e × eau #24509c .......... ΔE 6,0   (44,5 % × 3,9 %)
+  mur #767b8b × dalle #8c90a4 ................. ΔE 8,6   (dans les HUIT régions)
+  caisse #8a6238 × bloc lourd #8a6030 ......... ΔE 2,0
+  marais × cité des nues, en vignette ......... ΔE 14,0
+```
+
+Le mur, à lui seul, couvrait **de 10 à 18 % de chaque région** en un gris qui se
+fondait dans la roche, la dalle et la cendre. La carte ne disait plus l'essentiel :
+où l'on peut marcher.
+
+**Les clignotements** : dix-huit repères, **un seul motif** — le carré à 50 % —
+décliné en périodes 20, 30, 36 et 40. Quatre vitesses trop voisines pour se
+départager d'un coup d'œil — deux d'entre elles indiscernables deux à deux
+(30 ≈ 36, 36 ≈ 40) : un coffre, une luciole et un sceau battaient de la même
+façon.
+
+### La cause réelle
+
+Ni la palette ni les rythmes n'avaient été *conçus* : ils s'étaient accumulés,
+teinte par teinte et `tick%36<18` par `tick%36<18`, à mesure que les huit
+mondes arrivaient. Une chaîne de trente ternaires et vingt appels à `rep2`, où
+personne ne pouvait voir l'ensemble — donc personne ne pouvait voir les
+collisions.
+
+### Les correctifs
+
+- **Deux tables indexées** (`COUL_SOL`, `COUL_OBJ`) remplacent la chaîne de
+  ternaires : l'ensemble tient sous les yeux, donc il se mesure.
+- **Trois familles, trois langages** : *ardoise sombre* = ça ferme le passage,
+  *ambre* = ça s'ouvre (porte, grille, portail), *teinte vive* = ça s'active ou
+  se ramasse. L'ardoise est posée à partir de `DUR_O`/`FRANCH_O` et non d'une
+  liste à la main : un obstacle ajouté demain apparaîtra sur la carte sans
+  qu'on y pense.
+- **Chaque région repeinte** pour se reconnaître en vignette, et **chaque
+  collision corrigée** — basalte, néant, colonne d'air, bloc de glace, caisse
+  contre bloc lourd, corail-obstacle contre sol de corail.
+- **Sept rythmes de clignotement** qui diffèrent par la **forme**, pas
+  seulement par la vitesse : `fixe` (l'ami), `cœur` deux battements puis
+  souffle (toi), `alarme` trois éclats nerveux (le chef), `pressé` le plus
+  rapide (la colporteuse, elle s'en va), `trésor` lent et égal (les coffres),
+  `phare` un éclat rare (la pièce unique), `braise` presque toujours allumé (ce
+  qui se ramasse en série).
+- **La légende bat le rythme de ses repères** : la pastille de « LUCIOLE »
+  clignote exactement comme les lucioles sur la carte. On l'apprend sans la
+  lire. Une entrée « COLPORTEUSE » apparaît quand elle est de passage.
+
+```
+                                   avant          après
+  pire écart dans une région      ΔE  4,3        ΔE 15,2
+  paires sous ΔE 10 (≥ 0,2 %)          4              0
+  régions les plus proches        ΔE 14,0        ΔE 18,2
+  motifs de clignotement               4              6
+  rythmes indiscernables               2              0
+```
+
+### Vérification
+
+Cinq contrôles dans `12-carte.js`, tous sur le vrai jeu : l'écart minimal dans
+une région, l'écart entre les huit vignettes, **ce qui barre le passage contre
+le sol qu'il touche**, le nombre de rythmes distincts, et leur séparation deux
+à deux (période d'un quart, ou taux d'allumage de 15 points, ou nombre de
+fronts). Le pied de page est en outre mesuré **avec** la colporteuse en
+légende, à cinq tailles d'écran.
+
+Réinjection, un bug à la fois : l'ancienne palette rougit les deux contrôles de
+couleur avec le bon chiffre (`CIMES GELÉES : #767b8b (13,2 %) × #6a7183
+(18,5 %) — ΔE 4,3`) ; le marais repeint aux couleurs de la vallée rougit le
+contrôle des vignettes (`ΔE 4,6`) ; les trois carrés à 50 % d'autrefois
+rougissent les deux contrôles de rythme (`30/50%/2f ≈ 36/50%/2f`).
+
+**Contrôle à blanc** : la roche peinte *exactement* de la teinte du mur. Le
+relevé par histogramme reste **vert** — deux choses peintes pareil ne font plus
+qu'une seule teinte, la collision disparaît du compte. C'est ce qui a justifié
+le contrôle « ce qui barre le passage », qui repart de l'**état du jeu** et va
+lire la couleur dessinée : il rougit, lui, à `ΔE 0,0`.
+
+### À ne pas réintroduire
+
+- **Une palette ne s'écrit pas en chaîne de ternaires.** Trente branches, c'est
+  trente teintes que personne ne compare jamais. En table indexée, elles se
+  mesurent.
+- **Un histogramme de couleurs a un angle mort** : ce qui est peint à
+  l'identique n'y figure qu'une fois. Pour vraiment vérifier que deux choses
+  se distinguent, partir de l'**état du jeu**, pas des pixels seuls.
+- **Varier la vitesse ne suffit pas à varier un clignotement.** À deux pixels,
+  30 pas et 36 pas se ressemblent comme deux gouttes d'eau. C'est la forme —
+  double battement, éclat rare, presque toujours allumé — qui se reconnaît.
+- **La légende doit MONTRER le repère, pas le décrire.** Une pastille fixe
+  n'apprend pas à reconnaître un clignotement.
+- **Le sens d'abord, la couleur locale ensuite** : ce qui ferme le passage doit
+  se voir comme tel dans les huit régions, sinon la carte n'est qu'une jolie
+  image.

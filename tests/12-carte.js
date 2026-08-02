@@ -23,6 +23,9 @@ module.exports = {
         Q.portailOuvert = true; Q.lanterne = 1; Q.chefTue = false;
         J.x = 36 * TS; J.y = (Y_CENDRE + 20) * TS;
         for (let i = 0; i < vu.length; i++) vu[i] = 1;
+        /* La colporteuse est de passage : elle ajoute une entrée à la légende,
+           et c'est l'entrée la plus large. Le pied de page doit tenir AVEC. */
+        marchand.actif = true; marchand.x = 36 * TS; marchand.y = (Y_CENDRE + 22) * TS;
 
         /* On intercepte le tracé pour relever chaque rectangle réellement
            dessiné : textes, panneau de la carte, pastilles de légende. */
@@ -191,6 +194,191 @@ module.exports = {
         r.apres.join(' | '));
       v('mais garde les repères permanents',
         r.apres.includes('TOI') && r.apres.includes('AMI'), r.apres.join(' | '));
+      v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
+      await page.context().close();
+    }
+
+    /* ================== LISIBILITÉ : LES COULEURS ==========================
+       Une carte se lit d'un coup d'œil ou ne se lit pas. On mesure l'écart
+       perceptif (ΔE*ab, sur les vraies teintes de `miniCV`) entre toutes les
+       teintes qui SE CÔTOIENT dans une même région : sous ΔE 10, deux couleurs
+       voisines ne se distinguent plus sur un pixel. L'ancienne palette
+       descendait à 4,3 — le mur gris se fondait dans la roche des Cimes, et il
+       couvrait 10 à 18 % de chaque région. */
+    {
+      const page = await pageDeJeu(navigateur, { largeur: 414, hauteur: 900 });
+      await nouvellePartie(page);
+      const r = await page.evaluate(() => {
+        const lin = u => (u <= .04045 ? u / 12.92 : Math.pow((u + .055) / 1.055, 2.4));
+        const f = t => (t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116));
+        const lab = (R, G, B) => {
+          const r = lin(R / 255), g = lin(G / 255), b = lin(B / 255);
+          const X = (r * .4124 + g * .3576 + b * .1805) / .95047;
+          const Y = (r * .2126 + g * .7152 + b * .0722);
+          const Z = (r * .0193 + g * .1192 + b * .9505) / 1.08883;
+          return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+        };
+        const dE = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+        const hex = c => '#' + c.toString(16).padStart(6, '0');
+
+        const HR = Math.floor(MH / NB_REGIONS);
+        const img = miniCV.getContext('2d', { willReadFrequently: true })
+                          .getImageData(0, 0, MW, MH).data;
+        const coul = (x, y) => { const k = (y * MW + x) * 4;
+          return { hex: hex((img[k] << 16) | (img[k + 1] << 8) | img[k + 2]),
+                   lab: lab(img[k], img[k + 1], img[k + 2]) }; };
+        let pireInterne = null, pireRegions = null, pireBarrage = null;
+        const moyennes = [];
+        for (let i = 0; i < NB_REGIONS; i++) {
+          const cpt = new Map(); let R = 0, G = 0, B = 0;
+          for (let y = i * HR; y < (i + 1) * HR; y++) for (let x = 0; x < MW; x++) {
+            const k = (y * MW + x) * 4;
+            R += img[k]; G += img[k + 1]; B += img[k + 2];
+            const c = (img[k] << 16) | (img[k + 1] << 8) | img[k + 2];
+            cpt.set(c, (cpt.get(c) || 0) + 1);
+          }
+          const tot = HR * MW;
+          moyennes.push({ nom: NOMS_REGION[i], lab: lab(R / tot, G / tot, B / tot) });
+          // on ne compare que ce qui pèse : une teinte à trois tuiles ne gêne personne
+          const cols = [...cpt.entries()].filter(([, n]) => n / tot >= 0.002)
+            .map(([c, n]) => ({ hex: hex(c), part: n / tot,
+                                lab: lab((c >> 16) & 255, (c >> 8) & 255, c & 255) }));
+          for (let a = 0; a < cols.length; a++) for (let b = a + 1; b < cols.length; b++) {
+            const d = dE(cols[a].lab, cols[b].lab);
+            if (!pireInterne || d < pireInterne.d) pireInterne = { d, region: NOMS_REGION[i],
+              a: cols[a].hex, b: cols[b].hex, pa: cols[a].part, pb: cols[b].part };
+          }
+
+          /* Le compte des teintes ci-dessus a un angle mort : deux choses
+             peintes EXACTEMENT pareil ne font plus qu'une seule teinte, et la
+             collision disparaît du relevé. On repart donc de l'ÉTAT DU JEU —
+             ce qui barre le passage d'un côté, le sol où l'on marche de
+             l'autre — pour aller lire la couleur réellement dessinée de
+             chacun. C'est le cas qui comptait : un mur qui se fond dans la
+             roche efface la seule chose que la carte doive dire. */
+          const barre = new Map(), marche = new Map();
+          for (let y = i * HR; y < (i + 1) * HR; y++) for (let x = 0; x < MW; x++) {
+            const o = objs[y * MW + x];
+            const cible = (DUR_O[o] && !FRANCH_O[o]) ? barre : marche;
+            const c = coul(x, y);
+            const e = cible.get(c.hex) || { n: 0, lab: c.lab };
+            e.n++; cible.set(c.hex, e);
+          }
+          for (const [hb, eb] of barre) { if (eb.n / tot < 0.005) continue;
+            for (const [hm, em] of marche) { if (em.n / tot < 0.01) continue;
+              const d = dE(eb.lab, em.lab);
+              if (!pireBarrage || d < pireBarrage.d) pireBarrage = { d, region: NOMS_REGION[i],
+                bloc: hb, sol: hm, pb: eb.n / tot, pm: em.n / tot };
+            } }
+        }
+        for (let a = 0; a < NB_REGIONS; a++) for (let b = a + 1; b < NB_REGIONS; b++) {
+          const d = dE(moyennes[a].lab, moyennes[b].lab);
+          if (!pireRegions || d < pireRegions.d)
+            pireRegions = { d, a: moyennes[a].nom, b: moyennes[b].nom };
+        }
+        return { pireInterne, pireRegions, pireBarrage };
+      });
+
+      const pi = r.pireInterne;
+      v('AUCUNE TEINTE DE LA CARTE N\'EN IMITE UNE AUTRE DANS SA RÉGION',
+        pi.d >= 12,
+        `${pi.region} : ${pi.a} (${(pi.pa * 100).toFixed(1)} %) × ${pi.b} `
+        + `(${(pi.pb * 100).toFixed(1)} %) — ΔE ${pi.d.toFixed(1)}, il en faut 12`);
+      const pb = r.pireBarrage;
+      v('CE QUI BARRE LE PASSAGE NE SE CONFOND AVEC AUCUN SOL',
+        pb.d >= 12,
+        `${pb.region} : obstacle ${pb.bloc} (${(pb.pb * 100).toFixed(1)} %) × sol `
+        + `${pb.sol} (${(pb.pm * 100).toFixed(1)} %) — ΔE ${pb.d.toFixed(1)}, il en faut 12`);
+      v('les huit régions ne se ressemblent pas en vignette',
+        r.pireRegions.d >= 15,
+        `${r.pireRegions.a} × ${r.pireRegions.b} — ΔE ${r.pireRegions.d.toFixed(1)}`);
+      v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
+      await page.context().close();
+    }
+
+    /* ================== LISIBILITÉ : LES CLIGNOTEMENTS =====================
+       Un repère fait deux pixels : sa teinte ne suffit pas à dire ce que c'est.
+       On relève le clignotement RÉELLEMENT dessiné, région par région, et on
+       vérifie que les familles se distinguent par la FORME du battement — pas
+       seulement par sa vitesse. L'ancienne carte n'avait qu'un motif, le carré
+       à 50 %, décliné en périodes 20, 30, 36 et 40 : quatre vitesses trop
+       voisines pour se départager d'un coup d'œil. */
+    {
+      const page = await pageDeJeu(navigateur, { largeur: 414, hauteur: 900 });
+      await nouvellePartie(page);
+      const r = await page.evaluate(async () => {
+        /* Tout est à trouver : c'est le cas où la carte porte le plus de
+           familles de repères à la fois. */
+        for (let i = 0; i < vu.length; i++) vu[i] = 1;
+        Q.lucioles = 0; Q.chefTue = false; Q.lanterne = 1; Q.portailOuvert = true;
+        Q.boomerang = false; Q.palmes = false; Q.bracelet = false; Q.fanal = false;
+        Q.cape = false; Q.perles = 0; Q.fresques = 0;
+        marchand.actif = true; marchand.x = 20 * TS; marchand.y = 20 * TS;
+        etat = 'carte';
+
+        /* Le décor passe DERRIÈRE le voile de la carte, et ses torches ont leur
+           propre scintillement : le neutraliser, sinon on compterait le monde
+           parmi les repères. */
+        const vraiMonde = window.rendreMonde, vraiFill = X.fillRect.bind(X);
+        window.rendreMonde = () => {};
+        const suites = new Map();
+        let cap = false;
+        X.fillRect = function (x, y, w, h) {
+          if (cap && w <= 8 && h <= 8) {
+            const k = Math.round(x) + ',' + Math.round(y);
+            if (!suites.has(k)) suites.set(k, []);
+            suites.get(k).push(String(X.fillStyle));
+          }
+          return vraiFill(x, y, w, h);
+        };
+        const N = 240, T0 = tick;
+        // les familles sont réparties sur les huit régions : on les visite toutes
+        for (let reg = 0; reg < NB_REGIONS; reg++) {
+          carteRegion = reg;
+          for (let t = 0; t < N; t++) { tick = T0 + t; cap = true; ecranCarte(); cap = false; }
+        }
+        window.rendreMonde = vraiMonde; X.fillRect = vraiFill;
+
+        /* Une suite de couleurs alternées = un motif. On en tire la période, le
+           taux d'allumage et le nombre de fronts : trois grandeurs que l'œil
+           sait comparer, et qui ne dépendent pas de la phase du relevé. */
+        const motifs = new Map();
+        for (const s of suites.values()) {
+          if (s.length < N) continue;
+          const uniq = [...new Set(s.slice(0, N))];
+          if (uniq.length !== 2) continue;                 // ni fixe, ni dégradé
+          const m = s.slice(0, N).map(c => (c === uniq[0] ? '1' : '0')).join('');
+          let p = N;
+          for (let q = 2; q <= 120; q++) { let ok = true;
+            for (let i = 0; i + q < N; i++) if (m[i] !== m[i + q]) { ok = false; break; }
+            if (ok) { p = q; break; } }
+          const un = m.slice(0, p).split('').filter(c => c === '1').length;
+          let fronts = 0;
+          for (let i = 0; i < p; i++) if (m[i] !== m[(i + 1) % p]) fronts++;
+          // le « vif » et le « terne » dépendent de l'ordre de première apparition
+          const duty = Math.max(un, p - un) / p;
+          motifs.set(`${p}/${duty.toFixed(3)}/${fronts}`, { p, duty, fronts });
+        }
+        const liste = [...motifs.values()].sort((a, b) => a.p - b.p);
+
+        /* Deux rythmes se distinguent si leur période varie d'un quart, ou leur
+           taux d'allumage de 15 points, ou leur nombre de fronts. */
+        const trop = [];
+        for (let a = 0; a < liste.length; a++) for (let b = a + 1; b < liste.length; b++) {
+          const A = liste[a], B = liste[b];
+          const dP = Math.abs(A.p - B.p) / Math.max(A.p, B.p);
+          if (dP < .25 && Math.abs(A.duty - B.duty) < .15 && A.fronts === B.fronts)
+            trop.push(`${A.p}/${(A.duty * 100).toFixed(0)}%/${A.fronts}f ≈ `
+                    + `${B.p}/${(B.duty * 100).toFixed(0)}%/${B.fronts}f`);
+        }
+        return { liste, trop };
+      });
+
+      const resume = r.liste.map(m => `${m.p} pas ${(m.duty * 100).toFixed(0)} % ${m.fronts}f`).join(' · ');
+      v('CHAQUE FAMILLE DE REPÈRES A SON PROPRE RYTHME',
+        r.liste.length >= 6, `${r.liste.length} motifs distincts : ${resume}`);
+      v('DEUX RYTHMES NE SE RESSEMBLENT JAMAIS',
+        r.trop.length === 0, r.trop.join(' · ') + '  (' + resume + ')');
       v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
       await page.context().close();
     }

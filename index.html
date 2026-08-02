@@ -7558,54 +7558,149 @@ function fractionsExplorees(){
   return _expl;
 }
 const miniCV=document.createElement('canvas'); miniCV.width=MW; miniCV.height=MH;
+
+/* ---------------------- LA PALETTE DE LA MINI-CARTE ----------------------
+   Une teinte par sol, une par objet, en tables indexées plutôt qu'en chaîne de
+   ternaires : c'est la seule façon de garder l'ensemble sous les yeux, donc de
+   pouvoir MESURER les écarts. Mesurés sur l'ancienne palette, en ΔE*ab — sous
+   10, deux teintes ne se séparent plus sur un pixel :
+
+     mur #767b8b × roche des Cimes #6a7183 .......... ΔE 4,3   (12,8 % × 18,5 %)
+     néant #0b0713 × vide #0a0d1c .................. ΔE 4,8
+     eau profonde #164a9e × eau #24509c ............ ΔE 6,0   (44,5 % × 3,9 %)
+     mur #767b8b × dalle #8c90a4 ................... ΔE 8,6   (dans les HUIT régions)
+     caisse #8a6238 × bloc lourd #8a6030 ........... ΔE 2,0
+
+   Le mur, à lui seul, couvrait de 10 à 18 % de CHAQUE région en un gris qui
+   se fondait dans la roche, la dalle et la cendre : la carte ne disait plus où
+   l'on pouvait marcher. `12-carte.js` mesure désormais ces écarts.
+
+   Trois familles, trois langages : ARDOISE = ça ferme, AMBRE = ça s'ouvre,
+   TEINTE VIVE = ça s'active ou se ramasse. */
+const MINI_BLOC='#242a44';        // tout ce qui barre le passage, partout
+const MINI_HAUT='#57ab4c';        // l'herbe des plateaux, franchement plus claire
+const COUL_SOL=[], COUL_OBJ=[];
+{
+  const sols={
+    HERBE:'#31702f', TERRE:'#b3763a', RAMPE:'#b3763a', EAU:'#2f74d8',
+    SABLE:'#e3ce8d', DALLE:'#9aa1bf', TAPIS:'#a8545e',
+    CENDRE:'#6b6070', LAVE:'#ff5a14', BRAISE:'#a04424', BASALTE:'#3e2c33',
+    NEIGE:'#eef3ff', GLACE:'#7cc8ee', ROCHE:'#59627a',
+    EAUPROF:'#0d3a8c', CORAIL:'#2fd0c0', PLAQUE:'#4fb0c8',
+    DESERT:'#e8b761', SABLEMOU:'#9c7530',
+    MARAIS:'#2c4a2e', VASE:'#5c5424',
+    VIDE:'#080b1a', NUAGE:'#e6ecff', PIERRECIEL:'#8f9cd8',
+    NEANT:'#241030', FRACTURE:'#4a2a6e',
+  };
+  for(const k in sols) COUL_SOL[S[k]]=sols[k];
+  /* Par défaut, TOUT ce qui bloque prend l'ardoise : la carte dit alors d'un
+     coup d'œil où l'on peut marcher. Ce qui s'enjambe — buisson, souche,
+     cloche — garde la teinte du sol : cela ne ferme rien. Partir de `DUR_O` et
+     `FRANCH_O` plutôt que d'une liste à la main, c'est aussi la garantie qu'un
+     obstacle ajouté demain apparaîtra sur la carte sans qu'on y pense. */
+  for(let o=1;o<DUR_O.length;o++) if(DUR_O[o]&&!FRANCH_O[o]) COUL_OBJ[o]=MINI_BLOC;
+  const objets={
+    /* ce qui pousse : le vert borde les chemins */
+    ARBRE:'#1a5a2b', SAPIN:'#1a5a2b', SAULE:'#1a5a2b', CACTUS:'#2f7a3a',
+    PALMIER:'#2f9a5a', RONCE:'#7a4a1e',
+    /* ce qui s'ouvre : l'ambre, couleur des passages */
+    PORTE:'#e0a84a', GRILLE:'#e0a84a', PORTEP:'#e0a84a', PORTAIL:'#ff8b3a',
+    /* ce qui cède à un outil : chacun sa teinte, c'est un indice de route */
+    FISSURE:'#c07a50', ROCNOIR:'#7a3a86', GLACON:'#1090c4',
+    CAISSE:'#d9a05c', BLOCLOURD:'#8d8296',
+    /* ce qui s'active, brûle ou se ramasse */
+    INTER:'#4fd8c0', OEIL:'#4fd8c0', ANCRE:'#b6bece', CRISTAL:'#8ae0ff',
+    BLOCB:'#4f8ae0', BLOCO:'#e08a4f',
+    TORCHE:'#ffb84a', BRASIER:'#c06020', BRASIERVIF:'#ffb84a', LANTERNE:'#ffd88a',
+    VEILLEUSE:'#d8c24a', VEILLEUSEVIVE:'#ffe98a',
+    CLOCHE:'#aee0ff', CARILLON:'#3fd0d8', CARILLONVIF:'#a8f0f4',
+    COLONNE:'#a878e8', OBELISQUE:'#5f6a96', CORAILO:'#17968f',
+    SCEAU:'#d46ae8', ECLATNOIR:'#d46ae8',
+  };
+  for(const k in objets) COUL_OBJ[O[k]]=objets[k];
+}
 function construireMini(){
   const g=miniCV.getContext('2d');
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
-    const s=Sol(x,y), o=Obj(x,y), e=Etg(x,y);
-    let c = s===S.EAU?'#24509c' : s===S.SABLE?'#cbb478' : s===S.TERRE||s===S.RAMPE?'#a8763f'
-          : s===S.DALLE||s===S.TAPIS?'#8c90a4'
-          /* sans ces teintes, une région s'affichait en vert prairie sur la
-             carte : elle en devenait illisible */
-          : s===S.LAVE?'#e0561c' : s===S.BRAISE?'#8a4630'
-          : s===S.CENDRE?'#55505d' : s===S.BASALTE?'#3b3746'
-          : s===S.NEIGE?'#dbe4f2' : s===S.GLACE?'#a9d6ee' : s===S.ROCHE?'#6a7183'
-          : s===S.EAUPROF?'#164a9e' : s===S.CORAIL?'#39b4b0' : s===S.PLAQUE?'#6a7290'
-          : s===S.DESERT?'#dcac63' : s===S.SABLEMOU?'#a6853f'
-          : s===S.MARAIS?'#2e3d31' : s===S.VASE?'#454530'
-          : s===S.VIDE?'#0a0d1c' : s===S.NUAGE?'#d6def6' : s===S.PIERRECIEL?'#9ea7c8'
-          : s===S.NEANT?'#0b0713' : s===S.FRACTURE?'#2e2242'
-          : (e?'#4f9a48':'#3f7f37');
-    if(o===O.ARBRE||o===O.SAPIN||o===O.CACTUS||o===O.SAULE) c='#1d5a2c';
-    if(o===O.RONCE) c='#3a2f1a';
-    if(o===O.VEILLEUSE||o===O.VEILLEUSEVIVE) c='#c8b060';
-    if(o===O.MUR||o===O.PORTEP) c='#767b8b';
-    if(o===O.ROCNOIR) c='#241f2c';
-    if(o===O.GLACON) c='#7fb4d8';
-    if(o===O.PALMIER) c='#2f9a5a';
-    if(o===O.CAISSE) c='#8a6238';
-    if(o===O.BLOCLOURD) c='#8a6030';
-    if(o===O.ANCRE) c='#9aa0b0';
-    if(o===O.COLONNE) c='#7f9ad8';
-    if(o===O.CARILLON||o===O.CARILLONVIF) c='#dfe6ff';
-    if(o===O.OBELISQUE) c='#6d7699';
-    if(o===O.SCEAU||o===O.ECLATNOIR) c='#c86ae0';
-    if(o===O.PORTAIL) c='#ff8b3a';
+    let c=COUL_OBJ[Obj(x,y)];
+    if(!c){ const s=Sol(x,y);
+      c = (s===S.HERBE&&Etg(x,y)) ? MINI_HAUT : (COUL_SOL[s]||COUL_SOL[S.HERBE]); }
     g.fillStyle=c; g.fillRect(x,y,1,1);
   }
 }
+
+/* ------------------- LES RYTHMES DE CLIGNOTEMENT -------------------------
+   Un repère de carte fait deux pixels de côté : sa teinte ne suffit pas à dire
+   ce que c'est. C'est le RYTHME qui les sépare — et il doit différer par sa
+   FORME, pas seulement par sa vitesse. Mesuré sur l'ancienne carte : un seul
+   motif, le carré à 50 %, décliné en périodes 20, 30, 36 et 40 — dix-huit
+   repères clignotants pour quatre vitesses trop voisines pour se départager
+   d'un coup d'œil (30 et 36 : un sixième d'écart).
+
+   Chaque motif est une alternance ALLUMÉ / ÉTEINT, en images, à partir de
+   l'allumage. Ils se distinguent deux à deux par la période, le taux
+   d'allumage ou le nombre de fronts — `12-carte.js` le vérifie. */
+const RYTHMES={};
+{ const m={
+    fixe:  [1,0],                 // il ne bouge pas : on peut compter dessus
+    coeur: [6,6,6,24],            // toi : deux battements, puis on souffle
+    alarme:[4,4,4,4,4,16],        // le danger : trois éclats nerveux
+    presse:[7,7],                 // ce qui s'en va : le plus rapide, et régulier
+    tresor:[25,25],               // ce qui attend sans bouger : lent et égal
+    phare: [9,57],                // la pièce unique : un éclat rare dans le noir
+    braise:[28,6],                // à ramasser en série : presque toujours allumé
+  };
+  for(const k in m) RYTHMES[k]={m:m[k],p:m[k].reduce((a,b)=>a+b,0)};
+}
+function rythmeVif(r){
+  let u=tick%r.p;
+  for(let i=0;i<r.m.length;i++){ if(u<r.m[i]) return (i&1)===0; u-=r.m[i]; }
+  return true;
+}
+/* Chaque famille de repères : sa teinte vive, sa teinte sourde, son rythme.
+   Déclarées ici une fois pour toutes — la boucle de rendu n'alloue rien
+   (cf. CORRECTIFS.md § 8). La légende dessine ses pastilles avec CES entrées :
+   la pastille bat exactement comme le repère qu'elle annonce, ce qui rend la
+   légende lisible sans même la lire. */
+const REPS={
+  toi:      {a:'#ffffff',b:'#3fa870',r:'coeur'},
+  ami:      {a:'#7fd0ff',b:'#7fd0ff',r:'fixe'},
+  colport:  {a:'#ff9ad8',b:'#8a3a6a',r:'presse'},
+  coffre:   {a:'#ffe86a',b:'#8a6a1c',r:'tresor'},
+  chef:     {a:'#ff7a6a',b:'#7a2418',r:'alarme'},
+  luciole:  {a:'#fff6b0',b:'#a08a30',r:'braise'},
+  brasier:  {a:'#ff9a3c',b:'#8a4a1a',r:'braise'},
+  lanterne: {a:'#ffd88a',b:'#8a6420',r:'phare'},
+  boomerang:{a:'#c8ecff',b:'#4a7a9c',r:'phare'},
+  palmes:   {a:'#7fe0d0',b:'#2f8a80',r:'phare'},
+  bracelet: {a:'#ffcf4a',b:'#8a6420',r:'phare'},
+  fanal:    {a:'#f4ffb0',b:'#7a7a44',r:'phare'},
+  cape:     {a:'#a8c8ff',b:'#4a5f96',r:'phare'},
+  cloche:   {a:'#aee0ff',b:'#48708c',r:'braise'},
+  perle:    {a:'#eaf6ff',b:'#7fa8c8',r:'braise'},
+  fresque:  {a:'#f0c878',b:'#8a6432',r:'braise'},
+  carillon: {a:'#dfe6ff',b:'#6f7ba0',r:'braise'},
+  sceau:    {a:'#e08aff',b:'#6a3a90',r:'braise'},
+  veilleuse:{a:'#d8e060',b:'#6f7430',r:'braise'},
+};
+for(const k in REPS) REPS[k].r=RYTHMES[REPS[k].r];
+const coulRep=p=>rythmeVif(p.r)?p.a:p.b;
+
 function ecranCarte(){
   rendreMonde();
   X.fillStyle='rgba(6,8,18,.82)'; X.fillRect(0,0,W,H);
 
-  /* --- légende : on n'annonce que ce qui est réellement sur la carte --- */
-  const leg=[['#ffffff','TOI'],['#7fd0ff','AMI']];
+  /* --- légende : on n'annonce que ce qui est réellement sur la carte, et
+     chaque pastille bat du rythme de son repère --- */
+  const leg=[[REPS.toi,'TOI'],[REPS.ami,'AMI']];
+  if(marchand.actif) leg.push([REPS.colport,'COLPORTEUSE']);
   if(coffres.some(c=>!c.ouvert&&vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]))
-    leg.push(['#ffe86a','COFFRE']);
-  if(Q.lucioles<8) leg.push(['#fff6b0','LUCIOLE']);
-  if(!Q.chefTue) leg.push(['#ff7a6a','CHEF']);
-  if(Q.lanterne===1) leg.push(['#ffd88a','LANTERNE']);
+    leg.push([REPS.coffre,'COFFRE']);
+  if(Q.lucioles<8) leg.push([REPS.luciole,'LUCIOLE']);
+  if(!Q.chefTue) leg.push([REPS.chef,'CHEF']);
+  if(Q.lanterne===1) leg.push([REPS.lanterne,'LANTERNE']);
   if(Q.portailOuvert&&BRASIERS_POS.some(([x,y])=>Obj(x,y)===O.BRASIER))
-    leg.push(['#ff9a3c','BRASIER']);
+    leg.push([REPS.brasier,'BRASIER']);
 
   /* Le pied de page est mesuré et posé À PARTIR DU BAS de l'écran ; la carte
      prend ce qui reste. Dans l'autre sens — carte d'abord, textes calés sous
@@ -7662,47 +7757,39 @@ function ecranCarte(){
   X.fillStyle='rgba(8,10,20,.88)';
   for(let y=0;y<HR;y++)for(let x=0;x<MW;x++)
     if(!vu[(y0R+y)*MW+x]) X.fillRect(mx+x*sc,my+y*sc,Math.ceil(sc),Math.ceil(sc));
-  // repères — seulement ceux de la région montrée
-  const rep2=(tx,ty,col,gros)=>{
+  /* Repères — seulement ceux de la région montrée. Chacun reçoit une entrée de
+     `REPS` : c'est elle qui porte les deux teintes ET le rythme, et c'est la
+     même que dessine la légende. */
+  const rep2=(tx,ty,pal)=>{
     if(!dansCarte(tx,ty)||!vu[ty*MW+tx]) return;
     if(ty<y0R||ty>=y0R+HR) return;
     const px=mx+tx*sc, py=my+(ty-y0R)*sc, t=Math.max(2,Math.ceil(sc));
-    X.fillStyle=col; X.fillRect(px-(gros?1:0),py-(gros?1:0),t+(gros?2:0),t+(gros?2:0));
+    X.fillStyle=coulRep(pal); X.fillRect(px-1,py-1,t+2,t+2);
   };
-  for(const p of pnjs) rep2(Math.floor(p.x/TS),Math.floor(p.y/TS),'#7fd0ff',true);
-  // la colporteuse clignote : elle ne reste pas, autant la trouver vite
-  if(marchand.actif) rep2(Math.floor(marchand.x/TS),Math.floor(marchand.y/TS),
-    (tick%30<15)?'#ffe86a':'#c88a2a',true);
-  for(const l of lucioles) if(!l.pris) rep2(Math.floor(l.x/TS),Math.floor(l.y/TS),
-    (tick%40<20)?'#fff6b0':'#c8b03c',true);
-  if(!Q.chefTue) rep2(15,14,(tick%30<15)?'#ff7a6a':'#a03a2a',true);
+  for(const p of pnjs) rep2(Math.floor(p.x/TS),Math.floor(p.y/TS),REPS.ami);
+  // la colporteuse bat le plus vite de tous : elle ne reste pas
+  if(marchand.actif) rep2(Math.floor(marchand.x/TS),Math.floor(marchand.y/TS),REPS.colport);
+  for(const l of lucioles) if(!l.pris) rep2(Math.floor(l.x/TS),Math.floor(l.y/TS),REPS.luciole);
+  if(!Q.chefTue) rep2(15,14,REPS.chef);
   /* Repères des quêtes annexes : sans eux, une lanterne et trois brasiers
      posés dans deux régions entières se cherchent tuile par tuile. */
-  if(Q.lanterne===1) rep2(LANTERNE_POS[0],LANTERNE_POS[1],
-    (tick%36<18)?'#ffd88a':'#c8912a',true);
-  for(const [bx,by] of BRASIERS_POS) if(Obj(bx,by)===O.BRASIER)
-    rep2(bx,by,(tick%36<18)?'#ff9a3c':'#8a4a1a',true);
+  if(Q.lanterne===1) rep2(LANTERNE_POS[0],LANTERNE_POS[1],REPS.lanterne);
+  for(const [bx,by] of BRASIERS_POS) if(Obj(bx,by)===O.BRASIER) rep2(bx,by,REPS.brasier);
   /* Repères des Cimes et du Lagon : boomerang, palmes, cloches, perles */
-  if(!Q.boomerang) rep2(BOOMERANG_POS[0],BOOMERANG_POS[1],(tick%36<18)?'#c8ecff':'#6a9ec8',true);
-  if(!Q.palmes) rep2(PALMES_POS[0],PALMES_POS[1],(tick%36<18)?'#7fe0d0':'#2f8a80',true);
-  for(const [bx,by] of CLOCHES_POS) if(Obj(bx,by)===O.CLOCHE)
-    rep2(bx,by,(tick%36<18)?'#aee0ff':'#5a8ab0',true);
-  for(let k=Q.perles;k<5;k++){ const [px,py]=PERLES_POS[k];
-    rep2(px,py,(tick%36<18)?'#eaf6ff':'#7fa8c8',true); }
-  if(!Q.bracelet) rep2(BRACELET_POS[0],BRACELET_POS[1],(tick%36<18)?'#ffcf4a':'#b3823a',true);
-  for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k];
-    rep2(fx,fy,(tick%36<18)?'#f0c878':'#a67a3e',true); }
-  if(!Q.fanal) rep2(FANAL_POS[0],FANAL_POS[1],(tick%36<18)?'#f4ffb0':'#8a8a5a',true);
-  if(!Q.cape) rep2(CAPE_POS[0],CAPE_POS[1],(tick%36<18)?'#a8c8ff':'#5a7ac0',true);
-  for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON)
-    rep2(cx,cy,(tick%40<20)?'#dfe6ff':'#8f9cc0',true);
-  for(const [sx,sy] of SCEAUX_POS) if(Obj(sx,sy)===O.SCEAU)
-    rep2(sx,sy,(tick%36<18)?'#e08aff':'#6a3a90',true);
-  for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE)
-    rep2(vx,vy,(tick%36<18)?'#d8e060':'#8a8a3a',true);
+  if(!Q.boomerang) rep2(BOOMERANG_POS[0],BOOMERANG_POS[1],REPS.boomerang);
+  if(!Q.palmes) rep2(PALMES_POS[0],PALMES_POS[1],REPS.palmes);
+  for(const [bx,by] of CLOCHES_POS) if(Obj(bx,by)===O.CLOCHE) rep2(bx,by,REPS.cloche);
+  for(let k=Q.perles;k<5;k++) rep2(PERLES_POS[k][0],PERLES_POS[k][1],REPS.perle);
+  if(!Q.bracelet) rep2(BRACELET_POS[0],BRACELET_POS[1],REPS.bracelet);
+  for(let k=Q.fresques;k<5;k++) rep2(FRESQUES_POS[k][0],FRESQUES_POS[k][1],REPS.fresque);
+  if(!Q.fanal) rep2(FANAL_POS[0],FANAL_POS[1],REPS.fanal);
+  if(!Q.cape) rep2(CAPE_POS[0],CAPE_POS[1],REPS.cape);
+  for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON) rep2(cx,cy,REPS.carillon);
+  for(const [sx,sy] of SCEAUX_POS) if(Obj(sx,sy)===O.SCEAU) rep2(sx,sy,REPS.sceau);
+  for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE) rep2(vx,vy,REPS.veilleuse);
   for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert)
-    rep2(Math.floor(c.x/TS),Math.floor(c.y/TS),(tick%30<15)?'#ffe86a':'#c8a03c',true);
-  rep2(Math.floor(J.x/TS),Math.floor(J.y/TS),(tick%20<10)?'#ffffff':'#4fe08a',true);
+    rep2(Math.floor(c.x/TS),Math.floor(c.y/TS),REPS.coffre);
+  rep2(Math.floor(J.x/TS),Math.floor(J.y/TS),REPS.toi);
 
   /* --- les vignettes : les huit régions, figées, l'active encadrée --- */
   {
@@ -7727,9 +7814,10 @@ function ecranCarte(){
         X.fillRect(x-1,y-1,vw+2,1); X.fillRect(x-1,y+vh,vw+2,1);
         X.fillRect(x-1,y-1,1,vh+2); X.fillRect(x+vw,y-1,1,vh+2);
       } else { X.fillStyle='rgba(6,8,18,.35)'; X.fillRect(x,y,vw,vh); }
-      // un point vert sur la région où se trouve vraiment le héros
+      // le point du héros, sur la région où il se trouve vraiment : même
+      // battement de cœur que son repère sur la grande carte
       if(i===regionIdx(Math.floor(J.y/TS))){
-        X.fillStyle=(tick%20<10)?'#ffffff':'#4fe08a';
+        X.fillStyle=coulRep(REPS.toi);
         X.fillRect(x+vw-3,y+1,2,2);
       }
     }
@@ -7765,8 +7853,8 @@ function ecranCarte(){
   for(const ligne of lignesLeg){
     let x=Math.round(W/2-ligne.reduce((n,e)=>n+largEnt(e),0)/2);
     for(const e of ligne){
-      X.fillStyle='#12111c'; X.fillRect(x+3,y+2,5,5);
-      X.fillStyle=e[0];      X.fillRect(x+2,y+1,5,5);
+      X.fillStyle='#12111c';    X.fillRect(x+3,y+2,5,5);
+      X.fillStyle=coulRep(e[0]); X.fillRect(x+2,y+1,5,5);
       texte(X,e[1],x+10,y,'#9fa8c8');
       x+=largEnt(e);
     }
@@ -7957,7 +8045,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.6';
+const VERSION='V1.7';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours

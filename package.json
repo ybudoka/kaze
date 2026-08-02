@@ -1,6 +1,6 @@
 {
   "name": "kaze",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "Kaze & les Trois Étoiles — jeu d'action-aventure en un seul fichier HTML",
   "scripts": {
