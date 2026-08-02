@@ -89,6 +89,22 @@ module.exports = {
       out.G_tresorRejoint = pres(flood(Math.floor(J.x / TS), Math.floor(J.y / TS), {}),
         TRESOR_GOUFFRE[0], TRESOR_GOUFFRE[1]);
 
+      /* ---- LE RETOUR ---- le contrôle qui manquait, et par où le bug est
+         passé : traverser ne prouve rien si l'on ne peut pas revenir. La douve
+         barre TOUTE la hauteur — dans les deux sens. Sans ancre sur la rive
+         d'entrée, on prenait le trésor et l'on restait scellé pour toujours
+         dans une poche de 19 cases. */
+      out.G_ancreRetour = Obj(G.x0 + 1, G.y0 + 4) === O.ANCRE;
+      // depuis la rive lointaine : on se met au bord de l'eau et l'on vise l'ouest
+      J.x = (G.x0 + 5) * TS + 8; J.y = (G.y0 + 4) * TS + 8; J.z = 0; J.dir = 1; J.grap = null;
+      lancerGrappin();
+      out.G_retourLance = !!J.grap;
+      for (let i = 0; i < 40 && J.grap; i++) majJoueur();
+      out.G_retourArrive = Math.floor(J.x / TS) === G.x0 + 2;      // reposé sur la rive d'entrée
+      // et de là, l'entrée de la salle se rejoint à pied
+      out.G_entreeRejointe = pres(flood(Math.floor(J.x / TS), Math.floor(J.y / TS), {}),
+        G.x0 + 2, G.y0 + G.h - 1);
+
       // ======== ÉNIGME 4 (Cendres) : deux caisses, deux plaques ========
       const D = ENIG.cendre;
       out.D_deuxPlaques = Sol(D.x0 + 2, D.y0 + 7) === S.PLAQUE && Sol(D.x0 + 8, D.y0 + 7) === S.PLAQUE;
@@ -129,6 +145,11 @@ module.exports = {
         objetsGrappin: J.objets.includes('grappin'),
         caisseSurPlaque: Obj(cxA2, ENIG.caisse.y0 + 7) === O.CAISSE,
         grappinButinRepose: !butins.some(b => b.type === 'grappin'),   // déjà pris : ne repousse plus
+        /* L'ancre de retour vient de la GÉNÉRATION, rejouée à chaque
+           chargement : une partie sauvée avant qu'elle existe — sur la rive
+           lointaine, donc scellée — la retrouve, et se rattrape sans
+           recommencer. */
+        ancreRetour: Obj(ENIG.gouffre.x0 + 1, ENIG.gouffre.y0 + 4) === O.ANCRE,
       };
 
       // ======== une partie neuve repart de zéro ========
@@ -156,6 +177,10 @@ module.exports = {
     v('LE GRAPPIN TIRE LE HÉROS PAR-DESSUS L\'EAU',
       r.G_grapLance && r.G_grapArrive && r.G_tresorRejoint,
       `lance=${r.G_grapLance} arrive=${r.G_grapArrive} tresor=${r.G_tresorRejoint}`);
+    v('LA RIVE LOINTAINE NE SE REFERME PAS SUR LE HÉROS',
+      r.G_ancreRetour && r.G_retourLance && r.G_retourArrive && r.G_entreeRejointe,
+      `ancre de retour=${r.G_ancreRetour} lance=${r.G_retourLance}`
+      + ` revenu=${r.G_retourArrive} entrée=${r.G_entreeRejointe}`);
     v('DEUX PLAQUES : UNE SEULE NE SUFFIT PAS', r.D_deuxPlaques && r.D_uneInsuffisante, 'porte cédée trop tôt');
     v('les deux caisses ensemble ouvrent la porte', r.D_deuxOuvrent, 'porte close');
     v('LE MARTEAU EST UN SLAM, PAS UN COUP D\'ÉPÉE', r.M_slamPasEpee,
@@ -166,6 +191,8 @@ module.exports = {
     v('RIEN NE SE PERD AU RECHARGEMENT',
       ac.grappin && ac.inter0 === 1 && ac.tresorGouffre && ac.objetsGrappin
       && ac.caisseSurPlaque && ac.grappinButinRepose, JSON.stringify(ac));
+    v('UNE PARTIE DÉJÀ PIÉGÉE SE RATTRAPE AU RECHARGEMENT',
+      ac.ancreRetour, "l'ancre de retour manque après chargement");
     v('une partie neuve repart de zéro',
       !r.neuve.grappin && r.neuve.inter0 === 0 && r.neuve.grappinButin && r.neuve.caisseAuDepart,
       JSON.stringify(r.neuve));

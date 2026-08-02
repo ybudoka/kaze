@@ -716,7 +716,12 @@ function relacherTout(){
   for(const k in buf) buf[k]=0;
 }
 addEventListener('blur',relacherTout);
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) relacherTout(); });
+/* Au retour, le contexte audio peut avoir été suspendu par le système (ou la
+   sortie avoir changé pendant l'absence) : on le relance sans attendre un
+   geste. */
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) relacherTout(); else reveillerSon();
+});
 
 function majEntrees(){
   /* Chien de garde : le pavé se croit tenu par un doigt alors que l'écran
@@ -736,10 +741,20 @@ function majEntrees(){
 
 /* ============================ SON ============================ */
 let AC=null, maitre=null;
+/* Volume général. Il était à .5 : la musique sortait alors à −30 dBFS de
+   crête, soit 30 dB de marge inutilisée. Collé à l'oreille sur un téléphone
+   on l'entendait ; à un mètre d'un ordinateur, ou renvoyée sur un téléviseur,
+   elle disparaissait. On remonte le bus entier — l'équilibre voulu entre
+   musique et bruitages est conservé, puisque les deux passent par ici. */
+const VOL_MAITRE=2;
 function initSon(){
   try{
     AC=new (window.AudioContext||window.webkitAudioContext)();
-    maitre=AC.createGain(); maitre.gain.value=.5; maitre.connect(AC.destination);
+    maitre=AC.createGain(); maitre.gain.value=VOL_MAITRE; maitre.connect(AC.destination);
+    /* Changer de sortie audio en cours de route — casque branché, recopie
+       AirPlay vers un téléviseur — peut suspendre le contexte au passage.
+       Personne ne touchera forcément à une touche ensuite : on se relance. */
+    AC.onstatechange=()=>{ if(AC&&AC.state!=='running') reveillerSon(); };
   }catch(e){}
 }
 /* Le contexte audio ne démarre qu'à un vrai geste de l'utilisateur. Un appui
@@ -749,7 +764,7 @@ function initSon(){
    réveille. */
 function reveillerSon(){
   if(!AC){ initSon(); return; }
-  if(AC.state==='suspended'){
+  if(AC.state!=='running'){
     try{ const p=AC.resume(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
   }
 }
@@ -928,15 +943,19 @@ const MUSIQUES={
                          C2 = = = = = = =  F2 = = = = = = =
                          B1 = = = = = = =  E2 = = = = = = =`)}]},
   /* la Faille : rien ne tient, tout se fend */
+  /* Basse remontée d'une octave : écrite une octave plus bas, elle descendait
+     à 23 Hz — sous le seuil audible. Rien n'en sortait sur un haut-parleur
+     d'ordinateur ou de téléviseur, et au casque elle ne donnait qu'un
+     battement sourd. La ligne est la même, elle s'entend enfin. */
   faille:{bpm:80,pistes:[
     {t:'sawtooth',v:.05,n:p(`C4 = - C4 = - C#4 =  C4 = - A#3 = - - -
                              G#3 = - G#3 = - A3 =  G#3 = - G3 = - - -
                              C4 = - D#4 = - F#4 =  F4 = - C#4 = - - -
                              A#3 = - F#3 = - C4 =  C4 = = = = = = =`)},
-    {t:'square',v:.035,n:p(`C1 = = = C#1 = = =  C1 = = = A#0 = = =
-                            G#0 = = = A0 = = =  G#0 = = = G0 = = =
-                            C1 = = = D#1 = = =  F#1 = = = F1 = = =
-                            A#0 = = = F#0 = = =  C1 = = = = = = =`)}]},
+    {t:'square',v:.035,n:p(`C2 = = = C#2 = = =  C2 = = = A#1 = = =
+                            G#1 = = = A1 = = =  G#1 = = = G1 = = =
+                            C2 = = = D#2 = = =  F#2 = = = F2 = = =
+                            A#1 = = = F#1 = = =  C2 = = = = = = =`)}]},
   /* la Sentinelle : mécanique, implacable */
   cielBoss:{bpm:156,pistes:[
     {t:'square',v:.05,n:p(`B4 B4 F#4 B4 D5 B4 F#4 B4  B4 B4 F#4 B4 E5 D5 B4 F#4
@@ -973,6 +992,12 @@ let musiqueOn=true, themeMus=null, pasMus=0, tempsMus=0, horlogeMus=null, gainMu
 try{ musiqueOn=localStorage.getItem('kaze-musique')!=='0'; }catch(e){}
 
 function volumeMusique(){ if(gainMus) gainMus.gain.value=musiqueOn?.5:0; }
+/* Les notes programmées d'avance, par paires (oscillateur, instant de départ).
+   Il faut pouvoir couper net celles qui n'ont pas encore commencé : sans cela,
+   au changement de morceau, l'ancien continuerait de jouer par-dessus le
+   nouveau pendant toute l'avance de programmation.
+   La liste est compactée sur place à chaque battement — aucun objet alloué. */
+const notesMus=[];
 function noteMus(f,duree,type,vol){
   if(!AC||!gainMus) return;
   const t=tempsMus;
@@ -983,6 +1008,17 @@ function noteMus(f,duree,type,vol){
   g.gain.setValueAtTime(vol,t+duree*.7);
   g.gain.exponentialRampToValueAtTime(.0001,t+duree);
   o.connect(g); g.connect(gainMus); o.start(t); o.stop(t+duree+.02);
+  notesMus.push(o,t);
+}
+/* Coupe les notes pas encore commencées. `stop` à un instant antérieur au
+   départ garantit qu'elles ne sonneront jamais : aucun clic possible. Celles
+   qui sonnent déjà finissent leur enveloppe — c'est un enchaînement naturel. */
+function couperNotesAVenir(){
+  if(!AC) return;
+  const t=AC.currentTime;
+  for(let i=0;i<notesMus.length;i+=2)
+    if(notesMus[i+1]>t){ try{ notesMus[i].stop(t); }catch(e){} }
+  notesMus.length=0;
 }
 function programmerPas(){
   const m=MUSIQUES[themeMus]; if(!m) return;
@@ -1000,19 +1036,41 @@ function programmerPas(){
   pasMus=(pasMus+1)%long;
   tempsMus+=duree;
 }
+/* Avance de programmation. Elle ne peut pas être fixe : le séquenceur ne tient
+   que si l'horloge du navigateur bat plus vite que cette avance. Or elle
+   décroche pour des raisons hors du jeu — recopie AirPlay vers un téléviseur
+   (le Mac encode la vidéo en continu), page cachée (les navigateurs de bureau
+   bridant `setInterval` à 1 Hz), fil principal chargé. Avec les 250 ms d'avance
+   d'origine, un seul battement en retard vidait la file : 2,2 s de silence sur
+   4, et le tempo repartait n'importe où. On mesure donc le pire battement
+   récent et on programme 2,5 fois plus loin. Un battement lent élargit
+   l'avance ; le calme la resserre. */
+const AVANCE_MUS_MIN=.6, AVANCE_MUS_MAX=2.5;
+let batMus=0, pireBatMus=.06;
 function tickMusique(){
   if(!AC||!themeMus) return;
-  if(tempsMus<AC.currentTime) tempsMus=AC.currentTime+.05;
+  const maintenant=AC.currentTime;
+  if(batMus) pireBatMus=Math.max(maintenant-batMus,pireBatMus*.98);
+  batMus=maintenant;
+  const avance=Math.min(AVANCE_MUS_MAX,Math.max(AVANCE_MUS_MIN,pireBatMus*2.5));
+  // on ne garde que les notes encore à venir : la liste ne peut pas enfler
+  let k=0;
+  for(let i=0;i<notesMus.length;i+=2)
+    if(notesMus[i+1]>maintenant){ notesMus[k++]=notesMus[i]; notesMus[k++]=notesMus[i+1]; }
+  notesMus.length=k;
+  if(tempsMus<maintenant) tempsMus=maintenant+.05;
   /* Borne indispensable : si un pas n'avance pas l'horloge — morceau inconnu,
      partition vide — cette boucle tournerait sans fin et figerait la page. */
   let garde=0;
-  while(tempsMus<AC.currentTime+.25&&garde++<64) programmerPas();
+  while(tempsMus<maintenant+avance&&garde++<256) programmerPas();
 }
 function lancerMusique(nom){
   if(!AC) return;
   if(!gainMus){ gainMus=AC.createGain(); gainMus.connect(maitre); volumeMusique(); }
   if(themeMus===nom) return;
+  couperNotesAVenir();                  // l'ancien morceau ne déborde pas sur le nouveau
   themeMus=nom; pasMus=0; tempsMus=AC.currentTime+.08;
+  batMus=0;
   if(!horlogeMus) horlogeMus=setInterval(tickMusique,60);
 }
 /* Le morceau suit la situation, du plus impérieux au plus général :
@@ -1033,7 +1091,8 @@ function themeVoulu(){
   return regionDe(J.y);                                // vallee | cendre | cimes | lagon
 }
 function arreterMusique(){
-  themeMus=null;
+  themeMus=null; batMus=0;
+  couperNotesAVenir();                  // le silence doit être immédiat
   if(horlogeMus){ clearInterval(horlogeMus); horlogeMus=null; }
 }
 function majMusique(){
@@ -3106,6 +3165,10 @@ function poserEnigmes(){
   {const s=ENIG.gouffre; salle(s); entree(s,s.x0+2);
    for(let y=s.y0+1;y<=s.y0+s.h-2;y++){ putS(s.x0+4,y,S.EAU); putO(s.x0+4,y,O.RIEN); }  // douve
    putO(s.x0+6,s.y0+4,O.ANCRE);                              // l'ancre, de l'autre côté
+   /* Et celle du RETOUR, en miroir contre le mur ouest. Sans elle, la douve
+      barrait aussi le chemin du retour : on grappinait à l'est, on prenait le
+      trésor, et l'on restait scellé sur la rive lointaine pour toujours. */
+   putO(s.x0+1,s.y0+4,O.ANCRE);
    putO(TRESOR_GOUFFRE[0],TRESOR_GOUFFRE[1],O.RIEN);
    putO(s.x0+s.w-2,s.y0+1,O.TORCHE);                         // torche côté lointain
    panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"VISE L'ANCRE AVEC LE GRAPPIN."});
@@ -7839,7 +7902,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.4';
+const VERSION='V1.5';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours

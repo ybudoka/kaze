@@ -1231,3 +1231,81 @@ viennent. Retirer `majManette()` de la boucle fait tomber **8 contrôles sur 13*
   si l'on ne refuse pas explicitement la valeur 0.
 - **Le son ne démarre pas sur un appui manette** : passer par `reveillerSon()`,
   jamais par `if(!AC) initSon()`.
+
+---
+
+## 22. La rive lointaine du gouffre se refermait sur le héros
+
+### Le symptôme, et la vraie cause
+
+« Je peux passer avec le grappin, mais pas revenir. » Signalé depuis la salle du
+gouffre de la vallée (`ENIG.gouffre`, x 3-11 / y 28-36) : le héros y traverse la
+douve au grappin, prend le trésor… et n'en ressort jamais.
+
+La cause n'est pas dans le grappin, qui fonctionne. Elle est dans la
+**géométrie** : la douve barre toute la hauteur intérieure — c'est voulu, « aucun
+détour à pied » — mais elle la barre **dans les deux sens**, et il n'y avait
+qu'**une seule ancre**, posée sur la rive lointaine. Aller : on vise l'ancre
+depuis l'entrée. Retour : rien à viser. Or la seule porte de la salle est en bas,
+**du côté de l'entrée**.
+
+Mesuré, flood-fill sur les vraies collisions avec la règle du grappin :
+
+```
+        ancres de la salle : [[9,32]]        ← une seule, à l'est
+        entrée → trésor    : OUI  (58 cases)
+        trésor → entrée    : NON  (19 cases) ← la poche scellée
+```
+
+Dix-neuf cases : la rive est tout entière, torche et ancre déduites. Le héros y
+était enfermé pour de bon — l'eau n'est franchissable qu'avec les palmes, qui
+sont dans un monde que l'on ne peut plus atteindre.
+
+### Le correctif
+
+Une seconde ancre, **en miroir**, contre le mur ouest (`s.x0+1, s.y0+4`). Elle
+ne gêne aucun passage : la colonne x=4 porte déjà une torche, et l'on entre par
+les colonnes 5 et 6. Après correctif, **57 cases des deux côtés**.
+
+```
+28 #########      28 #########
+29 #i..~..i#      29 #i..~..i#
+30 #...~..T#      30 #...~..T#
+32 #...~.A.#  →   32 #A..~.A.#
+36 ##E.#####      36 ##E.#####
+```
+
+**Les parties déjà piégées se rattrapent toutes seules.** L'ancre vient de la
+génération, rejouée à chaque chargement, et le joueur n'a jamais modifié cette
+case : aucune différence sauvegardée ne la recouvre. Vérifié en sauvant sur le
+trésor puis en rechargeant — le héros revient en x=5, rive ouest. **Personne
+n'a à recommencer.**
+
+### Ce que le contrôle ne regardait pas
+
+`15-enigmes.js` mesurait déjà « LE GOUFFRE EST INFRANCHISSABLE À PIED » et
+« LE GRAPPIN TIRE LE HÉROS PAR-DESSUS L'EAU ». Les deux étaient verts, et le
+sont restés pendant tout le temps où la salle était un cul-de-sac : **ils
+mesuraient l'aller**. Un franchissement ne se teste pas dans un sens.
+
+Le nouveau contrôle rejoue le retour sur le vrai `lancerGrappin()` — au bord de
+l'eau, face à l'ouest — puis vérifie que l'entrée se rejoint **à pied** depuis
+le point de chute. Réinjection (ancre de retour retirée) : rouge, et lui seul.
+
+Les quatre salles d'énigme ont été repassées au même crible — depuis **chaque**
+case atteignable, l'entrée doit rester joignable : `caisse`, `inter`, `gouffre`,
+`cendre`, retour possible partout.
+
+> Le gouffre de la Faille (`FAILLE.finale`) a bien son ancre du même côté que le
+> héros, mais son vide se franchit à la cape, que l'on possède forcément là-bas —
+> la salle reste traversable, et `21-fin.js` le mesure déjà. À revoir un jour
+> pour l'intention (l'épreuve annoncée « grappin » se résout à la cape), pas
+> pour un blocage.
+
+### À ne pas réintroduire
+
+- **Un obstacle qui barre toute une hauteur la barre dans les deux sens** : tout
+  franchissement à sens unique (ancre, colonne d'air, bloc à combler) doit avoir
+  son pendant au retour, ou une seconde issue.
+- **Tester un franchissement dans un seul sens ne prouve rien** : mesurer aussi
+  le retour, et l'atteignabilité de l'entrée depuis le fond de la salle.
