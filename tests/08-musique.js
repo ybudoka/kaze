@@ -108,6 +108,94 @@ module.exports = {
       JSON.stringify(r.apresCoupure));
     v('la rallumer la ramène', r.apresRallumage.actif === true && r.apresRallumage.volume > 0,
       JSON.stringify(r.apresRallumage));
+    /* ---- Le séquenceur doit survivre à une horloge qui bat en retard ----
+       C'est le cas de la recopie AirPlay vers un téléviseur : le Mac encode la
+       vidéo en continu et `setInterval` arrive quand il peut. Avec 250 ms
+       d'avance, la file se vidait entre deux battements — 2,22 s de silence sur
+       4, et le tempo repartait n'importe où. Les bruitages, eux, sont des coups
+       isolés : c'est pourquoi seule la musique cassait. */
+    const t = await page.evaluate(async () => {
+      const dort = ms => new Promise(r => setTimeout(r, ms));
+      majMusique = () => {};                    // la boucle du jeu ne s'en mêle pas
+      const departs = [];
+      const vraiOsc = AC.createOscillator.bind(AC);
+      AC.createOscillator = () => {
+        const o = vraiOsc();
+        const vraiStart = o.start.bind(o);
+        o.start = q => { departs.push(q); return vraiStart(q); };
+        return o;
+      };
+      if (horlogeMus) { clearInterval(horlogeMus); horlogeMus = null; }
+      themeMus = null; lancerMusique('boss');
+      // on bride le battement à 1 Hz, comme une machine qui diffuse sur la TV
+      clearInterval(horlogeMus); horlogeMus = setInterval(tickMusique, 1000);
+      await dort(4200);
+      clearInterval(horlogeMus); horlogeMus = null;
+      AC.createOscillator = vraiOsc;
+      arreterMusique();
+      const d = [...new Set(departs.map(q => +q.toFixed(4)))].sort((a, b) => a - b);
+      const ecarts = [];
+      for (let i = 1; i < d.length; i++) ecarts.push(d[i] - d[i - 1]);
+      const pas = 60 / MUSIQUES.boss.bpm / 2;
+      return { pas, nb: departs.length,
+               pireEcart: ecarts.length ? Math.max(...ecarts) : 0,
+               trous: ecarts.filter(x => x > pas * 1.6).length };
+    });
+    v('LE SÉQUENCEUR NE TOMBE PAS À SEC QUAND L\'HORLOGE BAT EN RETARD',
+      t.trous === 0, `${t.trous} trou(s), pire écart ${t.pireEcart.toFixed(3)}s pour un pas de ${t.pas.toFixed(3)}s`);
+    v('et il programme bien tout le morceau', t.nb >= 2 * Math.floor(4 / t.pas) * 0.8,
+      `${t.nb} notes pour ~${2 * Math.round(4 / t.pas)} attendues`);
+
+    /* ---- Les partitions elles-mêmes ---- */
+    const part = await page.evaluate(() => {
+      const boiteux = [], sourds = [];
+      for (const [nom, m] of Object.entries(MUSIQUES)) {
+        const L = m.pistes.map(pi => pi.n.length);
+        if (L.some(x => x !== L[0])) boiteux.push(`${nom} (${L.join('/')})`);
+        const f = Math.min(...m.pistes.flatMap(pi =>
+          pi.n.filter(n => n !== '-' && n !== '=').map(hauteur)));
+        if (f < 30) sourds.push(`${nom} (${Math.round(f)} Hz)`);
+      }
+      return { boiteux, sourds };
+    });
+    v('LES DEUX VOIX D\'UN MORCEAU ONT LA MÊME LONGUEUR',
+      part.boiteux.length === 0, part.boiteux.join(', ') + ' : la boucle tourne sur la plus longue, l\'autre se déphase');
+    v('AUCUNE BASSE SOUS LE SEUIL AUDIBLE (30 Hz)',
+      part.sourds.length === 0, part.sourds.join(', '));
+
+    /* ---- Le niveau de sortie ----
+       Rendu hors ligne de la vraie chaîne (noteMus → gainMus → maitre). À
+       -30 dBFS de crête, la musique s'entendait collée à l'oreille sur un
+       téléphone et disparaissait sur un ordinateur ou un téléviseur. */
+    const niv = await page.evaluate(async () => {
+      const dB = x => x > 0 ? 20 * Math.log10(x) : -Infinity;
+      const rendre = async (nom, sfx) => {
+        const sauve = { AC, maitre, gainMus, themeMus, pasMus, tempsMus };
+        const off = new OfflineAudioContext(1, 44100 * 6, 44100);
+        AC = off;
+        maitre = off.createGain(); maitre.gain.value = VOL_MAITRE; maitre.connect(off.destination);
+        gainMus = off.createGain(); gainMus.gain.value = .5; gainMus.connect(maitre);
+        if (sfx) SFX[nom]();
+        else { themeMus = nom; pasMus = 0; tempsMus = .02; while (tempsMus < 5.5) programmerPas(); }
+        const buf = await off.startRendering();
+        AC = sauve.AC; maitre = sauve.maitre; gainMus = sauve.gainMus;
+        themeMus = sauve.themeMus; pasMus = sauve.pasMus; tempsMus = sauve.tempsMus;
+        const d = buf.getChannelData(0);
+        let pic = 0, somme = 0;
+        for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > pic) pic = a; somme += d[i] * d[i]; }
+        return { pic: dB(pic), rms: dB(Math.sqrt(somme / d.length)) };
+      };
+      const m = await rendre('vallee', false);
+      const s = await rendre('bombe', true);
+      return { musPic: m.pic, musRms: m.rms, sfxPic: s.pic };
+    });
+    v('LA MUSIQUE SORT À UN NIVEAU AUDIBLE (crête > -24 dBFS)',
+      niv.musPic > -24, `crête ${niv.musPic.toFixed(1)} dBFS, rms ${niv.musRms.toFixed(1)} dBFS`);
+    v('sans saturer', niv.musPic < -6 && niv.sfxPic < -6,
+      `musique ${niv.musPic.toFixed(1)}, bruitage ${niv.sfxPic.toFixed(1)} dBFS`);
+    v('et reste sous les bruitages', niv.sfxPic > niv.musPic,
+      `musique ${niv.musPic.toFixed(1)} vs bruitage ${niv.sfxPic.toFixed(1)} dBFS`);
+
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },

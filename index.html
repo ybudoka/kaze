@@ -967,9 +967,10 @@ const MUSIQUES={
     {t:'sawtooth',v:.055,n:p(`D4 D4 A4 D4 F4 D4 A4 D4  D4 D4 A4 D4 G4 F4 D4 A4
                               C4 C4 G4 C4 D#4 C4 G4 C4  D4 F4 A4 D5 C5 A4 F4 D4
                               A#3 A#3 F4 A#3 D4 A#3 F4 A#3  A3 C4 F4 A4 C5 A4 F4 C4`)},
-    {t:'square',v:.04,n:p(`D1 = D1 = D1 = F1 =  D1 = D1 = A1 = D2 =
-                           C1 = C1 = C1 = D#1 =  D1 = F1 = A1 = D2 =
-                           A#0 = A#0 = D1 = F1 =  A0 = C1 = F1 = A1 =`)}]},
+    /* même remontée d'octave : elle plongeait à 28 Hz, donc dans le néant */
+    {t:'square',v:.04,n:p(`D2 = D2 = D2 = F2 =  D2 = D2 = A2 = D3 =
+                           C2 = C2 = C2 = D#2 =  D2 = F2 = A2 = D3 =
+                           A#1 = A#1 = D2 = F2 =  A1 = C2 = F2 = A2 =`)}]},
   reineBoss:{bpm:144,pistes:[
     {t:'square',v:.045,n:p(`A4 A4 E4 A4 C5 A4 E4 A4  A4 A4 E4 A4 D5 C5 A4 E4
                             G4 G4 D4 G4 B4 G4 D4 G4  A4 C5 E5 A5 G5 E5 C5 A4`)},
@@ -985,8 +986,11 @@ const MUSIQUES={
   victoire:{bpm:120,pistes:[
     {t:'square',v:.06,n:p(`C5 = E5 = G5 = C6 =  G5 = C6 = E6 = = = = =
                            A5 = = = G5 = = =  F5 = E5 = D5 = C5 = = =`)},
+    /* La basse comptait 33 pas contre 36 à la mélodie : la boucle tournant sur
+       la plus longue, elle se relançait en plein milieu, décalée. Trois tenues
+       de plus, et les deux voix respirent ensemble. */
     {t:'triangle',v:.055,n:p(`C3 = = = G3 = = =  C3 = = = E3 = = =
-                              F3 = = = G3 = = =  C3 = = = = = = = =`)}]}
+                              F3 = = = G3 = = =  C3 = = = = = = = = = = =`)}]}
 };
 let musiqueOn=true, themeMus=null, pasMus=0, tempsMus=0, horlogeMus=null, gainMus=null;
 try{ musiqueOn=localStorage.getItem('kaze-musique')!=='0'; }catch(e){}
@@ -1045,7 +1049,7 @@ function programmerPas(){
    4, et le tempo repartait n'importe où. On mesure donc le pire battement
    récent et on programme 2,5 fois plus loin. Un battement lent élargit
    l'avance ; le calme la resserre. */
-const AVANCE_MUS_MIN=.6, AVANCE_MUS_MAX=2.5;
+const AVANCE_MUS_MIN=1.2, AVANCE_MUS_MAX=2.5;
 let batMus=0, pireBatMus=.06;
 function tickMusique(){
   if(!AC||!themeMus) return;
@@ -1978,18 +1982,69 @@ function bakeEnnemis(){
     rc(g,13,30+d,18,4,'#6e1f10');
     rc(g,10,6,4,5,'#ff8b3a'); rc(g,30,6,4,5,'#ff8b3a');           // cornes ardentes
   });
-  /* la colporteuse : capuche, grande cape, et son ballot sur le dos */
-  for(let f=0;f<2;f++) faireSprite(`colporteuse${f}`,22,30,g=>{
-    const d=f?1:0;
-    rc(g,4,12+d,7,9,'#6a4a2e');                       // le ballot
-    rc(g,5,13+d,5,4,'#8a6440'); rc(g,6,11+d,3,2,'#c8a060');
-    rc(g,8,6+d,10,16,'#4a3a6a');                      // la cape
-    rc(g,9,7+d,8,7,'#6a56a0');
-    rc(g,10,3+d,7,6,'#5a4880');                       // la capuche
-    rc(g,11,4+d,5,4,'#2a2038');
-    rc(g,12,6+d,1,2,'#ffe86a'); rc(g,14,6+d,1,2,'#ffe86a');   // yeux
-    rc(g,9,22,4,6,'#3a2f4e'); rc(g,14,22,4,6,'#3a2f4e');      // pieds
-    rc(g,17,10+d,3,10,'#8a6a3a');                     // bâton
+  /* La colporteuse : capuche à liseré, besace en bandoulière, bâton de marche.
+     Sa silhouette doit se lire d'un coup d'œil — c'est vers elle qu'on court,
+     et elle ne reste pas. */
+  for(let f=0;f<2;f++) faireSprite(`colporteuse${f}`,22,32,g=>{
+    const d=f?1:0;                                    // elle se dandine sur place
+    rc(g,7,25,4,6,'#3a2f4e');  rc(g,13,25,4,6,'#3a2f4e');     // bottes, elles fixes
+    rc(g,7,29,4,2,'#241d33');  rc(g,13,29,4,2,'#241d33');
+    // la cape, évasée du col à l'ourlet
+    rc(g,7,11+d,10,10,'#4a3a70');
+    rc(g,6,17+d,12,7,'#4a3a70');
+    rc(g,5,21+d,14,6,'#4a3a70');
+    rc(g,8,12+d,8,9,'#6a56a0');                       // pan éclairé
+    rc(g,9,13+d,3,7,'#8672c4');
+    rc(g,11,20+d,2,7,'#33284c');                      // pli central
+    rc(g,5,25+d,14,2,'#33284c');                      // ourlet
+    // la capuche, l'ombre du visage, puis le col
+    rc(g,7,2+d,10,11,'#5a4880');
+    rc(g,8,1+d,8,3,'#6f5cab');
+    rc(g,9,5+d,6,7,'#241c30');
+    rc(g,10,8+d,1,2,'#ffe86a'); rc(g,13,8+d,1,2,'#ffe86a');   // les yeux
+    rc(g,11,11+d,3,1,'#e0b088');                      // le menton
+    rc(g,6,12+d,12,2,'#3f8f7a');                      // liseré vert de voyage
+    rc(g,6,13+d,12,1,'#2c6b5c');
+    // la besace : bandoulière en travers, sacoche sur la hanche
+    rc(g,14,14+d,3,2,'#6a4a2e');
+    rc(g,12,16+d,3,2,'#6a4a2e');
+    rc(g,10,18+d,3,2,'#6a4a2e');
+    rc(g,3,17+d,8,9,'#7a5430');                       // le sac
+    rc(g,4,21+d,6,4,'#9a6c40');
+    rc(g,3,17+d,8,4,'#5d3f22');                       // le rabat
+    rc(g,6,20+d,3,2,'#e8c24a');                       // la boucle de laiton
+    rc(g,4,25+d,6,1,'#5d3f22');
+    // le bâton de marche, et la main qui le tient
+    rc(g,18,7,2,23,'#7a5a32'); rc(g,18,7,1,23,'#9a7444');
+    rc(g,17,4,4,4,'#c8a060'); rc(g,18,5,2,2,'#ffe8b0');       // pommeau d'ambre
+    rc(g,17,15+d,3,3,'#e0b088');
+  });
+  /* Le kiosque, en DEUX pièces : le fond (montants, auvent, toile) passe
+     derrière elle, l'étal (comptoir et marchandise) passe devant. Elle se
+     tient ainsi DANS sa boutique, et non collée dessus. */
+  faireSprite('kiosqueFond',42,34,g=>{
+    rc(g,3,8,4,26,'#6a4a2a');  rc(g,35,8,4,26,'#6a4a2a');     // les deux montants
+    rc(g,3,8,1,26,'#8a6438');  rc(g,35,8,1,26,'#8a6438');
+    rc(g,3,31,4,3,'#4a3018');  rc(g,35,31,4,3,'#4a3018');     // pieds
+    rc(g,3,8,36,3,'#7a5430');  rc(g,3,8,36,1,'#9a6c40');      // la traverse
+    for(let i=0;i<7;i++) rc(g,i*6,1,6,7,i%2?'#b8384a':'#e6ded0');   // l'auvent rayé
+    rc(g,0,0,42,2,'#8a2436'); rc(g,0,7,42,2,'#7a2030');
+    for(let i=0;i<7;i++) rc(g,1+i*6,9,4,2,i%2?'#b8384a':'#d6cec0'); // les festons
+    rc(g,7,11,28,13,'#4a3a6e');                                // toile de fond
+    rc(g,7,11,28,2,'#5c4a86'); rc(g,7,22,28,2,'#332844');
+    rc(g,8,11,4,6,'#c8a060'); rc(g,8,11,4,2,'#e8c88a');        // bocal d'ambre
+    rc(g,30,11,4,7,'#4a86b8'); rc(g,30,11,4,2,'#8ac4e8');      // fiole bleue
+  });
+  faireSprite('kiosqueEtal',44,18,g=>{
+    rc(g,4,1,6,6,'#8a2b36'); rc(g,5,2,4,3,'#c4485a');          // étoffe roulée
+    rc(g,13,2,4,5,'#3f8f7a'); rc(g,14,0,2,3,'#c8a060');        // une gourde
+    rc(g,20,3,5,4,'#7a5430'); rc(g,21,4,3,2,'#9a6c40');        // un cageot
+    rc(g,28,1,3,6,'#b8384a'); rc(g,32,3,3,4,'#c8a060');        // pots
+    rc(g,37,4,4,3,'#e8c24a');                                  // rubis au comptoir
+    rc(g,0,7,44,4,'#9a6c40'); rc(g,0,7,44,1,'#b98a52');        // la planche
+    rc(g,0,11,44,2,'#6a4a2a');
+    rc(g,2,13,40,4,'#3f8f7a'); rc(g,2,13,40,1,'#58b39a');      // la nappe
+    for(let i=0;i<10;i++) rc(g,3+i*4,17,2,1,'#2c6b5c');        // les franges
   });
   faireSprite('lanterne',14,16,g=>{                   // la lanterne du pêcheur
     rc(g,5,0,4,2,'#8a8a9a'); rc(g,3,2,8,2,'#6a6a7a');
@@ -7902,7 +7957,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.5';
+const VERSION='V1.6';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours

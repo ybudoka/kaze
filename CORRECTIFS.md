@@ -346,6 +346,15 @@ Autres pièges rencontrés en construisant la région :
 - **Une assertion doit pouvoir être fausse** : `largeurTexte(c) === 0` ne l'est
   jamais. Après avoir écrit un contrôle, lui donner exprès une entrée fautive
   et vérifier qu'il la refuse (cf. 12).
+- **Un séquenceur ne se règle pas sur une avance fixe** : elle doit couvrir le
+  pire battement de l'horloge du navigateur, laquelle ne dépend pas du jeu
+  (recopie AirPlay, page cachée bridée à 1 Hz, machine chargée). Quand seule la
+  musique déraille et que les bruitages vont bien, c'est l'ordonnancement, pas
+  la sortie audio (cf. 23).
+- **Un niveau sonore se chiffre en dBFS par un rendu hors ligne** : « ça
+  s'entend chez moi » dépend du casque et de la distance ; −38 dBFS de rms, non.
+  Et rien sous **30 Hz** : aucun haut-parleur d'ordinateur, de téléphone ou de
+  téléviseur ne le restitue (cf. 23).
 
 ---
 
@@ -1309,3 +1318,95 @@ case atteignable, l'entrée doit rester joignable : `caisse`, `inter`, `gouffre`
   son pendant au retour, ou une seconde issue.
 - **Tester un franchissement dans un seul sens ne prouve rien** : mesurer aussi
   le retour, et l'atteignabilité de l'entrée depuis le fond de la salle.
+
+---
+
+## 23. La musique se hachait dès qu'on renvoyait le jeu sur le téléviseur
+
+**Symptôme rapporté** : « la musique, surtout sur l'ordi » — puis, précision
+décisive du joueur : *« je pense que ce n'est que quand j'AirPlay le jeu sur la
+TV »*. Les bruitages, eux, ne posaient aucun problème.
+
+### La cause réelle
+
+Ce n'est pas la sortie audio, c'est **l'horloge du navigateur**. En recopie
+AirPlay, le Mac encode et diffuse la vidéo en continu : `setInterval` arrive
+quand il peut, avec des retards de plusieurs centaines de millisecondes. Or le
+séquenceur ne programmait la musique que **250 ms à l'avance**. Un seul
+battement en retard suffisait à vider la file ; la garde
+`if(tempsMus<AC.currentTime) tempsMus=AC.currentTime+.05` remettait alors
+l'horloge à zéro — trou, **et tempo reparti n'importe où**.
+
+**Pourquoi la musique seule cassait** : un bruitage est un coup isolé, programmé
+à `currentTime+delai`. Qu'il parte 300 ms trop tard ne s'entend pas. La musique,
+elle, est un flux : elle exige d'avoir toujours de l'avance en réserve.
+
+Mesuré, horloge bridée à 1 Hz (le cas limite : ce que font aussi les navigateurs
+de bureau sur une page cachée), morceau « boss », pas de 200 ms :
+
+```
+                        avant            après
+  notes sur 4 s          8               44   (≈ 40 attendues)
+  trous > 1,6 pas        3                0
+  silence cumulé      2,22 s sur 4     0,00 s
+```
+
+### Trois autres défauts trouvés au passage, tous mesurés
+
+| Défaut | Mesure |
+|---|---|
+| **La musique sortait 12 dB trop bas** | crête **−30,1 dBFS**, rms −38,4 — soit 30 dB de marge inutilisée. Collée à l'oreille sur un téléphone on l'entendait ; à un mètre d'un ordinateur, ou renvoyée sur les enceintes d'un téléviseur, elle disparaissait sous les bruitages. |
+| **`victoire` : deux voix de longueurs différentes** | mélodie **36 pas**, basse **33**. La boucle tournant sur la plus longue, la basse se relançait en plein milieu, décalée. |
+| **Deux basses sous le seuil audible** | `faille` **23 Hz**, `rongeurBoss` **28 Hz**. Rien n'en sortait d'un haut-parleur d'ordinateur ou de téléviseur ; au casque, un simple battement sourd. Ces lignes de basse n'existaient tout simplement pas. |
+
+### Les correctifs
+
+- **Avance de programmation adaptative** (`AVANCE_MUS_MIN=1.2` s,
+  `AVANCE_MUS_MAX=2.5` s). `tickMusique` mesure le **pire battement récent**
+  (`pireBatMus`, qui retombe doucement au calme) et programme 2,5 fois plus
+  loin. Une horloge lente élargit l'avance d'elle-même ; le calme la resserre.
+- **Les notes à venir sont coupées au changement de morceau**
+  (`couperNotesAVenir`), sinon l'ancien morceau déborderait sur le nouveau
+  pendant toute l'avance. `stop` à un instant antérieur au départ garantit que
+  la note ne sonnera jamais : aucun clic. Celles qui sonnent déjà finissent leur
+  enveloppe — c'est un enchaînement naturel. **C'est ce correctif qui rend
+  l'avance large gratuite** : la réactivité est intacte.
+- La liste `notesMus` est **compactée sur place** à chaque battement : elle ne
+  peut pas enfler, et rien n'est alloué par image (cf. § 8).
+- **Volume maître `.5` → `2`** (`VOL_MAITRE`) : +12 dB. Musique à **−18,1 dBFS**
+  de crête, −26,4 de rms. Les deux bus passant par le maître, **l'équilibre
+  voulu est conservé** : la musique reste 5,1 dB sous les bruitages (4,7 avant).
+- **`AC.onstatechange`** relance le contexte quand il n'est plus `running` :
+  changer de sortie en cours de route (casque, AirPlay) peut le suspendre, et
+  personne ne touchera forcément une touche ensuite. Idem au retour de
+  visibilité.
+- Basse de `victoire` portée à **36 pas**, basses de `faille` et `rongeurBoss`
+  **remontées d'une octave** (23 → 46 Hz, 28 → 55 Hz). Mêmes lignes, enfin
+  audibles.
+
+### Vérification
+
+Quatre nouveaux contrôles dans `08-musique.js`, tous sur le vrai jeu :
+le séquenceur avec **horloge bridée à 1 Hz** (aucun trou), l'**égalité des
+longueurs** de pistes, l'**absence de note sous 30 Hz**, et le **niveau de
+sortie** rendu hors ligne par la vraie chaîne (`noteMus → gainMus → maitre`).
+
+Réinjection des quatre bugs, un par un : chacun rougit **son** contrôle et lui
+seul, avec le bon chiffre (`4 trou(s), pire écart 0.961s` ; `victoire (36/33)` ;
+`faille (23 Hz)` ; `crête -30.1 dBFS`). Suite complète : **507 contrôles verts**.
+
+### À ne pas réintroduire
+
+- **Un séquenceur ne se règle pas sur une avance fixe.** L'avance doit couvrir
+  le pire battement de l'horloge, et l'horloge ne dépend pas du jeu : recopie
+  AirPlay, page cachée (bridage à 1 Hz), machine chargée. La mesurer, pas la
+  supposer.
+- **Un flux et un coup isolé ne cassent pas pareil.** Quand seule la musique
+  déraille et que les bruitages vont bien, chercher du côté de l'ordonnancement,
+  pas de la sortie audio.
+- **Chiffrer le niveau, en dBFS, par un rendu hors ligne.** « Ça s'entend chez
+  moi » dépend du casque, de l'appareil et de la distance ; −38 dBFS de rms, non.
+- **Deux pistes d'un même morceau doivent avoir la même longueur**, sinon la
+  plus courte se déphase à chaque tour de boucle.
+- **Rien sous 30 Hz** : une basse écrite trop bas ne s'entend sur aucun
+  haut-parleur d'ordinateur, de téléphone ou de téléviseur.
