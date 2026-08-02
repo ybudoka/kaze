@@ -1413,6 +1413,115 @@ seul, avec le bon chiffre (`4 trou(s), pire écart 0.961s` ; `victoire (36/33)` 
 
 ---
 
+## 24. La colporteuse : une silhouette floue, deux annonces, et trop de passages
+
+### Le symptôme, et ce qu'on a mesuré
+
+Trois défauts distincts, tous visibles manette en main :
+
+1. **On ne voyait pas ce qu'elle était.** Son sprite tenait en 22 × 30 px de
+   violet presque uniforme : capuche, cape et ballot partageaient deux teintes
+   (`#4a3a6a` / `#6a56a0`), les yeux faisaient 1 px de large, et rien à l'écran
+   ne disait « marchande ». Posée dans l'herbe, elle se lisait comme un buisson.
+2. **Deux annonces pour un seul événement.** `poserMarchand()` appelait
+   `annonce()` *et* `dire()` : un bandeau en plein milieu de l'écran **et** une
+   boîte de dialogue en bas, simultanément. Compté depuis le jeu : **2 messages**.
+3. **Elle passait toutes les minutes.** Après son départ, le délai de retour
+   valait `3600 + rnd()*3600` images, soit **60 à 120 secondes**. Une visite par
+   minute : ce n'était plus un événement, c'était un distributeur au coin de la
+   carte. Et ses tarifs ne bougeaient jamais d'une visite à l'autre.
+
+### Les correctifs
+
+**Elle a un kiosque, et il est en deux pièces.** Un seul sprite posé derrière
+elle l'aurait laissée *collée* à son décor. `kiosqueFond` (montants, auvent
+rayé, toile de fond, marchandise suspendue) est dessiné **avant** elle ;
+`kiosqueEtal` (planche, nappe, étoffes, cageot, jarres) est dessiné **après**,
+décalé de 4 px vers l'avant. Le comptoir lui passe donc devant les jambes :
+elle se tient *dans* sa boutique.
+
+La toile de fond est **sable** (`#b09068`) et non violette : en violet, sa cape
+s'y fondait et elle disparaissait dans son propre kiosque.
+
+**Elle a une besace, et une silhouette.** 22 × 32 px : capuche à bords
+retombants, visage dans l'ombre avec deux yeux d'or de 2 × 2 (comme tous les
+PNJ du jeu), écharpe verte, sacoche de cuir à rabat et boucle de laiton pendue
+à la hanche par une bandoulière qui barre la poitrine, bâton à pommeau d'ambre.
+
+**Un seul message**, celui du bas — le bandeau plein écran gênait la vue en
+pleine partie pour dire la même chose.
+
+**Elle se fait désirer** : `COLPORTEUSE_ATTENTE` = 10 800 images (~3 min) avant
+la première tournée, puis `colporteuseDelai()` = 18 000 à 28 800 images, soit
+**5 à 8 minutes** entre deux passages.
+
+**Ses prix montent à chaque vente conclue chez elle** : `Q.achatsColporteuse`
+compte les achats, `prixItinerant()` majore de 40 % du tarif de départ par
+achat, arrondi à cinq rubis. Le compteur est **dans `Q`**, donc sauvegardé —
+hors de `Q`, il aurait suffi de recharger pour retrouver les tarifs du premier
+jour. Et elle le dit (« LE RESTE MONTE, TU T'EN DOUTES ») : sans cela, la ligne
+suivante coûte plus cher sans raison apparente, et ça passe pour un défaut.
+
+### Le contrôle ne pouvait pas chercher les couleurs des sprites
+
+Premier jet du contrôle visuel : compter à l'écran les pixels exactement égaux
+à `#B8384A` (le rouge de l'auvent). **Zéro**, alors que le kiosque était bel et
+bien dessiné. Le rendu passe par une teinte d'ambiance : `#B8384A` arrive à
+l'écran en **(143, 48, 66)**.
+
+Compter les pixels « qui changent » ne marchait pas davantage : la lueur chaude
+qui l'entoure barbouille déjà un carré de **66 × 66 px**, bien plus large que le
+kiosque.
+
+Le contrôle rend donc la scène **sans elle puis avec elle** sur un terrain
+aplani, écarte les écarts faibles (< 60 sur la somme RVB, c'est la lueur), et
+**classe par teinte** ce qui reste — ce que l'ambiance ne renverse pas. Deux
+mesures visent en plus des **boîtes en pixels d'écran** autour de sa tête et de
+ses yeux : un total global serait resté vert alors qu'elle était noyée dans son
+propre décor.
+
+Mesures obtenues : empreinte **44 × 52 px** (contre 22 × 30 pour elle seule),
+264 px de rouge d'auvent, 487 px de bois, 118 px de capuche au-dessus du
+comptoir, 8 px d'or dans les yeux.
+
+### Vérification
+
+Neuf nouveaux contrôles dans `10-colporteuse.js`, tous sur le vrai jeu, avec
+contrôle à blanc (deux rendus identiques ne diffèrent d'aucun pixel).
+
+Réinjection, une par une, de **sept** régressions : chacune rougit **ses**
+contrôles et eux seuls, avec le bon chiffre —
+
+- kiosque retiré du rendu → `34 x 39 px`, `0 px de rouge`, `81 px de bois` ;
+- fond dessiné **devant** elle → `0 px de cape`, `0 px d'or dans les yeux` ;
+- étal remonté de 20 px → `21 px de cape`, `0 px d'or dans les yeux` ;
+- `annonce()` remis → `2 messages` ;
+- majoration annulée → `potion 40 -> 40` ;
+- délai ramené à une minute → `70 s` ;
+- compteur retiré de la sauvegarde → `{"achats":0,"potion":40,"attendu":90}`.
+
+Suite complète : **523 contrôles verts**.
+
+### À ne pas réintroduire
+
+- **Un décor qui entoure un personnage se dessine en deux pièces**, pas en une.
+  Le fond avant lui, l'avant-plan après : sans quoi il est *collé* à son décor
+  au lieu d'être dedans.
+- **Ne jamais chercher la couleur d'un sprite dans les pixels de l'écran.** Le
+  rendu passe par une teinte d'ambiance. Classer par teinte, jamais par égalité.
+- **Un total global ne dit pas si un personnage est visible.** Il faut viser la
+  boîte en pixels d'écran où sa tête et ses yeux doivent apparaître — sinon le
+  contrôle reste vert alors que le décor l'a avalé.
+- **Un décor et le personnage devant lui ne doivent pas partager leur teinte.**
+  Cape violette sur toile violette : la silhouette s'efface.
+- **Un compteur qui doit survivre au rechargement vit dans `Q`.** Ailleurs, il
+  repart à zéro à la lecture de la sauvegarde, sans que rien ne le signale.
+- **Un prix qui change sans être annoncé passe pour un bug.** Le dire.
+- **Un événement, un message.** Un bandeau *et* une boîte de dialogue pour la
+  même chose, c'est deux fois trop.
+
+---
+
 ## 25. La carte : tout se ressemblait, et tout clignotait pareil
 
 **Demande du joueur** : « améliore les couleurs sur la mini-carte et varie les
@@ -1520,3 +1629,155 @@ lire la couleur dessinée : il rougit, lui, à `ΔE 0,0`.
 - **Le sens d'abord, la couleur locale ensuite** : ce qui ferme le passage doit
   se voir comme tel dans les huit régions, sinon la carte n'est qu'une jolie
   image.
+
+---
+
+## 26. Cinq objets montraient le dessin d'un autre
+
+### Le symptôme, et la vraie cause
+
+Dans les deux boutiques et dans la boîte d'objet, plusieurs articles portaient
+la vignette de leur voisin :
+
+| objet | ce qu'il montrait |
+|---|---|
+| ARC | une **flèche** |
+| CARQUOIS DE CUIR | une **flèche** |
+| GRAND SAC | une **bombe** |
+| BOUCLIER RENFORCÉ | un **cœur** |
+| COEUR SUPPLÉMENTAIRE | le cœur qu'on **ramasse par terre** |
+
+La cause est banale et c'est ce qui la rend coûteuse : `spr:'fleche'` est du
+code parfaitement valide. Rien ne prévient — ni erreur, ni avertissement.
+Chaque icône avait été posée en attendant, et personne n'y est revenu.
+
+### Le correctif
+
+Cinq dessins neufs : `arcItem` (le bois et la corde, sans flèche encochée —
+c'est justement ce qu'il fallait cesser de montrer), `carquoisItem` (deux
+hampes empennées qui dépassent d'un étui de cuir sanglé), `sacItem` (une
+besace dont sort une bombe mèche allumée), `bouclierItem` (l'écu d'or et sa
+croix, dans la palette du bouclier renforcé que porte le héros) et
+`coeurMaxItem` (le même cœur, mais **serti d'or** : un réceptacle, pas un soin).
+
+### Le contrôle ne compare pas les noms
+
+Comparer `spr` d'un objet à `spr` d'un autre resterait vert le jour où deux
+noms distincts porteraient le même dessin. `27-icones.js` compare donc les
+**images rendues**, normalisées au centre d'une case commune — c'est ce que
+le joueur voit qui compte.
+
+Il a fallu **deux** filets, et la réinjection l'a montré :
+
+1. *Doublon dans la liste.* Attrape ARC = 10 FLÈCHES, CARQUOIS = 10 FLÈCHES,
+   GRAND SAC = BOMBE. Deux entrées qui désignent **la même chose** (les bombes
+   de Bran et la bombe du sac, la potion vendue dans les deux boutiques) sont
+   nommées une fois pour toutes, pour que toute autre coïncidence reste une faute.
+2. *Emprunt à ce qui n'est pas un objet.* Le premier filet ne voyait **pas**
+   `BOUCLIER RENFORCÉ → coeur` : le cœur ramassé au sol n'est dans aucune
+   boutique, donc dans aucune liste. On nomme donc les dessins qui appartiennent
+   à autre chose (`coeur`, `cle`, `eclat`, gemmes, personnages, coffre) et on
+   interdit aux vignettes de pointer dessus. `fleche` et `bombeItem` n'y sont
+   pas : ils servent légitimement de vignette **et** de butin — c'est le même objet.
+
+S'y ajoutent deux garde-fous : aucune vignette sous douze pixels visibles, et
+aucun rapport largeur/hauteur hors de [0,6 ; 1,7] — la boutique les dessine
+dans un carré de 11 px et un sprite trop allongé s'y écrase.
+
+### Vérification
+
+Réinjection des cinq emprunts, un par un : chacun rougit, avec le nom de
+l'objet et celui du dessin volé (`CARQUOIS DE CUIR = 10 FLÈCHES`,
+`BOUCLIER RENFORCÉ montre « coeur »`). Contrôle à blanc dans les deux sens :
+la comparaison sait dire « identiques » **et** « différents ».
+
+### À ne pas réintroduire
+
+- **Une icône posée « en attendant » ne se voit jamais dans le code.**
+  `spr:'fleche'` compile, s'affiche, et ne se signale nulle part.
+- **Comparer des noms de sprite ne prouve rien.** Comparer les images rendues.
+- **Un doublon ne se voit que si les deux objets sont dans la liste comparée.**
+  Il faut aussi nommer les dessins qui appartiennent à autre chose.
+
+---
+
+## 27. La colporteuse tient parfois une pièce rare
+
+### Ce qui manquait
+
+Son ballot ne contenait que des capacités attendues — carquois, sac, cœur,
+potion — toujours les mêmes, dans le même ordre. Rien ne récompensait le fait
+de la guetter : la trouver ou la manquer revenait au même.
+
+### Ce qui a été ajouté
+
+Trois pièces, une par axe de jeu, qu'aucune autre boutique ni aucun coffre ne
+donne. Elle n'en sort **qu'une à la fois**, et **une fois sur trois** environ,
+tirée parmi celles qu'on n'a pas encore :
+
+| pièce | prix | effet |
+|---|---|---|
+| AMULETTE DE GARDE | 220 | encaisse la moitié des dégâts (jamais jusqu'à zéro) |
+| FIOLE DE FÉE | 260 | relève une fois au lieu de laisser mourir, puis se consomme |
+| RUNE DE TRANCHANT | 300 | +1 dégât à chaque coup d'épée, coup tournoyant compris |
+
+Le tirage se refait à **chaque fois qu'elle s'installe**, et la pièce n'est pas
+sauvegardée — pas plus qu'elle. Sans cela il aurait suffi de recharger en
+boucle jusqu'à tomber sur la bonne. Les trois drapeaux, eux, vivent dans `Q` :
+ce sont les achats qui restent acquis.
+
+Le message d'arrivée change de fin (« ELLE TIENT UNE PIÈCE RARE. ») — toujours
+**un seul** message. Dans l'étal, la pièce passe en tête, porte un liseré d'or
+clignotant et son nom en doré. À l'achat : fanfare, secousse, bandeau, et une
+phrase qui dit ce que la pièce **fait** — sinon rien à l'écran ne l'expliquerait.
+
+### Le panneau de boutique était taillé pour quatre lignes
+
+La cinquième ligne — la pièce rare — passait **par-dessus** le compte de rubis
+et « B ACHAT  X SORTIE » : `panneau(X,bx,by,bw,104)` était écrit en dur. La
+hauteur suit désormais la liste (`36 + n*17`, ce qui redonne exactement 104 à
+quatre lignes), et le pied de page se cale sur le bas du cadre.
+
+Le contrôle n'inspecte pas la formule : il **intercepte** `texte` et `panneau`
+pendant un vrai rendu, relève les rectangles réellement écrits, et exige que
+rien ne déborde du cadre ni ne recouvre autre chose. Réinjecté à hauteur fixe,
+il rougit en nommant les collisions :
+`« POTION ROUGE » sur « B ACHAT  X SORTIE »`.
+
+### Les effets sont mesurés, pas supposés
+
+Un drapeau posé dans `Q` ne prouve rien tant que le jeu ne s'en sert pas. Les
+trois passent par le vrai jeu : `blesser()` pour l'amulette (4 → 2 points
+perdus) et pour la fiole (le héros est debout, pv au maximum, drapeau
+consommé, et la fois suivante il meurt), la boucle du héros pour la rune
+(`J.atk=13` ne laisse passer qu'une frappe, `frapper` refusant tant que
+`e.flash` n'est pas retombé : 1 → 2 points de dégât).
+
+Le tirage lui-même est mesuré sur **600 passages** : entre 20 % et 50 % en
+sortent une, les trois peuvent sortir, aucune déjà acquise ne ressort, et les
+trois acquises elle n'a plus rien de rare.
+
+### Vérification
+
+Vingt-et-un nouveaux contrôles dans `10-colporteuse.js`. Réinjection de onze
+régressions, une par une — chacune rougit **les siennes** avec le bon chiffre :
+rare à tous les coups (`100 % des passages`), jamais de rare (`0 %`), pièce
+acquise qui ressort, amulette sans effet (`4 -> 4`), amulette jusqu'à zéro,
+fiole sans effet, fiole jamais consommée, rune sans effet (`1 -> 1`), pièce
+laissée grisée à l'étal, pièce absente de l'étal, pièce sauvegardée
+(`rare=rune`), marque d'or retirée (`0 pixels la distinguent`), panneau à
+hauteur fixe. Suite complète : **556 contrôles verts**.
+
+### À ne pas réintroduire
+
+- **Un objet rare tiré au sort ne se sauvegarde pas.** Sinon on recharge en
+  boucle jusqu'à tomber sur celui qu'on veut, et le hasard ne veut plus rien dire.
+- **Un panneau taillé en dur pour N lignes casse à N+1.** Faire suivre la
+  hauteur à la liste, et mesurer les rectangles réellement écrits.
+- **Un drapeau dans `Q` n'est pas un effet.** Le contrôle doit passer par
+  `blesser()` et par la boucle du héros, jamais par sa propre arithmétique.
+- **Un objet dont l'effet est invisible doit se raconter à l'achat.** Une
+  amulette qui n'annonce rien ne se distingue pas d'un achat raté.
+- **Le journal ne défile pas** : sur un écran court, la section ÉQUIPEMENT —
+  et donc la ligne des pièces rares — est déjà tronquée. Défaut préexistant,
+  non corrigé ici.

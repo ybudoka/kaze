@@ -805,7 +805,10 @@ const SFX={
   fleche:()=>{son(900,.06,'triangle',.04,-500);},
   bouclier:()=>{son(1400,.05,'square',.045,-700);bruit(.05,.03);},
   menu:()=>{son(880,.05,'square',.04);},
-  erreur:()=>{son(160,.12,'square',.05,-60);}
+  erreur:()=>{son(160,.12,'square',.05,-60);},
+  /* Une pièce rare ne s'achète pas au même bruit qu'une potion. */
+  rare:()=>{[523,659,784,1046,1319].forEach((f,i)=>son(f,.2,'triangle',.055,0,i*.09));
+            son(1568,.4,'square',.04,0,.5);}
 };
 
 /* ============================ MUSIQUE ============================
@@ -1987,60 +1990,70 @@ function bakeEnnemis(){
      et elle ne reste pas. */
   for(let f=0;f<2;f++) faireSprite(`colporteuse${f}`,22,32,g=>{
     const d=f?1:0;                                    // elle se dandine sur place
-    rc(g,7,25,4,6,'#3a2f4e');  rc(g,13,25,4,6,'#3a2f4e');     // bottes, elles fixes
-    rc(g,7,29,4,2,'#241d33');  rc(g,13,29,4,2,'#241d33');
+    rc(g,6,25,4,6,'#3a2f4e');  rc(g,12,25,4,6,'#3a2f4e');     // bottes, elles fixes
+    rc(g,6,29,4,2,'#241d33');  rc(g,12,29,4,2,'#241d33');
     // la cape, évasée du col à l'ourlet
-    rc(g,7,11+d,10,10,'#4a3a70');
-    rc(g,6,17+d,12,7,'#4a3a70');
-    rc(g,5,21+d,14,6,'#4a3a70');
-    rc(g,8,12+d,8,9,'#6a56a0');                       // pan éclairé
-    rc(g,9,13+d,3,7,'#8672c4');
-    rc(g,11,20+d,2,7,'#33284c');                      // pli central
-    rc(g,5,25+d,14,2,'#33284c');                      // ourlet
-    // la capuche, l'ombre du visage, puis le col
-    rc(g,7,2+d,10,11,'#5a4880');
-    rc(g,8,1+d,8,3,'#6f5cab');
-    rc(g,9,5+d,6,7,'#241c30');
-    rc(g,10,8+d,1,2,'#ffe86a'); rc(g,13,8+d,1,2,'#ffe86a');   // les yeux
-    rc(g,11,11+d,3,1,'#e0b088');                      // le menton
-    rc(g,6,12+d,12,2,'#3f8f7a');                      // liseré vert de voyage
-    rc(g,6,13+d,12,1,'#2c6b5c');
-    // la besace : bandoulière en travers, sacoche sur la hanche
-    rc(g,14,14+d,3,2,'#6a4a2e');
-    rc(g,12,16+d,3,2,'#6a4a2e');
-    rc(g,10,18+d,3,2,'#6a4a2e');
-    rc(g,3,17+d,8,9,'#7a5430');                       // le sac
-    rc(g,4,21+d,6,4,'#9a6c40');
-    rc(g,3,17+d,8,4,'#5d3f22');                       // le rabat
-    rc(g,6,20+d,3,2,'#e8c24a');                       // la boucle de laiton
-    rc(g,4,25+d,6,1,'#5d3f22');
+    rc(g,6,11+d,10,16,'#463668');
+    rc(g,5,18+d,12,9,'#463668');
+    rc(g,7,12+d,8,12,'#6a56a0');                      // pan éclairé
+    rc(g,8,13+d,3,9,'#8672c4');
+    rc(g,10,22+d,2,5,'#2f2547');                      // pli central
+    rc(g,5,25+d,12,2,'#2f2547');                      // ourlet
+    // la capuche, et le visage dans son ombre
+    rc(g,7,3+d,9,10,'#5a4880');
+    rc(g,8,2+d,7,3,'#6f5cab');
+    rc(g,7,3+d,1,10,'#463668'); rc(g,15,3+d,1,10,'#463668');  // ses bords retombants
+    rc(g,9,6+d,5,7,'#332747');
+    rc(g,9,6+d,5,1,'#221a33');
+    rc(g,9,8+d,2,2,'#ffe86a'); rc(g,12,8+d,2,2,'#ffe86a');    // les yeux
+    rc(g,10,12+d,3,1,'#e0b088');                      // le menton
+    rc(g,8,13+d,7,2,'#3f8f7a');                       // l'écharpe de voyage
+    rc(g,8,14+d,7,1,'#2c6b5c'); rc(g,9,15+d,3,2,'#3f8f7a');   // son pan qui retombe
+    // la besace : la bandoulière barre la poitrine, la sacoche pend à la hanche
+    rc(g,13,14+d,3,2,'#6a4a2e');
+    rc(g,11,16+d,3,2,'#6a4a2e');
+    rc(g,9,18+d,3,2,'#6a4a2e');
+    rc(g,4,19+d,6,7,'#7a5430');
+    rc(g,3,20+d,8,5,'#7a5430');
+    rc(g,4,22+d,6,3,'#9a6c40');
+    rc(g,4,19+d,6,3,'#5d3f22');                       // le rabat
+    rc(g,3,20+d,8,2,'#5d3f22');
+    rc(g,6,21+d,2,2,'#e8c24a');                       // la boucle de laiton
     // le bâton de marche, et la main qui le tient
     rc(g,18,7,2,23,'#7a5a32'); rc(g,18,7,1,23,'#9a7444');
     rc(g,17,4,4,4,'#c8a060'); rc(g,18,5,2,2,'#ffe8b0');       // pommeau d'ambre
-    rc(g,17,15+d,3,3,'#e0b088');
+    rc(g,15,14+d,3,2,'#463668');                      // la manche
+    rc(g,15,15+d,4,3,'#e0b088');
   });
   /* Le kiosque, en DEUX pièces : le fond (montants, auvent, toile) passe
      derrière elle, l'étal (comptoir et marchandise) passe devant. Elle se
      tient ainsi DANS sa boutique, et non collée dessus. */
-  faireSprite('kiosqueFond',42,34,g=>{
-    rc(g,3,8,4,26,'#6a4a2a');  rc(g,35,8,4,26,'#6a4a2a');     // les deux montants
-    rc(g,3,8,1,26,'#8a6438');  rc(g,35,8,1,26,'#8a6438');
-    rc(g,3,31,4,3,'#4a3018');  rc(g,35,31,4,3,'#4a3018');     // pieds
-    rc(g,3,8,36,3,'#7a5430');  rc(g,3,8,36,1,'#9a6c40');      // la traverse
-    for(let i=0;i<7;i++) rc(g,i*6,1,6,7,i%2?'#b8384a':'#e6ded0');   // l'auvent rayé
-    rc(g,0,0,42,2,'#8a2436'); rc(g,0,7,42,2,'#7a2030');
-    for(let i=0;i<7;i++) rc(g,1+i*6,9,4,2,i%2?'#b8384a':'#d6cec0'); // les festons
-    rc(g,7,11,28,13,'#4a3a6e');                                // toile de fond
-    rc(g,7,11,28,2,'#5c4a86'); rc(g,7,22,28,2,'#332844');
-    rc(g,8,11,4,6,'#c8a060'); rc(g,8,11,4,2,'#e8c88a');        // bocal d'ambre
-    rc(g,30,11,4,7,'#4a86b8'); rc(g,30,11,4,2,'#8ac4e8');      // fiole bleue
+  faireSprite('kiosqueFond',42,44,g=>{
+    rc(g,3,10,4,34,'#6a4a2a');  rc(g,35,10,4,34,'#6a4a2a');   // les deux montants
+    rc(g,3,10,1,34,'#8a6438');  rc(g,35,10,1,34,'#8a6438');
+    rc(g,2,41,6,3,'#4a3018');   rc(g,34,41,6,3,'#4a3018');    // les pieds
+    /* La toile de fond est SABLE et non violette : en violet, sa cape s'y
+       fondait et la colporteuse disparaissait dans son propre kiosque. */
+    rc(g,7,13,28,19,'#b09068'); rc(g,7,13,28,2,'#c8a878');
+    rc(g,7,20,28,2,'#96774e'); rc(g,7,30,28,2,'#7a5f3c');
+    rc(g,3,10,36,4,'#7a5430');  rc(g,3,10,36,1,'#9a6c40');    // la traverse
+    for(let i=0;i<7;i++) rc(g,i*6,1,6,8,i%2?'#b8384a':'#e6ded0');   // l'auvent rayé
+    rc(g,0,0,42,2,'#8a2436'); rc(g,0,8,42,2,'#7a2030');
+    for(let i=0;i<7;i++) rc(g,1+i*6,10,4,2,i%2?'#b8384a':'#d6cec0'); // les festons
+    // suspendus à la traverse, de part et d'autre de la marchande
+    rc(g,8,14,4,7,'#4a86b8'); rc(g,8,14,4,2,'#8ac4e8');        // fiole bleue
+    rc(g,9,21,2,2,'#3a2a1a');
+    rc(g,30,14,4,3,'#3a2a1a'); rc(g,30,17,4,6,'#5a8a3a');      // botte d'herbes
+    rc(g,31,20,2,4,'#7aa84a');
   });
   faireSprite('kiosqueEtal',44,18,g=>{
-    rc(g,4,1,6,6,'#8a2b36'); rc(g,5,2,4,3,'#c4485a');          // étoffe roulée
-    rc(g,13,2,4,5,'#3f8f7a'); rc(g,14,0,2,3,'#c8a060');        // une gourde
-    rc(g,20,3,5,4,'#7a5430'); rc(g,21,4,3,2,'#9a6c40');        // un cageot
-    rc(g,28,1,3,6,'#b8384a'); rc(g,32,3,3,4,'#c8a060');        // pots
-    rc(g,37,4,4,3,'#e8c24a');                                  // rubis au comptoir
+    // la marchandise, posée sur la planche : dégagée sur les côtés, là où
+    // elle ne se tient pas
+    rc(g,3,1,6,6,'#8a2b36'); rc(g,3,1,6,2,'#c4485a');          // étoffe roulée
+    rc(g,11,2,4,5,'#3f8f7a'); rc(g,12,0,2,3,'#c8a060');        // une gourde
+    rc(g,18,3,6,4,'#7a5430'); rc(g,19,4,4,2,'#9a6c40');        // un cageot, devant elle
+    rc(g,32,1,4,6,'#c8a060'); rc(g,32,1,4,2,'#e8c88a');        // une jarre
+    rc(g,37,3,4,4,'#b8384a'); rc(g,37,3,4,1,'#e07a88');        // un pot
     rc(g,0,7,44,4,'#9a6c40'); rc(g,0,7,44,1,'#b98a52');        // la planche
     rc(g,0,11,44,2,'#6a4a2a');
     rc(g,2,13,40,4,'#3f8f7a'); rc(g,2,13,40,1,'#58b39a');      // la nappe
@@ -2555,6 +2568,140 @@ function bakeDecors(){
     rc(g,2,10,3,3,'#5a7ac0'); rc(g,9,10,3,3,'#5a7ac0');
     rc(g,6,10,2,4,'#c8dcff');
   });
+  /* ---- Les cinq icônes qui manquaient ----
+     Elles empruntaient celle d'un autre objet : l'arc et le carquois montraient
+     une FLÈCHE, le grand sac une bombe, le bouclier renforcé un cœur, et le
+     réceptacle de cœur celui qu'on ramasse par terre. À l'écran, on croyait
+     avoir affaire au même objet. */
+  faireSprite('arcItem',14,14,g=>{                   // l'arc : le bois, et la corde
+    rc(g,6,0,4,2,'#8a6030');  rc(g,6,12,4,2,'#8a6030');   // les deux pointes
+    rc(g,4,2,3,3,'#a2703a');  rc(g,4,9,3,3,'#a2703a');    // les branches
+    rc(g,3,5,3,4,'#a2703a');                              // la poignée
+    rc(g,3,5,1,4,'#c08a4e');  rc(g,4,2,1,3,'#c08a4e'); rc(g,4,9,1,3,'#c08a4e');
+    rc(g,3,6,3,2,'#5c3f1e');                              // sa garniture de cuir
+    rc(g,9,1,1,12,'#dfe6f4');                             // la corde, tendue
+  });
+  faireSprite('carquoisItem',14,14,g=>{              // le carquois de cuir
+    rc(g,4,0,2,6,'#c8a06a'); rc(g,8,1,2,5,'#c8a06a');     // deux hampes qui dépassent
+    rc(g,4,0,1,6,'#e8d0a0'); rc(g,8,1,1,5,'#e8d0a0');
+    rc(g,3,1,4,1,'#c85a4a'); rc(g,7,2,4,1,'#c85a4a');     // leurs empennes
+    rc(g,3,2,4,1,'#e8e2d0'); rc(g,7,3,4,1,'#e8e2d0');
+    rc(g,3,5,8,8,'#7a5430');                              // l'étui
+    rc(g,4,6,5,6,'#9a6c40');
+    rc(g,3,5,8,2,'#5d3f22');                              // le rebord
+    rc(g,2,8,10,2,'#5d3f22');                             // la sangle
+    rc(g,6,8,2,2,'#e8c24a');                              // sa boucle
+    rc(g,4,12,6,1,'#4a3018');
+  });
+  faireSprite('sacItem',14,14,g=>{                   // le grand sac : une bombe en dépasse
+    rc(g,5,0,5,7,'#2a2e3c'); rc(g,6,1,3,3,'#4a5062');
+    rc(g,7,0,2,2,'#8a6a3a'); rc(g,9,0,2,2,'#ff9a3c');     // la mèche
+    rc(g,2,6,10,7,'#7a5430');                             // la panse de cuir
+    rc(g,3,7,8,4,'#9a6c40');
+    rc(g,2,6,10,2,'#5d3f22');                             // le rabat
+    rc(g,2,11,10,2,'#5d3f22');
+    rc(g,6,7,3,2,'#e8c24a');                              // la boucle de laiton
+  });
+  faireSprite('bouclierItem',14,14,g=>{              // le bouclier renforcé
+    rc(g,2,1,10,10,'#7a6a3a');                            // l'écu
+    rc(g,3,2,8,8,'#c8b060');
+    rc(g,4,11,6,2,'#7a6a3a'); rc(g,5,12,4,1,'#4e4420');   // sa pointe
+    rc(g,2,1,10,1,'#e8f0ff');                             // le liseré
+    rc(g,3,9,8,2,'#4e4420');
+    rc(g,6,3,2,6,'#e8f0ff'); rc(g,4,5,6,2,'#e8f0ff');     // la croix
+  });
+  faireSprite('coeurMaxItem',18,16,g=>{              // le réceptacle : un cœur serti d'or
+    rc(g,4,3,4,3,'#d02a4a'); rc(g,10,3,4,3,'#d02a4a');
+    rc(g,3,5,12,4,'#d02a4a'); rc(g,5,9,8,3,'#a01a34'); rc(g,7,12,4,2,'#a01a34');
+    rc(g,5,4,3,3,'#ff8fa4'); rc(g,11,4,2,2,'#ff8fa4');
+    rc(g,1,2,2,10,'#e8c24a'); rc(g,15,2,2,10,'#e8c24a');  // la sertissure
+    rc(g,1,1,5,2,'#ffe86a'); rc(g,12,1,5,2,'#ffe86a');
+    rc(g,1,11,4,2,'#c8912a'); rc(g,13,11,4,2,'#c8912a');
+  });
+  /* ---- Le filet à papillons, et les huit papillons ----
+     Le filet est un OUTIL, pas un simple jeton de quête : il cueille les
+     papillons, et il renvoie au vol ce qu'on lui jette (voir coupDeFilet). */
+  faireSprite('filetItem',14,14,g=>{
+    rc(g,1,9,7,2,'#8a6030'); rc(g,1,9,6,1,'#c08a4e');        // le manche
+    rc(g,5,1,7,2,'#c8cede'); rc(g,5,1,6,1,'#eaf0ff');        // l'arceau, en haut
+    rc(g,4,2,2,6,'#c8cede'); rc(g,11,2,2,6,'#c8cede');       // ses deux montants
+    rc(g,6,3,5,5,'#dff0ff');                                 // la gaze, claire
+    rc(g,7,4,3,3,'#f4faff');
+    rc(g,5,7,7,2,'#a9c0d8');                                 // le fond de la poche
+  });
+  /* Un papillon par région : sa teinte est celle de son monde, c'est ce qui le
+     rend reconnaissable au premier coup d'œil comme au journal. */
+  const PAP=[['#ffd84a','#fff0a0','#c89a2a'],   // vallée : machaon d'or
+             ['#ff7a3c','#ffc08a','#c04a1a'],   // cendre : flambé de braise
+             ['#a9d6ee','#eaf6ff','#5a9ec8'],   // cimes  : nacré de givre
+             ['#3ac0c8','#9af0ee','#1a8090'],   // lagon  : azuré des récifs
+             ['#e8b45a','#ffe0a0','#a87a2a'],   // sables : sphinx du mirage
+             ['#8fd070','#d8f4b0','#4a8a3a'],   // marais : lucine des brumes
+             ['#c8d8f8','#ffffff','#8a9ec8'],   // nues   : voilier des courants
+             ['#b06ae0','#e0b0ff','#6a2a9a']];  // faille : ombre pourpre
+  PAP.forEach((c,i)=>faireSprite('papillon'+i,14,12,g=>{
+    rc(g,6,2,2,8,'#3a2f2a');                                 // le corps
+    rc(g,6,1,1,2,'#3a2f2a'); rc(g,8,1,1,2,'#3a2f2a');        // les antennes
+    rc(g,1,2,5,4,c[0]); rc(g,8,2,5,4,c[0]);                  // les ailes hautes
+    rc(g,2,3,3,2,c[1]); rc(g,9,3,3,2,c[1]);
+    rc(g,2,6,4,4,c[2]); rc(g,8,6,4,4,c[2]);                  // les ailes basses
+    rc(g,3,7,2,2,c[0]); rc(g,9,7,2,2,c[0]);
+  }));
+  /* ---- Trois icônes de sol qui manquaient encore ----
+     Posés par terre, les palmes, les perles et les fragments de fresque
+     empruntaient le sprite de la FLÈCHE (cf. CORRECTIFS § 25). */
+  faireSprite('palmesItem',14,14,g=>{
+    rc(g,2,2,4,5,'#2a8f8a'); rc(g,8,2,4,5,'#2a8f8a');        // les deux voilures
+    rc(g,3,3,2,3,'#57c9bf'); rc(g,9,3,2,3,'#57c9bf');
+    rc(g,3,7,4,5,'#1f6f6a'); rc(g,7,7,4,5,'#1f6f6a');        // les chaussons
+    rc(g,4,8,2,3,'#2a8f8a'); rc(g,8,8,2,3,'#2a8f8a');
+    rc(g,3,11,8,2,'#14403e');
+  });
+  faireSprite('fleurgivre',12,12,g=>{                // la fleur de givre des Cimes
+    rc(g,5,1,2,4,'#eaf6ff'); rc(g,5,7,2,4,'#eaf6ff');        // les quatre pétales
+    rc(g,1,5,4,2,'#eaf6ff'); rc(g,7,5,4,2,'#eaf6ff');
+    rc(g,3,3,2,2,'#a9d6ee'); rc(g,7,3,2,2,'#a9d6ee');        // les branches obliques
+    rc(g,3,7,2,2,'#a9d6ee'); rc(g,7,7,2,2,'#a9d6ee');
+    rc(g,4,4,4,4,'#5a9ec8'); rc(g,5,5,2,2,'#dff0ff');        // le cœur
+  });
+  faireSprite('perleItem',12,12,g=>{
+    rc(g,3,2,6,8,'#cfe4f4'); rc(g,4,3,4,6,'#eaf6ff');        // la nacre
+    rc(g,4,3,2,2,'#ffffff');                                 // son éclat
+    rc(g,3,8,6,2,'#9ab8d0');
+  });
+  faireSprite('fresqueItem',14,14,g=>{
+    rc(g,2,2,10,10,'#8a6a44');                               // le tesson de terre cuite
+    rc(g,3,3,8,8,'#c8a06a');
+    rc(g,3,3,8,2,'#e8c898');
+    rc(g,5,5,4,4,'#7a4e26'); rc(g,6,6,2,2,'#e8c24a');        // le motif peint
+    rc(g,2,10,3,2,'#6a4a2a'); rc(g,9,2,3,2,'#6a4a2a');       // les cassures
+  });
+  /* ---- Les trois pièces rares du ballot de la colporteuse ---- */
+  faireSprite('amuletteItem',14,14,g=>{              // l'amulette de garde
+    rc(g,2,0,3,2,'#c8cede'); rc(g,9,0,3,2,'#c8cede');     // la chaîne
+    rc(g,1,2,2,3,'#8a8f9e'); rc(g,11,2,2,3,'#8a8f9e');
+    rc(g,3,4,8,8,'#c8912a');                              // la monture d'or
+    rc(g,3,4,8,2,'#ffe86a');
+    rc(g,4,6,6,5,'#2a5f8f');                              // la pierre bleue
+    rc(g,5,7,3,3,'#6ab4ee'); rc(g,5,7,2,1,'#cfeaff');
+    rc(g,4,11,6,1,'#8a6030');
+  });
+  faireSprite('fioleItem',14,14,g=>{                 // la fiole de fée
+    rc(g,5,0,4,2,'#8a6a3a'); rc(g,6,2,2,2,'#c8cede');     // le bouchon, le col
+    rc(g,3,4,8,9,'#7fb4d8');                              // le verre
+    rc(g,4,5,6,7,'#cfeaff');
+    rc(g,5,6,4,5,'#ffe86a');                              // la fée, à l'intérieur
+    rc(g,6,7,2,3,'#fffbe0');
+    rc(g,3,4,2,9,'#a9d6ee'); rc(g,4,12,6,1,'#5a9ec8');
+  });
+  faireSprite('runeItem',14,14,g=>{                  // la rune de tranchant
+    rc(g,2,1,10,12,'#4a4658');                            // la pierre gravée
+    rc(g,3,2,8,10,'#6d6a80');
+    rc(g,3,2,8,2,'#8f8ca4');
+    rc(g,6,3,2,8,'#ff9a3c');                              // le trait gravé, ardent
+    rc(g,4,5,6,2,'#ff9a3c');
+    rc(g,6,3,2,2,'#ffe0a0'); rc(g,4,5,2,2,'#ffe0a0');
+  });
   faireSprite('etoileVolee',16,16,g=>{               // une étoile reprise au Rongeur
     rc(g,7,0,2,16,'#ffe86a'); rc(g,0,7,16,2,'#ffe86a');
     rc(g,5,5,6,6,'#fff6c0'); rc(g,6,6,4,4,'#ffffff');
@@ -2593,12 +2740,55 @@ const Q={
   prime:0, primeRendue:false, feeVue:false,
   /* Terres de Cendre */
   portailOuvert:false, braises:0, bottes:false, coeurTue:false,
-  /* marchand itinérant */
-  carquois:false, grandSac:false,
+  /* marchand itinérant — `achatsColporteuse` fait monter ses tarifs, et les
+     trois pièces rares ne se trouvent QUE dans son ballot */
+  carquois:false, grandSac:false, achatsColporteuse:0,
+  amulette:false, fioleFee:false, rune:false,
   /* quêtes annexes : la lanterne du pêcheur (vallée → Cendres) et les brasiers */
   lanterne:0,          // 0 rien · 1 cherchée · 2 trouvée · 3 rendue (le forgeron attend)
-  eclats:0, epeeCendre:false, brasiers:0
+  eclats:0, epeeCendre:false, brasiers:0,
+  /* LE CABINET DES HUIT — la seule quête qui traverse les huit tableaux.
+     `papillonsPris` retient lequel a été pris RÉGION PAR RÉGION : un simple
+     compteur aurait laissé repousser dans la vallée celui de la Faille. */
+  filet:false, naturalisteParle:false, papillonsPris:[0,0,0,0,0,0,0,0],
+  papillonsRendus:false,
+  /* Cimes Gelées : le guide du col, ses fleurs de givre, la Crevasse */
+  guideParle:false, fleurs:0, fleursRendues:false, tresorCimes:false
 };
+/* Le nombre de papillons en bocal se déduit du tableau : pas de second
+   compteur à tenir d'accord avec lui. */
+const nbPapillons=()=>Q.papillonsPris.reduce((a,b)=>a+b,0);
+/* Un papillon par région, et son nom — c'est ce nom qui s'annonce à la prise,
+   et qui distingue le cabinet d'un vulgaire compteur. */
+const NOM_PAPILLON=["MACHAON D'OR",'FLAMBÉ DE BRAISE','NACRÉ DE GIVRE',
+  'AZURÉ DES RÉCIFS','SPHINX DU MIRAGE','LUCINE DES BRUMES',
+  'VOILIER DES COURANTS','OMBRE POURPRE'];
+/* On ne fige PAS la case d'un papillon : chaque région tire son terrain, et une
+   case écrite en dur finit tôt ou tard dans un rocher ou dans l'eau. On donne
+   un point d'ancre, et l'on cherche autour la première case libre, en carrés
+   concentriques. Déterministe : même monde, même perchoir, partie après
+   partie — et vérifiable, ce que le test 27 fait pour les huit. */
+const PAPILLONS_ANCRE=[[22,30],[30,112],[34,196],[30,258],[40,352],
+                       [38,432],[40,502],[40,598]];
+/* Les six fleurs de givre du guide du col, éparpillées dans les Cimes. */
+const FLEURS_ANCRE=[[16,170],[62,174],[24,206],[76,210],[52,228],[38,186]];
+/* La première case libre autour d'un point, en carrés concentriques : ni salle
+   close, ni zone de paix, ni relief — un papillon posé sur un plateau serait
+   hors de portée du filet, qui ne balaie qu'à hauteur d'homme. */
+function perchoirLibre(ax,ay,y0,y1){
+  for(let r=0;r<14;r++){
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(r>0&&Math.abs(dx)!==r&&Math.abs(dy)!==r) continue;   // le bord du carré
+      const x=ax+dx, y=ay+dy;
+      if(y<y0||y>=y1||x<3||x>=MW-3) continue;
+      if(!libre(x,y)||Etg(x,y)!==0) continue;
+      if(salleDe(x*TS+8,y*TS+8)) continue;
+      if(dansRefuge(x*TS+8,y*TS+8,2*TS)) continue;
+      return [x,y];
+    }
+  }
+  return null;
+}
 /* Capacités : le marchand itinérant est le seul à les augmenter. */
 const maxFleches=()=>Q.carquois?99:60;
 const maxBombes =()=>Q.grandSac?40:20;
@@ -2606,10 +2796,16 @@ function razQuetes(){
   Object.assign(Q,{parleDoyenne:false,cle:false,porteOuverte:false,grilleOuverte:false,
     fissureOuverte:false,chefTue:false,champignons:0,tarte:false,perle:false,
     coeurCristal:false,lucioles:0,epeeLongue:false,bouclierFort:false,potions:0,
-    carquois:false,grandSac:false,lanterne:0,eclats:0,epeeCendre:false,brasiers:0,
+    carquois:false,grandSac:false,achatsColporteuse:0,
+    amulette:false,fioleFee:false,rune:false,
+    lanterne:0,eclats:0,epeeCendre:false,brasiers:0,
     prime:0,primeRendue:false,feeVue:false,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false,
+    /* le cabinet des huit : un papillon par région, le filet pour les prendre */
+    filet:false,naturalisteParle:false,papillonsPris:[0,0,0,0,0,0,0,0],
+    papillonsRendus:false,
     /* Cimes Gelées */ boomerang:false,cloches:0,yetiTue:false,
+    guideParle:false,fleurs:0,fleursRendues:false,tresorCimes:false,
     /* Lagon d'Azur */ palmes:false,perles:0,perlesRendues:false,naufrageParle:false,leviathanTue:false,
     /* énigmes : le grappin, les interrupteurs à bascule, et les trésors uniques */
     grappin:false,inter:[0,0,0,0,0,0,0,0],
@@ -2808,6 +3004,11 @@ function genererVillage(){
   P('garde',33,50,'pnj3','GARDE TOMAS');
   P('pecheur',17,51,'pnj4','LE VIEUX PÊCHEUR');   // sur la rive nord du lac
   P('fee',60,33,'fee','FÉE DU BOSQUET');          // dans les bois de l'est
+  /* Orla tient le cabinet des huit. Elle est au village, et non dans la région
+     d'un papillon : sa quête traverse les huit tableaux, elle doit donc se
+     donner AVANT le premier départ — sinon on la recevrait une fois la moitié
+     du monde déjà traversée, et il faudrait tout refaire à l'envers. */
+  P('naturaliste',38,48,'pnj5','ORLA LA NATURALISTE');
 
   // clairière autour de la fée et du pêcheur
   for(let y=31;y<36;y++)for(let x=57;x<63;x++){ putO(x,y,O.RIEN); putE(x,y,0); }
@@ -3799,25 +4000,62 @@ function articles(){
      ok:()=>J.objets.includes('bombe'), effet:()=>{J.bombes=Math.min(maxBombes(),J.bombes+5);}},
     {id:'potion',nom:'POTION ROUGE',prix:35,spr:'potion',
      ok:()=>Q.potions<2, effet:()=>{Q.potions++;}},
-    {id:'bouclier',nom:'BOUCLIER RENFORCÉ',prix:90,spr:'coeur',
+    {id:'bouclier',nom:'BOUCLIER RENFORCÉ',prix:90,spr:'bouclierItem',
      ok:()=>!Q.bouclierFort, effet:()=>{Q.bouclierFort=true;}}
   ];
 }
 /* Le marchand itinérant ne vend que ce qu'on ne trouve nulle part ailleurs :
-   des capacités, jamais des consommables que Bran propose déjà. */
+   des capacités, jamais des consommables que Bran propose déjà.
+
+   Ses prix montent de 40 % du tarif de départ à CHAQUE achat conclu chez elle :
+   son ballot se vide, et elle sait qu'on ne la reverra pas de sitôt. Le compte
+   est dans `Q`, donc sauvegardé — sinon le tarif retomberait au rechargement.
+   Arrondi à cinq rubis près : les prix du jeu sont tous ronds. */
+const prixItinerant=p=>Math.round(p*(1+.4*(Q.achatsColporteuse|0))/5)*5;
+/* ---- LES TROIS PIÈCES RARES ----
+   Elle n'en sort une que de temps en temps, et une seule à la fois : c'est ce
+   qui fait qu'on guette son passage. Chacune touche un axe différent —
+   encaisser, se relever, trancher — et ne se trouve NULLE PART ailleurs. */
+const RARES=[
+  {id:'amulette',nom:'AMULETTE DE GARDE',prix:220,spr:'amuletteItem',drap:'amulette',
+   dit:"ELLE ENCAISSE LA MOITIÉ DE CE QUI TE FRAPPE."},
+  {id:'fiole',nom:'FIOLE DE FÉE',prix:260,spr:'fioleItem',drap:'fioleFee',
+   dit:"SI TU TOMBES, LA FÉE TE RELÈVE. UNE FOIS."},
+  {id:'rune',nom:'RUNE DE TRANCHANT',prix:300,spr:'runeItem',drap:'rune',
+   dit:"TA LAME MORDRA PLUS PROFOND, POUR TOUJOURS."}
+];
+/* Un tirage sur trois, parmi celles qu'on n'a pas encore. Il se refait à
+   CHAQUE fois qu'elle s'installe : la pièce n'est pas plus sauvegardée
+   qu'elle. Sans quoi il suffirait de recharger jusqu'à tomber sur la bonne. */
+function tirerRare(){
+  const restantes=RARES.filter(a=>!Q[a.drap]);
+  if(!restantes.length||rnd()>=.34) return null;
+  return restantes[Math.floor(rnd()*restantes.length)].id;
+}
+function articleRare(){
+  if(!marchand.rare) return null;
+  const a=RARES.find(x=>x.id===marchand.rare);
+  /* Acquise entre-temps (rechargement, seconde visite) : elle sort de l'étal
+     plutôt que d'y rester grisée à occuper la place d'une vraie affaire. */
+  if(!a||Q[a.drap]) return null;
+  return {id:a.id,nom:a.nom,prix:prixItinerant(a.prix),spr:a.spr,rare:true,dit:a.dit,
+          ok:()=>!Q[a.drap], effet:()=>{ Q[a.drap]=true; }};
+}
 function articlesItinerants(){
+  const rare=articleRare();
   return [
-    {id:'carquois',nom:'CARQUOIS DE CUIR',prix:60,spr:'fleche',
+    ...(rare?[rare]:[]),
+    {id:'carquois',nom:'CARQUOIS DE CUIR',prix:prixItinerant(60),spr:'carquoisItem',
      ok:()=>J.objets.includes('arc')&&!Q.carquois,
      effet:()=>{Q.carquois=true; J.fleches=Math.min(maxFleches(),J.fleches+20);}},
-    {id:'sac',nom:'GRAND SAC',prix:70,spr:'bombeItem',
+    {id:'sac',nom:'GRAND SAC',prix:prixItinerant(70),spr:'sacItem',
      ok:()=>J.objets.includes('bombe')&&!Q.grandSac,
      effet:()=>{Q.grandSac=true; J.bombes=Math.min(maxBombes(),J.bombes+8);}},
     /* « COEUR » et non « CŒUR » : la police pixel du jeu n'a pas de Œ et
        afficherait un point d'interrogation. */
-    {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:120,spr:'coeur',
+    {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:prixItinerant(120),spr:'coeurMaxItem',
      ok:()=>J.pvmax<24, effet:()=>{J.pvmax=Math.min(24,J.pvmax+2); J.pv=J.pvmax;}},
-    {id:'potion',nom:'POTION ROUGE',prix:40,spr:'potion',
+    {id:'potion',nom:'POTION ROUGE',prix:prixItinerant(40),spr:'potion',
      ok:()=>Q.potions<4, effet:()=>{Q.potions++;}}
   ];
 }
@@ -3832,16 +4070,31 @@ function acheter(){
   const a=boutique.liste[boutique.sel], qui=boutique.qui||'BRAN';
   if(!a.ok()){ SFX.erreur(); dire(qui+" : JE N'AI RIEN DE PLUS POUR TOI."); return; }
   if(J.rubis<a.prix){ SFX.erreur(); dire(qui+" : IL TE MANQUE DES RUBIS."); return; }
-  J.rubis-=a.prix; a.effet(); boutique.liste=(boutique.recharger||articles)();
+  J.rubis-=a.prix; a.effet();
+  // chez elle, chaque vente renchérit le reste du ballot
+  if(qui==='LA COLPORTEUSE') Q.achatsColporteuse=(Q.achatsColporteuse|0)+1;
+  boutique.liste=(boutique.recharger||articles)();
   SFX.coffre(); autoSauver();
-  dire(qui+" : MERCI BIEN !");
+  /* On le DIT : sans cela, la ligne suivante coûte plus cher sans raison
+     apparente, et ça passe pour un défaut. Une pièce rare, elle, mérite qu'on
+     dise ce qu'elle FAIT — rien d'autre à l'écran ne l'expliquerait. */
+  if(a.rare){ SFX.rare(); secousse=Math.max(secousse,6);
+              annonce(a.nom+' !'); dire("LA COLPORTEUSE : "+a.dit,340); return; }
+  dire(qui==='LA COLPORTEUSE' ? "LA COLPORTEUSE : MERCI BIEN ! LE RESTE MONTE, TU T'EN DOUTES."
+                              : qui+" : MERCI BIEN !");
 }
 
 /* ==================== LE MARCHAND ITINÉRANT ====================
    Il s'installe de temps à autre quelque part autour du héros, reste un
    moment, puis plie bagage. Il n'est pas sauvegardé : il va et vient, et
-   reparaîtra de lui-même. Seuls ses achats, eux, sont acquis. */
-const marchand={actif:false,x:0,y:0,anim:0,reste:0,prochain:900};
+   reparaîtra de lui-même. Seuls ses achats, eux, sont acquis.
+
+   Elle doit se faire DÉSIRER : à une visite par minute elle n'était plus un
+   événement, juste un distributeur. Une première tournée au bout de trois
+   minutes, puis cinq à huit minutes entre deux passages. (60 images/seconde.) */
+const COLPORTEUSE_ATTENTE=10800;                        // ~3 min avant la première
+const colporteuseDelai=()=>18000+Math.floor(rnd()*10800);   // 5 à 8 min ensuite
+const marchand={actif:false,x:0,y:0,anim:0,reste:0,prochain:COLPORTEUSE_ATTENTE,rare:null};
 function poserMarchand(){
   // un endroit libre, ni collé au héros ni à l'autre bout du monde
   for(let essai=0;essai<200;essai++){
@@ -3852,9 +4105,14 @@ function poserMarchand(){
     if(regionDe(J.y)!==regionDe(ty*TS)) continue;        // il reste dans ta région
     marchand.x=tx*TS+8; marchand.y=ty*TS+8; marchand.actif=true;
     marchand.reste=5400; marchand.anim=0;                // ~90 s de présence
-    annonce('UNE COLPORTEUSE S EST INSTALLÉE');
-    dire("UNE MARCHANDE AMBULANTE EST DANS LES PARAGES. ELLE NE RESTERA PAS.",300);
+    marchand.rare=tirerRare();                           // une pièce rare, parfois
+    /* UN SEUL message : le bandeau et la boîte de dialogue se marchaient
+       dessus, deux annonces pour un seul événement. Il change de fin quand elle
+       tient une pièce rare — c'est le seul moyen de savoir qu'il faut courir. */
+    dire("UNE COLPORTEUSE A DRESSÉ SON KIOSQUE DANS LES PARAGES. "
+         +(marchand.rare?"ELLE TIENT UNE PIÈCE RARE.":"ELLE NE RESTERA PAS."),320);
     son(680,.12,'triangle',.05,180); son(910,.14,'triangle',.05,120,.1);
+    if(marchand.rare) son(1240,.2,'triangle',.05,180,.22);
     return true;
   }
   return false;
@@ -3864,7 +4122,8 @@ function majMarchand(){
   if(marchand.actif){
     marchand.anim++;
     if(--marchand.reste<=0){
-      marchand.actif=false; marchand.prochain=tempsJeu+3600+Math.floor(rnd()*3600);
+      marchand.actif=false; marchand.rare=null;
+      marchand.prochain=tempsJeu+colporteuseDelai();
       dire("LA COLPORTEUSE A PLIÉ BAGAGE.",150);
     }
     return;
@@ -4247,6 +4506,77 @@ function capeAction(){
   particules(J.x,J.y,J.z+6,14,'#a8c8ff',2,22);
   if(msgT<=0) dire("TU PLANES.",90);
 }
+/* ==================== LE FILET À PAPILLONS ====================
+   Il sert deux fois, et c'est la seconde qui en fait un outil plutôt qu'un
+   jeton de quête :
+     1. il cueille les papillons — rien d'autre ne les attrape ;
+     2. il RENVOIE au vol ce qu'on nous jette. Un javelot de lancier, un éclat
+        de harpie, une boule de venin : cueillis dans la poche, ils repartent
+        vers celui qui les a lancés et le frappent.
+   La poche est large (26 × 30 px) : on joue au pouce sur un téléphone, viser
+   au pixel n'aurait été qu'une punition. */
+const FILET_DUR=20;                     // le balayage, en images
+function coupDeFilet(){
+  if(J.filetT>0){ SFX.erreur(); return; }        // un balayage à la fois
+  J.filetT=FILET_DUR;
+  SFX.epee(); son(340,.08,'sine',.03,150);
+  const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
+  const cx=J.x+vd[0]*15, cy=J.y+vd[1]*15;
+  const horiz=(J.dir===1||J.dir===3);
+  const w=horiz?26:30, h=horiz?30:26;
+  let pris=0, renvoyes=0;
+  /* --- 1. les papillons --- */
+  for(let i=butins.length-1;i>=0;i--){
+    const o=butins[i];
+    if(o.type!=='papillon') continue;
+    if(Math.abs(o.x-cx)<w/2+8&&Math.abs(o.y-cy)<h/2+8&&Math.abs(o.z-J.z)<30){
+      ramasserButin(o); butins.splice(i,1); pris++;
+    }
+  }
+  /* --- 2. les projectiles ennemis : ils changent de camp ---
+     On garde le sprite : voir revenir SON javelot dit tout de suite ce qui
+     s'est passé. `frappes` est indispensable — sans lui, le premier ennemi
+     touché le serait à chaque image du vol. */
+  for(const p of tirs){
+    if(p.ami||p.boom||p.lourd) continue;
+    if(Math.abs(p.x-cx)<w/2+9&&Math.abs(p.y-cy)<h/2+9&&Math.abs(p.z-J.z)<32){
+      p.ami=1; p.vx=-p.vx*1.35; p.vy=-p.vy*1.35;
+      p.vie=Math.max(p.vie,110); p.frappes=new Set();
+      particules(p.x,p.y,p.z,8,'#dff0ff',2,18);
+      renvoyes++;
+    }
+  }
+  if(pris||renvoyes){
+    secousse=Math.max(secousse,3);
+    if(renvoyes){ SFX.touche(); son(760,.10,'triangle',.05,220);
+                  if(!pris) dire(renvoyes>1?'RENVOYÉS !':'RENVOYÉ !',80); }
+  } else if(msgT<=0) dire("UN COUP DE FILET DANS LE VIDE.",70);
+}
+/* Le papillon ne se laisse pas cueillir en marchant dessus : il volette autour
+   de son perchoir et S'ÉCARTE quand on approche. Sans cette fuite, le filet
+   n'aurait servi à rien — on l'aurait pris du bout de l'épée comme le reste.
+   Rien n'est alloué ici : la boucle tourne à chaque image (cf. § 8). */
+function majPapillons(){
+  for(const o of butins){
+    if(o.type!=='papillon') continue;
+    o.ph=(o.ph||0)+.045;
+    /* le vol propre : une ellipse lente autour du perchoir */
+    let vx=Math.cos(o.ph)*.42, vy=Math.sin(o.ph*1.7)*.30;
+    /* la fuite : d'autant plus vive qu'on est près, et jamais au-delà de 3 cases
+       du perchoir — sinon il finirait dans un mur, hors d'atteinte */
+    const dx=o.x-J.x, dy=o.y-J.y, d=Math.hypot(dx,dy);
+    if(d<34&&d>.5){ const f=(34-d)/34*1.5; vx+=dx/d*f; vy+=dy/d*f; }
+    const ax=o.x+vx-o.bx, ay=o.y+vy-o.by, ad=Math.hypot(ax,ay);
+    if(ad>3*TS){ vx-=ax/ad*.8; vy-=ay/ad*.8; }
+    /* il ne traverse ni mur ni relief : on n'avance que si la case reste libre */
+    const nx=o.x+vx, ny=o.y+vy;
+    const tx=Math.floor(nx/TS), ty=Math.floor(ny/TS);
+    if(dansCarte(tx,ty)&&!(Obj(tx,ty)&&DUR_O[Obj(tx,ty)]&&!FRANCH_O[Obj(tx,ty)])){
+      o.x=nx; o.y=ny;
+    }
+    o.z=Etg(Math.floor(o.x/TS),Math.floor(o.y/TS))*EH+6+Math.sin(o.ph*2.3)*3;
+  }
+}
 /* Les huit carillons du vent : suspendus au-dessus du vide, on les fait sonner
    au boomerang, jamais à l'épée — c'est ce qui les distingue des cloches. */
 function sonnerCarillon(tx,ty){
@@ -4404,6 +4734,10 @@ function lignesJournal(){
     L.push([(Q.bracelet?'BRACELET':'-')+'  '+(Q.fanal?'FANAL':'-')+'  '+(Q.cape?'CAPE':'-'),'#c8d8f8']);
   if(Q.bracelet||Q.fanal) L.push([(Q.bracelet?'BRACELET':'-')+'   '+(Q.fanal?'FANAL':'-'),'#f0c878']);
   L.push(['BOUCLIER '+(Q.bouclierFort?'RENFORCÉ':'DE BOIS')+'   POTIONS '+Q.potions,'#c8d0e8']);
+  /* Les pièces rares de la colporteuse : sans cette ligne, rien à l'écran ne
+     dit qu'on les a — elles n'agissent que par leurs effets. */
+  if(Q.amulette||Q.fioleFee||Q.rune)
+    L.push([(Q.amulette?'AMULETTE':'-')+'  '+(Q.fioleFee?'FIOLE':'-')+'  '+(Q.rune?'RUNE':'-'),'#ffe06a']);
   return L;
 }
 function ecranJournal(){
@@ -4488,13 +4822,14 @@ let message='', msgT=0, bandeau='', bandeauT=0;
 
 const OBJETS=[
   {id:'bombe',nom:'BOMBE',spr:'bombeItem'},
-  {id:'arc',  nom:'ARC',  spr:'fleche'},
+  {id:'arc',  nom:'ARC',  spr:'arcItem'},
   {id:'marteau',nom:'MARTEAU',spr:'marteauItem'},
   {id:'boomerang',nom:'BOOMERANG',spr:'boomerangItem'},
   {id:'grappin',nom:'GRAPPIN',spr:'grappinItem'},
   {id:'bracelet',nom:'BRACELET',spr:'braceletItem'},
   {id:'fanal',nom:'FANAL',spr:'fanalItem'},
-  {id:'cape',nom:'CAPE',spr:'capeItem'}
+  {id:'cape',nom:'CAPE',spr:'capeItem'},
+  {id:'filet',nom:'FILET',spr:'filetItem'}
 ];
 
 const J={
@@ -4505,7 +4840,10 @@ const J={
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
   slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null, porte:null,
   /* Cité des Nues : le vol plané et le dernier sol ferme foulé */
-  plane:0, solX:35*TS, solY:45*TS, solZ:0
+  plane:0, solX:35*TS, solY:45*TS, solZ:0,
+  /* le balayage du filet, en images : il sert au dessin ET à empêcher qu'on
+     enchaîne les coups sans jamais lever le bras */
+  filetT:0
 };
 
 function dire(t,duree=200){ message=t; msgT=duree; }
@@ -4710,6 +5048,26 @@ function peupler(){
   tresor(Q.fanal,FANAL_POS,'fanal');
   // Cité des Nues : la cape des courants, au fond du Parvis des Vents
   tresor(Q.cape,CAPE_POS,'cape');
+  /* --- les huit papillons du cabinet, un par région ---
+     `rg` porte la région : c'est lui qui choisit la teinte, le nom, et la case
+     du tableau `papillonsPris`. `bx,by` est le perchoir : le papillon volette
+     autour sans jamais s'en éloigner de plus de trois cases (majPapillons). */
+  for(let r=0;r<8;r++){
+    if(Q.papillonsPris[r]) continue;
+    const p=perchoirLibre(PAPILLONS_ANCRE[r][0],PAPILLONS_ANCRE[r][1],
+                          BORNES_Y[r],BORNES_Y[r+1]);
+    if(!p) continue;
+    const px=p[0]*TS+8, py=p[1]*TS+8;
+    butins.push({x:px,y:py,z:Etg(p[0],p[1])*EH+6,vz:0,type:'papillon',
+                 rg:r,bx:px,by:py,ph:r*.8,t:0});
+  }
+  /* --- les six fleurs de givre du guide du col --- */
+  if(!Q.fleursRendues) for(let k=Q.fleurs;k<6;k++){
+    const p=perchoirLibre(FLEURS_ANCRE[k][0],FLEURS_ANCRE[k][1],Y_CIMES,Y_LAGON);
+    if(!p) continue;
+    butins.push({x:p[0]*TS+8,y:p[1]*TS+8,z:Etg(p[0],p[1])*EH,vz:0,
+                 type:'fleurgivre',t:0});
+  }
 }
 
 function reveillerBoss(){
@@ -4833,6 +5191,8 @@ function blesser(deg,sx,sy,parable=true){
     }
   }
   if(Q.bouclierFort) deg=Math.max(1,deg-1);
+  // l'amulette de garde encaisse la moitié — jamais jusqu'à zéro
+  if(Q.amulette) deg=Math.max(1,Math.ceil(deg/2));
   J.pv-=deg; J.invuln=76; J.degatFlash=10; gel=Math.max(gel,5); secousse=Math.max(secousse,7);
   const a=Math.atan2(J.y-sy,J.x-sx);
   J.kx=Math.cos(a)*3.6; J.ky=Math.sin(a)*3.6;
@@ -4841,6 +5201,15 @@ function blesser(deg,sx,sy,parable=true){
 }
 function mourir(){
   menuSel=0;
+  /* La fiole de fée passe AVANT les potions : elle est rare et ne sert qu'une
+     fois, autant qu'elle serve là où l'on serait vraiment mort. */
+  if(Q.fioleFee){
+    Q.fioleFee=false; J.pv=J.pvmax; J.invuln=140;
+    SFX.rare(); annonce('LA FÉE TE RELÈVE !');
+    particules(J.x,J.y,J.z+10,34,'#ffe86a',3.2,46);
+    autoSauver();
+    return;
+  }
   if(Q.potions>0){
     Q.potions--; J.pv=J.pvmax; J.invuln=120;
     SFX.coeur(); annonce('POTION ROUGE !');
@@ -4855,6 +5224,21 @@ function mourir(){
 /* Valeur en rubis de chaque gemme. Le grenat est rare : c'est lui qui rend
    les créatures des Cendres payantes. */
 const VALEUR_GEMME={rubis:1,saphir:5,grenat:20};
+/* Le sprite de chaque butin POSÉ AU SOL. Il n'y avait pas de table : une suite
+   de `?:` traitait cinq types et renvoyait 'fleche' pour tout le reste — si
+   bien que le boomerang, les palmes, le grappin, le bracelet, le fanal, la
+   cape, les fragments de fresque, les perles et TOUS les cœurs de cristal
+   étaient dessinés en flèche par terre (cf. CORRECTIFS § 25). Une table :
+   ajouter un butin sans son icône se voit désormais du premier coup d'œil. */
+const SPR_BUTIN={coeur:'coeur',bombe:'bombeItem',champi:'champi',cle:'cle',
+  eclat:'eclat',fleche:'fleche',
+  boomerang:'boomerangItem',palmes:'palmesItem',grappin:'grappinItem',
+  bracelet:'braceletItem',fanal:'fanalItem',cape:'capeItem',
+  fresque:'fresqueItem',perle2:'perleItem',coeurmax:'coeurMaxItem',
+  filet:'filetItem',fleurgivre:'fleurgivre'};
+/* Ceux qui s'auréolent : on les repère de loin, ils comptent. */
+const LUEUR_BUTIN={cle:1,eclat:1,boomerang:1,palmes:1,grappin:1,bracelet:1,
+  fanal:1,cape:1,coeurmax:1,filet:1,papillon:1};
 function larguer(x,y,z){
   const r=rnd();
   /* Toutes les régions du sud — Cendres, Cimes, Lagon — lâchent de plus belles
@@ -4938,6 +5322,7 @@ function majJoueur(){
     else if(o==='bracelet') brasBracelet();
     else if(o==='fanal') fanalAction();
     else if(o==='cape') capeAction();
+    else if(o==='filet') coupDeFilet();
   }
 
   /* --- le grappin tire le héros jusqu'à l'ancre : il glisse en ligne droite,
@@ -5020,8 +5405,9 @@ function majJoueur(){
          part de derrière le héros — un ennemi collé à lui doit être touché —
          et va jusqu'à la pointe, en s'élargissant sur les côtés pour suivre
          l'arc du balayage montré à l'écran. */
-      // l'épée de Cendre ajoute un point de dégât à la lame, quelle qu'elle soit
-      const d=(Q.epeeLongue?2:1)+(Q.epeeCendre?1:0);
+      /* L'épée de Cendre ajoute un point de dégât à la lame, quelle qu'elle
+         soit — et la rune de tranchant un autre, pour toujours. */
+      const d=(Q.epeeLongue?2:1)+(Q.epeeCendre?1:0)+(Q.rune?1:0);
       const lg=Q.epeeLongue?46:38;          // longueur couverte, du corps à la pointe
       const la=Q.epeeLongue?34:32;          // largeur du balayage
       const c=lg/2-8;                        // 8 px en arrière du héros
@@ -5033,7 +5419,7 @@ function majJoueur(){
   if(J.spin>0){
     J.spin--;
     if(J.spin%3===0) zoneDegats(J.x,J.y,Q.epeeLongue?66:54,Q.epeeLongue?62:50,
-                                (Q.epeeLongue?3:2)+(Q.epeeCendre?1:0),'epee');
+                                (Q.epeeLongue?3:2)+(Q.epeeCendre?1:0)+(Q.rune?1:0),'epee');
     if(J.spin%5===0) particules(J.x+(rnd()-.5)*30,J.y+(rnd()-.5)*26,J.z+10,2,'#dfe8ff',1.2,12);
   }
   // le marteau : le coup part à mi-course, quand la tête percute le sol
@@ -5053,9 +5439,11 @@ function majJoueur(){
   else J.pose='marche';
   J.animF = bouge?Math.floor(J.animT/6)%4:0;
 
-  /* --- ramassage --- */
+  /* --- ramassage. Le papillon fait exception : marcher dessus ne le prend
+     pas, il s'envole (voir majPapillons). Il faut le FILET. --- */
   for(let i=butins.length-1;i>=0;i--){
     const o=butins[i];
+    if(o.type==='papillon') continue;
     if(Math.hypot(o.x-J.x,o.y-J.y)<13&&Math.abs(o.z-J.z)<20){
       ramasserButin(o); butins.splice(i,1);
     }
@@ -5253,6 +5641,24 @@ function ramasserButin(o){
     son(920,.1,'triangle',.05,240,.05);
     particules(o.x,o.y,o.z+8,8,'#e8f4ff',1.8,22);
     dire('PERLE DU LAGON : '+Q.perles+'/5',120); autoSauver(); }
+  if(o.type==='filet'){ Q.filet=true;
+    if(!J.objets.includes('filet')) J.objets.push('filet');
+    J.objSel=J.objets.indexOf('filet');
+    SFX.coffre(); secousse=6; annonce('LE FILET À PAPILLONS');
+    particules(o.x,o.y,o.z+10,22,'#dff0ff',2.6,32);
+    dire("LE FILET ! Y POUR BALAYER. IL PREND LES PAPILLONS — ET RENVOIE CE QU'ON TE JETTE.",340);
+    autoSauver(); }
+  /* Un papillon est marqué de SA région : c'est ce qui empêche d'en prendre
+     deux dans la même et de croire la collection finie. */
+  if(o.type==='papillon'){ const r=o.rg|0;
+    Q.papillonsPris[r]=1;
+    SFX.coffre(); son(1040,.12,'triangle',.05,300,.05);
+    particules(o.x,o.y,o.z+8,14,'#fff0a0',2,26);
+    annonce(NOM_PAPILLON[r]);
+    dire('PAPILLON ATTRAPÉ : '+nbPapillons()+'/8',150); autoSauver(); }
+  if(o.type==='fleurgivre'){ Q.fleurs=Math.min(6,Q.fleurs+1); SFX.rubis();
+    son(980,.1,'triangle',.05,240,.05); particules(o.x,o.y,o.z+8,8,'#dff0ff',1.8,22);
+    dire('FLEUR DE GIVRE : '+Q.fleurs+'/6',120); autoSauver(); }
   if(o.type==='coeurmax'){ J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
     SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
   // trésor unique d'une énigme : on retient qu'il est pris, il ne repousse plus
@@ -5326,9 +5732,11 @@ function zoneDegats(cx,cy,w,h,deg,type){
       frapper(e,deg,J.x,J.y,type);
   }
   /* Un coup d'épée ramasse ce qu'il touche : plus besoin de marcher pile
-     dessus, ce qui était pénible quand un butin tombait dans un coin. */
+     dessus, ce qui était pénible quand un butin tombait dans un coin.
+     Sauf un papillon : lui ne se prend qu'au FILET. */
   for(let i=butins.length-1;i>=0;i--){
     const o=butins[i];
+    if(o.type==='papillon') continue;
     if(Math.abs(o.x-cx)<w/2+8&&Math.abs(o.y-cy)<h/2+8&&Math.abs(o.z-J.z)<26){
       ramasserButin(o); butins.splice(i,1);
     }
@@ -6319,8 +6727,10 @@ function majBoomerang(p,i){
   if(boss&&!p.frappes.has(boss)&&Math.hypot(boss.x-p.x,boss.y-p.y)<22&&Math.abs(boss.z-p.z)<32){
     p.frappes.add(boss); frapper(boss,1,p.x-p.vx*6,p.y-p.vy*6,'boomerang');
   }
-  // ramasse les butins sur son chemin
+  // ramasse les butins sur son chemin — mais pas les papillons : il les
+  // traverserait sans les prendre, seul le filet les cueille
   for(let k=butins.length-1;k>=0;k--){ const b=butins[k];
+    if(b.type==='papillon') continue;
     if(Math.hypot(b.x-p.x,b.y-p.y)<12&&Math.abs(b.z-p.z)<24){ ramasserButin(b); butins.splice(k,1); } }
   if(p.vie%3===0) particules(p.x,p.y,p.z,1,'#dff0ff',.6,10);
   p.vie--;
@@ -6330,6 +6740,7 @@ function majBoomerang(p,i){
   }
 }
 function majDivers(){
+  majPapillons();
   for(let i=tirs.length-1;i>=0;i--){
     const p=tirs[i];
     /* ---- le boomerang : il part, ralentit, revient, et ramasse au passage ---- */
@@ -7176,17 +7587,23 @@ function rendreMonde(){
         }
         else if(t==='colporteuse'){
           const s=SPR['colporteuse'+(Math.floor(o.anim/26)%2)];
-          ombre(X,o.x,o.y,0,7);
+          const fond=SPR.kiosqueFond, etal=SPR.kiosqueEtal;
+          ombre(X,o.x,o.y,0,18);
           // une lueur chaude : on la repère de loin, elle ne reste pas longtemps
-          X.globalCompositeOperation='lighter'; X.globalAlpha=.32;
-          X.drawImage(glowCV,o.x-24,o.y-34,48,48);
+          X.globalCompositeOperation='lighter'; X.globalAlpha=.28;
+          X.drawImage(glowCV,o.x-34,o.y-46,68,68);
           X.globalAlpha=1; X.globalCompositeOperation='source-over';
+          /* fond, elle, puis l'étal : le comptoir lui passe devant les jambes,
+             ce qui la place derrière son propre kiosque. */
+          X.drawImage(fond,Math.round(o.x-fond.width/2),Math.round(o.y-fond.height));
           X.drawImage(s,Math.round(o.x-s.width/2),Math.round(o.y-s.height));
+          X.drawImage(etal,Math.round(o.x-etal.width/2),Math.round(o.y+4-etal.height));
           if(!dial&&!boutique&&Math.hypot(o.x-J.x,o.y-J.y)<28){
-            const f=Math.sin(tick*.16)*1.5;
+            // au-dessus de l'auvent, sinon le repère se perd dans les rayures
+            const f=Math.sin(tick*.16)*1.5, hy=o.y-fond.height-6+f;
             X.fillStyle='#ffe86a';
-            X.fillRect(Math.round(o.x)-3,Math.round(o.y-s.height-12+f),6,2);
-            X.fillRect(Math.round(o.x)-1,Math.round(o.y-s.height-14+f),2,6);
+            X.fillRect(Math.round(o.x)-3,Math.round(hy),6,2);
+            X.fillRect(Math.round(o.x)-1,Math.round(hy-2),2,6);
           }
         }
         else if(t==='luciole'){
@@ -7205,10 +7622,9 @@ function rendreMonde(){
         else if(t==='butin'){
           ombre(X,o.x,o.y,o.z,3.5);
           const nom=VALEUR_GEMME[o.type]?o.type+(Math.floor(tick/7)%4)
-                   :o.type==='coeur'?'coeur':o.type==='bombe'?'bombeItem'
-                   :o.type==='champi'?'champi':o.type==='cle'?'cle'
-                   :o.type==='eclat'?'eclat':'fleche';
-          if(o.type==='cle'||o.type==='eclat'){
+                   :o.type==='papillon'?'papillon'+(o.rg|0)
+                   :SPR_BUTIN[o.type]||'fleche';
+          if(LUEUR_BUTIN[o.type]){
             X.globalCompositeOperation='lighter'; X.globalAlpha=.5;
             X.drawImage(glowCV,o.x-20,o.y-o.z-28,40,40);
             X.globalAlpha=1; X.globalCompositeOperation='source-over';
@@ -7394,8 +7810,13 @@ function ath(){
 
   // boutique
   if(boutique){
-    const bw=Math.min(W-20,186), bx=Math.round(W/2-bw/2), by=Math.round(H/2-52);
-    panneau(X,bx,by,bw,104);
+    /* Le panneau suit la longueur de la liste. À hauteur FIXE (104 px, taillés
+       pour quatre lignes), la cinquième — la pièce rare de la colporteuse —
+       passait par-dessus le compte de rubis et « B ACHAT  X SORTIE ». */
+    const bw=Math.min(W-20,186), bx=Math.round(W/2-bw/2);
+    const bh=36+boutique.liste.length*17;
+    const by=clamp(Math.round(H/2-bh/2),4,Math.max(4,H-bh-4));
+    panneau(X,bx,by,bw,bh);
     texteCentre(X,boutique.qui==='LA COLPORTEUSE'?'LE BALLOT DE LA COLPORTEUSE'
                                                  :'ÉCHOPPE DE BRAN',W/2,by+5,'#ffe06a');
     X.fillStyle='#39456b'; X.fillRect(bx+4,by+15,bw-8,1);
@@ -7404,14 +7825,22 @@ function ath(){
       if(i===boutique.sel){ X.fillStyle='#2a3358'; X.fillRect(bx+3,yy-2,bw-6,15);
         X.fillStyle='#ffe06a'; X.fillRect(bx+5,yy+3,3,3); }
       X.globalAlpha=dispo?1:.42;
+      /* Une pièce rare se voit : liseré d'or autour de sa vignette, et son nom
+         en doré. Noyée dans la liste, on passait devant sans la remarquer. */
+      if(a.rare){
+        X.fillStyle=(tick%36<18)?'#ffe86a':'#c8912a';
+        X.fillRect(bx+9,yy-2,15,15);
+        X.fillStyle='#141a2e'; X.fillRect(bx+10,yy-1,13,13);
+      }
       X.drawImage(SPR[a.spr],bx+11,yy,11,11);
-      texte(X,a.nom,bx+25,yy+2,dispo?'#f0f4ff':'#8b94b4');
+      texte(X,a.nom,bx+25,yy+2,dispo?(a.rare?'#ffe06a':'#f0f4ff'):'#8b94b4');
       texte(X,String(a.prix),bx+bw-30,yy+2,dispo?'#7de0a0':'#a08a8a');
       X.globalAlpha=1;
     });
-    X.drawImage(SPR.rubis0,bx+8,by+90);
-    texte(X,String(J.rubis),bx+20,by+92,'#7de0a0');
-    texte(X,'B ACHAT  X SORTIE',bx+bw-106,by+92,'#8b96b4');
+    const pied=by+bh-14;
+    X.drawImage(SPR.rubis0,bx+8,pied);
+    texte(X,String(J.rubis),bx+20,pied+2,'#7de0a0');
+    texte(X,'B ACHAT  X SORTIE',bx+bw-106,pied+2,'#8b96b4');
   }
 
   // témoin de sauvegarde
@@ -8045,7 +8474,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.7';
+const VERSION='V1.8';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
@@ -8276,7 +8705,8 @@ async function chargerInterne(slot){
   // le dernier sol ferme : sans lui, une chute dans le vide renverrait à zéro
   J.solX=J.x; J.solY=J.y; J.solZ=J.z; J.plane=0;
 
-  marchand.actif=false; marchand.prochain=(d.temps||0)+900;
+  marchand.actif=false; marchand.rare=null;
+  marchand.prochain=(d.temps||0)+COLPORTEUSE_ATTENTE;
   tempsJeu=d.temps||0; dernierAuto=tempsJeu;
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
   msgT=0; bandeauT=0; secousse=0; gel=0;
@@ -8437,7 +8867,7 @@ function nouvellePartie(nom,slot){
   msgT=0; bandeauT=0; secousse=0; gel=0;
   tempsJeu=0; dernierAuto=-9999; sauveEtatT=0;
   // la colporteuse va et vient : elle n'est pas sauvegardée, on la remet à zéro
-  marchand.actif=false; marchand.prochain=900;
+  marchand.actif=false; marchand.rare=null; marchand.prochain=COLPORTEUSE_ATTENTE;
   annonce('VAL-DES-SAULES');
   dire("PARLE À LA DOYENNE, AU CENTRE DU VILLAGE.",260);
   etat='jeu';
