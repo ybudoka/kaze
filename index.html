@@ -1185,6 +1185,84 @@ function disqueE(cx,cy,r,v){
     if(Math.hypot(x-cx,y-cy)+(hash(x*5,y*11)-.5)*1.6<=r) putE(x,y,v);
 }
 
+/* ---------------------- LES FALAISES DE BORDURE ----------------------
+   Les huit mondes étaient enclos du MÊME rectangle de mur gris, épais de trois
+   cases, tiré au cordeau : la vallée, le désert et la Faille se fermaient sur
+   la même muraille, et la frontière se lisait comme le bord d'une feuille, non
+   comme un accident du terrain.
+
+   Chaque région a désormais sa falaise. Deux choses la font : sa PIERRE (voir
+   `PIERRES`, que `murTuile` lit selon la rangée) et son PROFIL — le mur avance
+   et recule par pans de trois à six cases, et une lisière de son propre décor
+   pousse devant la roche : bois de la vallée, coulées noires des Cendres,
+   sapins des Cimes, récifs du Lagon, cactus du désert, saules du Marais,
+   obélisques des Nues, échardes de la Faille.
+
+   Trois règles tiennent la sûreté du monde :
+   — les dents sont du MUR, comme le cœur qu'on vient de poser : rien ne les
+     perce, et ni `voie()` ni `chemin()` ne les effacent — ils épargnent le mur,
+     et lui seul ;
+   — elles ne recouvrent JAMAIS une case déjà occupée. C'est exactement ainsi
+     que la falaise sud de la vallée avait enseveli la luciole d'or (§ 9) ;
+   — le hasard vient d'un générateur LOCAL, jamais de `rnd()`. Un seul tirage de
+     plus dans une région décalerait tous les suivants et repeindrait son
+     terrain (§ 14) : le monde d'avant reste, aux falaises près.
+   La lisière, elle, est du décor ordinaire : un traceur de sentier a le droit
+   de l'écarter, et les entrées de région, percées APRÈS, la traversent. */
+const STYLE_BORD=[
+  /* vallée  */ {sol:S.TERRE,     relief:2,dens:.45,decor:[O.ARBRE,O.ARBRE,O.BUISSON,O.ROC],
+                 sols:[S.HERBE,S.TERRE]},
+  /* Cendres */ {sol:S.BASALTE,   relief:2,dens:.34,decor:[O.ROC,O.ROCNOIR,O.PILIER],
+                 sols:[S.CENDRE,S.BASALTE]},
+  /* Cimes   */ {sol:S.ROCHE,     relief:2,dens:.42,decor:[O.SAPIN,O.SAPIN,O.ROC,O.CAIRN],
+                 sols:[S.NEIGE,S.ROCHE]},
+  /* Lagon   */ {sol:S.CORAIL,    relief:2,dens:.40,decor:[O.CORAILO,O.CORAILO,O.ROC],
+                 sols:[S.EAU,S.EAUPROF,S.CORAIL,S.SABLE]},
+  /* Sables  */ {sol:S.DESERT,    relief:2,dens:.32,decor:[O.ROC,O.CACTUS,O.OBELISQUE],
+                 sols:[S.DESERT]},
+  /* Marais  */ {sol:S.MARAIS,    relief:2,dens:.46,decor:[O.SAULE,O.SAULE,O.SOUCHE,O.ROC],
+                 sols:[S.MARAIS,S.VASE]},
+  /* Nues : rien ne pousse sur le vide — la falaise de marbre, seule */
+  /* Nues    */ {sol:S.PIERRECIEL,relief:1,dens:0,  decor:[],sols:[]},
+  /* Faille  */ {sol:S.FRACTURE,  relief:2,dens:.30,decor:[O.ROCNOIR,O.ROC],
+                 sols:[S.FRACTURE]}
+];
+/* Les clairières des lucioles sont sacrées : la falaise sud de la vallée avait
+   déjà enseveli la luciole d'or de la rangée 76 (§ 9), et une dent de roche
+   posée à deux cases d'elle referme sa clairière tout aussi bien. */
+function clairiere(px,py){
+  for(const l of lucioles)
+    if(Math.abs(Math.floor(l.x/TS)-px)<=2&&Math.abs(Math.floor(l.y/TS)-py)<=2) return true;
+  return false;
+}
+function falaise(x0,y0,w,h,dir,st){
+  const dx=dir==='O'?-1:dir==='E'?1:0, dy=dir==='N'?-1:dir==='S'?1:0;
+  const horiz=(dy!==0), n=horiz?w:h;
+  const bx0=dx>0?x0+w-1:x0, by0=dy>0?y0+h-1:y0;
+  /* générateur propre à ce pan de falaise : il ne consomme rien de la graine de
+     la région, et le même pan redonne toujours le même profil */
+  let s=(((x0+7)*73856093)^((y0+13)*19349663)^(dir.charCodeAt(0)*83492791))>>>0;
+  const al=()=>{ s^=s<<13; s>>>=0; s^=s>>>17; s^=s<<5; s>>>=0; return s/4294967296; };
+  for(let i=0;i<n;){
+    const pan=3+((al()*4)|0), d=(al()*(st.relief+1))|0;    // un pan, une profondeur
+    for(let k=0;k<pan&&i<n;k++,i++){
+      const bx=horiz?x0+i:bx0, by=horiz?by0:y0+i;
+      let j=1;
+      for(;j<=d;j++){
+        const px=bx+dx*j, py=by+dy*j;
+        if(!dansCarte(px,py)||Obj(px,py)!==O.RIEN) break;   // on n'ensevelit rien
+        if(clairiere(px,py)) break;                         // ni ne mord sur une clairière
+        putS(px,py,st.sol); putO(px,py,O.MUR); putE(px,py,0);
+      }
+      if(st.dens&&al()<st.dens){                            // la lisière, devant la roche
+        const px=bx+dx*j, py=by+dy*j;
+        if(dansCarte(px,py)&&Obj(px,py)===O.RIEN&&!clairiere(px,py)&&st.sols.includes(Sol(px,py)))
+          putO(px,py,st.decor[(al()*st.decor.length)|0]);
+      }
+    }
+  }
+}
+
 let torches=[], panneaux=[];
 
 function genererMonde(){
@@ -1195,6 +1273,10 @@ function genererMonde(){
   /* --- falaise-frontière --- */
   rectO(0,0,MW,3,O.MUR); rectO(0,MH-3,MW,3,O.MUR);
   rectO(0,0,3,MH,O.MUR); rectO(MW-3,0,3,MH,O.MUR);
+  /* la lisière de la vallée : bois épais au nord et sur les deux flancs */
+  falaise(0,0,MW,3,'S',STYLE_BORD[0]);
+  falaise(0,0,3,Y_CENDRE,'E',STYLE_BORD[0]);
+  falaise(MW-3,0,3,Y_CENDRE,'O',STYLE_BORD[0]);
 
   /* --- plateau nord (étage 1) avec ses rampes --- */
   rectE(6,5,46,17,1);
@@ -3320,11 +3402,14 @@ function genererCendres(){
   }
   /* on ne sort pas des Cendres par les bords */
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR); rectO(0,Y1-2,MW,2,O.MUR);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[1]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[1]);
+  falaise(0,Y1-2,MW,2,'N',STYLE_BORD[1]);
 
   /* La falaise qui ferme la vallée, posée là où se trouvait sa bordure sud
      d'origine (rangées 77-78) : plus au nord, elle recouvrait la luciole d'or
      de la rangée 76 et la rendait inaccessible. */
   rectO(0,Y0-3,MW,2,O.MUR);
+  falaise(0,Y0-3,MW,2,'N',STYLE_BORD[0]);
 
   /* le défilé d'entrée, percé dans cette falaise */
   const g=CENDRE.gorge;
@@ -3488,6 +3573,8 @@ function genererCimes(){
   /* murs de bordure */
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-2,MW,2,O.MUR);
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[2]);    falaise(0,Y1-2,MW,2,'N',STYLE_BORD[2]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[2]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[2]);
 
   /* le col d'entrée, percé dans la falaise du nord, aligné sur celui des Cendres */
   const c=CIMES.col;
@@ -3725,6 +3812,8 @@ function genererLagon(){
   }
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-3,MW,3,O.MUR);
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[3]);    falaise(0,Y1-3,MW,3,'N',STYLE_BORD[3]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[3]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[3]);
 
   /* la cascade d'entrée depuis les Cimes tombe sur une plage franche */
   const ca=LAGON.cascade;
@@ -3833,6 +3922,8 @@ function genererSables(){
   }
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-3,MW,3,O.MUR);
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[4]);    falaise(0,Y1-3,MW,3,'N',STYLE_BORD[4]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[4]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[4]);
 
   /* l'oued : le passage depuis le Lagon, percé dans les deux falaises */
   const w=SABLES.wadi;
@@ -3999,6 +4090,10 @@ function genererMarais(){
   }
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-3,MW,3,O.MUR);
+  /* Pas de falaise au sud : `Y1` vaut ici MH — un reliquat du temps où le
+     Marais fermait le monde — et c'est le bord NORD des Nues qui le ferme. */
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[5]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[5]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[5]);
 
   /* le marécage d'entrée, percé dans les deux falaises */
   const la=MARAIS.laisse;
@@ -4121,6 +4216,8 @@ function genererNues(){
   for(let y=Y0;y<Y1;y++)for(let x=0;x<MW;x++){ putS(x,y,S.VIDE); putO(x,y,O.RIEN); putE(x,y,0); }
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR);
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[6]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[6]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[6]);
 
   const ile=(cx,cy,r,sole)=>{
     for(let y=cy-r;y<=cy+r;y++)for(let x=cx-r;x<=cx+r;x++){
@@ -4221,6 +4318,8 @@ function genererFaille(){
   }
   rectO(0,Y0,3,Y1-Y0,O.MUR); rectO(MW-3,Y0,3,Y1-Y0,O.MUR);
   rectO(0,Y0,MW,2,O.MUR); rectO(0,Y1-3,MW,3,O.MUR);
+  falaise(0,Y0,MW,2,'S',STYLE_BORD[7]);    falaise(0,Y1-3,MW,3,'N',STYLE_BORD[7]);
+  falaise(0,Y0,3,Y1-Y0,'E',STYLE_BORD[7]); falaise(MW-3,Y0,3,Y1-Y0,'O',STYLE_BORD[7]);
 
   /* la bouche de la Faille : on y tombe depuis les Nues */
   const b=FAILLE.bouche;
@@ -7477,20 +7576,37 @@ const ANCRE={gluant:[12,23],mini:[8,15],pieuvre:[12,22],chauve:[13,14],squel:[13
   tourbillon:[12,25],aigle:[13,17],golemnuage:[15,31],echo:[12,25],echonoir:[15,31],
   sentinelle:[22,44],rongeur:[26,50]};
 
+/* LA PIERRE DE CHAQUE RÉGION. Un unique granit gris bâtissait les huit mondes :
+   la falaise du désert, celle de la Faille et celle du village étaient la même.
+   Neuf teintes par région, dans l'ordre où `murTuile` les pose : flanc, pied,
+   assises du flanc, dessus, arête haute, arête basse, veine, bord gauche, bord
+   droit. Les SALLES sont bâties du même objet : un temple du désert est donc en
+   grès, un temple des Cimes en glace bleue — et c'est voulu. */
+const PIERRES=[
+ /* vallée   granit moussu   */ ['#545e50','#434b40','#616b5c','#8a9484','#a6b0a0','#74806e','#9aa992','#68725f','#404839'],
+ /* Cendres  basalte, braise */ ['#2e2830','#201b26','#3b3340','#4d4450','#67596a','#3d3542','#a05a2c','#3a3140','#1b1722'],
+ /* Cimes    roche givrée    */ ['#6d8ba2','#546f89','#7f9db2','#b6cede','#d9edf7','#93b1c6','#eaf6ff','#87a3b7','#4c6780'],
+ /* Lagon    calcaire, corail*/ ['#8a7a5e','#6b5e47','#9b8b6c','#cbb99a','#e7d9bd','#a9977a','#e8a894','#a19171','#62553e'],
+ /* Sables   grès ocre       */ ['#8a683a','#6a4f2a','#9b7842','#c8a165','#e3c58d','#a8834c','#f0d69a','#a17d49','#5d4423'],
+ /* Marais   pierre moussue  */ ['#3a4534','#2b3527','#45523c','#5d6b52','#7b8b6b','#4a5742','#90af73','#47553f','#273023'],
+ /* Nues     marbre et or    */ ['#8b95b0','#6d7793','#9aa4bd','#cfd6e8','#eff3fc','#adb6cd','#e8c86a','#a3adcc','#656e8b'],
+ /* Faille   obsidienne      */ ['#2a2038','#1c1527','#382a4c','#4a3a5e','#6b5585','#3a2c4a','#b06aff','#382b4b','#181121']
+];
 function murTuile(g,x,y){
+  const P=PIERRES[regionIdx(y)];
   const h=HAUT_O[O.MUR], e=Etg(x,y)*EH;
   const gx=x*TS, gy=y*TS-e, top=gy-h;
-  g.fillStyle='#565b6b'; g.fillRect(gx,top+TS,TS,h);
-  g.fillStyle='#464a5a'; g.fillRect(gx,gy+TS-4,TS,4);
+  g.fillStyle=P[0]; g.fillRect(gx,top+TS,TS,h);
+  g.fillStyle=P[1]; g.fillRect(gx,gy+TS-4,TS,4);
   const hh=hash(x*7,y*11);
-  g.fillStyle='#63687a';
+  g.fillStyle=P[2];
   g.fillRect(gx+2,top+TS+3,6,2); g.fillRect(gx+9,top+TS+8,5,2);
-  g.fillStyle='#8d92a2'; g.fillRect(gx,top,TS,TS);
-  g.fillStyle='#a8adbe'; g.fillRect(gx,top,TS,2);
-  g.fillStyle='#787d8e'; g.fillRect(gx,top+TS-3,TS,3);
-  if(hh>.5){ g.fillStyle='#9aa0b0'; g.fillRect(gx+3,top+5,6,2); }
-  if(Obj(x-1,y)!==O.MUR){ g.fillStyle='#6a6f80'; g.fillRect(gx,top,1,TS+h); }
-  if(Obj(x+1,y)!==O.MUR){ g.fillStyle='#43475a'; g.fillRect(gx+TS-1,top,1,TS+h); }
+  g.fillStyle=P[3]; g.fillRect(gx,top,TS,TS);
+  g.fillStyle=P[4]; g.fillRect(gx,top,TS,2);
+  g.fillStyle=P[5]; g.fillRect(gx,top+TS-3,TS,3);
+  if(hh>.5){ g.fillStyle=P[6]; g.fillRect(gx+3,top+5,6,2); }
+  if(Obj(x-1,y)!==O.MUR){ g.fillStyle=P[7]; g.fillRect(gx,top,1,TS+h); }
+  if(Obj(x+1,y)!==O.MUR){ g.fillStyle=P[8]; g.fillRect(gx+TS-1,top,1,TS+h); }
 }
 
 function decorTuile(g,x,y){
@@ -9375,7 +9491,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.3';
+const VERSION='V2.4';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

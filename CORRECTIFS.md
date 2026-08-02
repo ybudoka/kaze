@@ -333,6 +333,10 @@ Autres pièges rencontrés en construisant la région :
   se lit dans `butins` (cf. 38).
 - **Une mécanique qui se consomme doit se réarmer** : caisse acculée (cf. 36),
   bloc lourd gâché, gué manqué (cf. 38). Jamais sous les yeux du joueur.
+- **Un décor de bordure qui n'est pas du `O.MUR` se fait percer** : `voie()` et
+  `chemin()` épargnent le mur, et lui seul (cf. 40).
+- **Toute entité posée sur la carte naît à la hauteur de SON sol** : `pondre()`
+  l'ignorait, et 39 créatures sur 374 étaient dessinées sous le plancher (cf. 40).
 - **`chemin()` ne perce que la lave et la roche noire, jamais les murs** : un
   point d'intérêt placé derrière une salle des Cendres reste injoignable, même
   si l'appel « trace » un chemin jusqu'à lui (cf. 9.2).
@@ -2568,3 +2572,120 @@ l'ont montré qu'à la réinjection :
 - **Un élément qu'on ne peut pas placer se retire.** Une bête de 4 px ou un héros
   à moitié caché derrière un panneau ne racontent rien — mieux vaut ne pas les
   dessiner.
+
+---
+
+## 40. Les huit mondes se fermaient sur la même muraille, et les créatures s'enfonçaient dans le sol
+
+### Un seul mur gris pour huit régions
+
+Chaque région était enclose du **même rectangle** : trois cases de `O.MUR`, la
+même pierre grise, tirée au cordeau sur les quatre côtés. La vallée, le désert
+et la Faille se fermaient sur la même muraille, et l'on ne lisait pas un
+accident du terrain mais **le bord d'une feuille**.
+
+Deux choses font désormais une frontière.
+
+**Sa pierre.** `murTuile` lit `PIERRES[regionIdx(y)]` : neuf teintes par région
+— flanc, pied, assises, dessus, arêtes, veine, bords. Mesuré, la couleur du
+dessus de la falaise, région par région :
+
+| | vallée | Cendres | Cimes | Lagon | Sables | Marais | Nues | Faille |
+|---|---|---|---|---|---|---|---|---|
+| **avant** | 141,146,162 | 141,146,162 | 141,146,162 | 141,146,162 | 141,146,162 | 141,146,162 | 141,146,162 | 141,146,162 |
+| **après** | 138,148,132 | 77,68,80 | 127,157,178 | 203,185,154 | 200,161,101 | 93,107,82 | 207,214,232 | 74,58,94 |
+
+Les **salles** sont bâties du même objet : un temple du désert est donc en grès,
+un temple des Cimes en glace bleue. C'est voulu.
+
+**Son profil.** `falaise()` ajoute au mur plein des **dents** — par pans de trois
+à six cases, une à deux cases de profondeur — puis une **lisière** du décor de la
+région, devant la roche. Mesuré, l'épaisseur du bord ouest passe de « 3 partout »
+à « 3, 4 ou 5 » dans les huit régions ; et la lisière relevée sur les colonnes du
+bord :
+
+| région | ce qui pousse devant sa falaise |
+|---|---|
+| vallée | chênes, buissons, rochers |
+| Terres de Cendre | roche noire, piliers |
+| Cimes Gelées | sapins, cairns |
+| Lagon d'Azur | récifs de corail |
+| Sables du Mirage | cactus, obélisques |
+| Marais des Murmures | saules, souches |
+| Cité des Nues | rien — on ne plante pas sur le vide |
+| la Faille | roche noire |
+
+### Trois règles tiennent la sûreté du monde
+
+- **Les dents sont du MUR**, comme le cœur qu'on vient de poser. C'est la seule
+  chose que `voie()` et `chemin()` n'effacent pas : une dent en roche noire dans
+  les Cendres, et `chemin()` l'aurait percée (§ 8). Mesuré : **zéro case
+  franchissable** sur tout le cadre du monde.
+- **Elles n'ensevelissent rien.** Une dent ne se pose que sur une case vide, et
+  jamais à moins de deux cases d'une luciole. Sans cette seconde garde, la
+  falaise sud de la vallée refermait **la clairière de la luciole n° 6** — très
+  exactement la faute du § 9, à deux rangées près. Le contrôle l'a attrapée du
+  premier coup.
+- **Le hasard est LOCAL.** `falaise()` a son propre générateur, semé sur ses
+  coordonnées : il ne consomme rien de `rnd()`. Un seul tirage de plus dans une
+  région décalerait tous les suivants et repeindrait son terrain (§ 14) — le
+  monde d'avant est intact, aux falaises près.
+
+La lisière, elle, est du décor ordinaire : un traceur de sentier a le droit de
+l'écarter, et les entrées de région, percées **après**, la traversent.
+
+Trois bords n'existent pas, et le contrôle le sait : les Cendres n'ont pas de
+falaise nord (celle de la vallée les ferme), les Nues pas de bord sud (on y
+tombe dans la Faille), et le Marais pas davantage — son `Y1` vaut `MH`, reliquat
+du temps où il fermait le monde.
+
+### Les créatures s'enfonçaient dans le sol
+
+Une capture d'écran : une bête au milieu d'une plaque de glace, **coupée net à la
+taille**, le décor par-dessus.
+
+`pondre()` posait toute créature à `z:0`. Sur un plateau — étage 1, seize pixels
+— elle était donc dessinée **seize pixels sous la surface**. Sa mise à jour
+aurait bien corrigé sa hauteur (`e.z=baseSol(e.x,e.y)`), mais celle-ci est
+court-circuitée tant que la bête n'a pas vu le héros :
+
+```js
+if(d>210||(!e.vz&&!e.voit)){ e.kx*=.8; e.ky*=.8; continue; }
+```
+
+— et c'est justement dans cet état qu'on la découvre, de loin, immobile. Mesuré
+sur une partie neuve : **39 créatures sur 374**, dont tout le plateau nord de la
+vallée. Elles naissent désormais à `Etg(tx,ty)*EH`. Après correctif : **0 sur
+374**, et 0 encore après un tour de boucle.
+
+### Vérification
+
+`tests/34-frontieres.js`, douze contrôles. Les quatre bords de chaque région sont
+mesurés séparément : le premier jet ne mesurait que les flancs, et **retirer la
+falaise nord de la vallée le laissait vert**. Le contrôle du pied de falaise a dû
+apprendre à chercher la roche : celle qui ferme la vallée est en 77-78, pas en
+79, et la mesurer à ras du bord la donnait pour absente.
+
+Réinjections, une par une — chacune fait rougir son contrôle, et lui seul :
+
+| réinjection | contrôle qui rougit |
+|---|---|
+| une seule pierre pour les huit régions | les huit régions ont huit pierres différentes |
+| falaise nord de la vallée retirée | aucun des quatre bords n'est plus un trait *(vallée/N)* |
+| falaise sud des Cendres retirée | idem *(Cendres/S)* |
+| falaise nord des Cimes retirée | idem *(Cimes/N)* |
+| falaise ouest des Sables retirée | idem *(Sables/O)* |
+| garde des clairières retirée | les clairières des lucioles restent dégagées |
+| créatures pondues à `z:0` | aucune créature n'est enfoncée dans le sol *(42 sur 374)* |
+
+### À ne pas réintroduire
+
+- **Un décor de bordure qui n'est pas du MUR se fait percer** : `voie()` et
+  `chemin()` épargnent le mur, et lui seul.
+- **Tout ce qui grossit une bordure peut ensevelir ce qui est derrière.** Deux
+  fois maintenant, sur la même falaise (§ 9, puis ici).
+- **Un contrôle de bordure doit mesurer les QUATRE côtés.** Un flanc dentelé ne
+  dit rien du bord nord.
+- **Toute entité posée sur la carte doit naître à la hauteur de son sol.**
+  `pondre()` l'ignorait ; les butins, les coffres et les lucioles, eux, portaient
+  déjà leur étage.
