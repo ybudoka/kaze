@@ -1781,3 +1781,115 @@ hauteur fixe. Suite complète : **556 contrôles verts**.
 - **Le journal ne défile pas** : sur un écran court, la section ÉQUIPEMENT —
   et donc la ligne des pièces rares — est déjà tronquée. Défaut préexistant,
   non corrigé ici.
+
+---
+
+## 28. Dans l'eau on marchait, et les monstres voyaient à travers la pierre
+
+Quatre règles, toutes sur ce que l'on voit et sur ce que les créatures voient.
+
+### 1. On traversait l'eau debout
+
+Les palmes trouvées, l'eau devenait franchissable — et le héros la traversait
+**entier**, bottes comprises, comme on traverse une prairie. Rien ne disait
+qu'on nageait.
+
+Il s'enfonce désormais de **neuf pixels** et tout ce qui passe sous la ligne
+d'eau est coupé net. Deux bras brassent à la surface, en opposition, et l'écume
+file derrière lui.
+
+Le chiffre a été **mesuré, pas deviné** : à quinze pixels d'enfoncement la tête
+passait sous la surface et il ne restait qu'un bout de bonnet vert à l'écran.
+Neuf place la ligne d'eau sous le menton — le visage sort, les épaules affleurent.
+
+On ne redessine PAS un corps immergé pour chacune des vingt poses : ce sont les
+sprites existants, enfoncés et découpés. L'épée, elle, est dessinée *dans* le
+sprite d'attaque — elle sort donc bien de l'eau. Bouclier et outil au poing
+disparaissent : on a les mains prises.
+
+### 2. Un mur ne cachait rien
+
+Les créatures suivaient le héros à travers la pierre. Elles savent maintenant
+qu'un obstacle coupe le regard s'il est **dur** et **assez haut pour masquer**
+— exactement comme il arrête une flèche. Mêmes tables (`DUR_O`, `HAUT_O`, le
+relief), même modèle : ce qu'une flèche ne traverse pas, un regard ne le
+traverse pas non plus.
+
+Le spectre et l'ombre font exception : ils traversent les murs, il serait
+absurde qu'un mur les aveugle.
+
+La ligne de vue coûte une douzaine de lectures de tuile ; elle est refaite **une
+image sur six**. Et une créature **en plein bond** garde sa cible : sans cela
+elle restait figée en l'air, ce qui se voit.
+
+Les projectiles, eux, mouraient **déjà** sur les murs (`majDivers`, le test
+d'entrée de boucle). Vérifié plutôt que supposé : un caillou lancé droit sur le
+héros à travers un mur ne lui coûte rien, alors qu'à découvert il coûte un point.
+
+### 3. Près d'un personnage, on est à couvert
+
+Un halo de 54 px autour de chaque personnage : tant qu'on s'y tient, les
+créatures ne voient plus le héros du tout. C'est un refuge portatif, cousin des
+zones de paix déjà posées sur le village et la grève.
+
+Le cercle est **tracé au sol**, et il s'éclaire quand on entre dedans — sans lui,
+rien à l'écran ne dirait que la zone existe. Il est dessiné **après** toutes les
+rangées : tracé dans la rangée du personnage, le terrain des rangées suivantes
+en aurait effacé la moitié basse.
+
+### 4. Un panneau se lisait sous le nez d'un monstre
+
+La boîte de dialogue fige le héros. Un panneau planté près d'une créature
+devenait donc un piège : on lisait, et on prenait des coups sans pouvoir rien
+faire. À moins de 86 px d'un monstre, le panneau ne s'ouvre plus et le jeu dit
+pourquoi. Les personnages, eux, restent accessibles — leur halo a déjà chassé
+ce qui rôdait.
+
+### Le contrôle mesurait le refuge, pas la vue
+
+Premier jet du contrôle : poser une créature à sept tuiles et compter de combien
+elle se rapproche. Elle **s'éloignait de 106 px**. Le village est un
+`refuge` : les créatures en sont repoussées et les projectiles ennemis y
+meurent. La mesure ne parlait pas de la vue du tout. `refuges.length = 0` dans
+le terrain d'essai, et le chiffre est redevenu lisible.
+
+Pour le nageur, `dessinerJoueur` est appelé **pour de vrai** dans un carré à
+part, recentré sur le héros : c'est le dessin du jeu qu'on mesure, pas une
+reconstitution. Corps et écume sont distingués **par leur couleur** (le carré
+est hors du monde, sans teinte d'ambiance, donc les teintes y sont exactes) — un
+simple compte de pixels sous la ligne d'eau serait resté vert avec de l'écume
+seule. Et les bras sont relevés **par leur position**, pas par leur nombre : deux
+bras figés donnent le même compte à chaque image, et c'est précisément la
+régression qu'un premier contrôle avait laissée passer.
+
+### Vérification
+
+Vingt-deux contrôles dans `29-nage-et-vue.js`. Réinjection de onze régressions,
+une par une, chacune rougissant **les siennes** :
+
+- nageur non dessiné → `35 px -> 35 px` ;
+- enfoncement supprimé → `35 px -> 32 px` ;
+- coupe à la ligne d'eau supprimée → `291 px de corps sous la ligne` ;
+- bras supprimés → `0 pixels de bras` ;
+- bras figés → `bras figés (13 px, position 25755)` ;
+- écume supprimée → `0 px d'écume` ;
+- abri du personnage annulé → `elle a encore gagné 97 px` ;
+- vue toujours libre → `elle a encore gagné 33 px` ;
+- obstacles ignorés dans le tracé → `elle voit à travers` ;
+- lecture autorisée en combat → `{"pris":true,"ouvert":true}` ;
+- mur ignoré par les projectiles → `pv=19`.
+
+Plus un **témoin** : une modification qui ne change rien laisse tout vert.
+
+### À ne pas réintroduire
+
+- **Un terrain d'essai posé dans le village mesure le refuge, pas la règle.**
+  Vider `refuges` avant toute mesure de poursuite ou de projectile.
+- **Ne pas couper la poursuite d'une créature en plein bond** : elle resterait
+  figée en l'air. On attend qu'elle retombe.
+- **Compter des pixels sous une ligne d'eau ne dit pas ce qui reste** : il faut
+  séparer le corps de l'écume par la couleur.
+- **Compter des pixels de bras ne dit pas qu'ils bougent** : relever leur
+  position.
+- **Un dialogue fige le héros.** Tout ce qui ouvre une boîte de texte doit se
+  demander si quelque chose peut frapper pendant ce temps.

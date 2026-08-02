@@ -4285,8 +4285,25 @@ function tenterInteraction(){
       dialoguePNJ(p); return true;
     }
   }
+  /* Un panneau ne se lit pas sous le nez d'une créature : la boîte de dialogue
+     fige le héros, et l'on prenait des coups sans pouvoir rien faire — un
+     panneau planté près d'un monstre devenait un piège. Les personnages, eux,
+     restent accessibles : leur halo de paix a déjà chassé ce qui rôdait. */
   for(const s of panneaux)
-    if(Math.hypot(s.x-J.x,s.y-J.y)<22){ parler('PANNEAU',s.txt); return true; }
+    if(Math.hypot(s.x-J.x,s.y-J.y)<22){
+      if(creatureProche(J.x,J.y,LECTURE_SUR)){
+        SFX.erreur(); dire("PAS LE MOMENT DE LIRE : QUELQUE CHOSE RÔDE.",120);
+        return true;
+      }
+      parler('PANNEAU',s.txt); return true;
+    }
+  return false;
+}
+/* Assez près pour frapper pendant qu'on a le nez sur le panneau. */
+const LECTURE_SUR=86;
+function creatureProche(x,y,r){
+  for(const e of ennemis) if(Math.hypot(e.x-x,e.y-y)<r) return true;
+  if(boss&&Math.hypot(boss.x-x,boss.y-y)<r) return true;
   return false;
 }
 
@@ -4836,14 +4853,17 @@ const J={
   x:35*TS, y:45*TS, z:0, vz:0, dir:2, r:5,
   pv:6, pvmax:6, rubis:0, bombes:0, fleches:0, fragments:0,
   objets:[], objSel:0,
-  atk:0, charge:0, spin:0, invuln:0, bouclier:false, kx:0, ky:0,
+  atk:0, charge:0, spin:0, invuln:0, bouclier:false, kx:0, ky:0, nage:false,
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
   slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null, porte:null,
   /* Cité des Nues : le vol plané et le dernier sol ferme foulé */
   plane:0, solX:35*TS, solY:45*TS, solZ:0,
   /* le balayage du filet, en images : il sert au dessin ET à empêcher qu'on
      enchaîne les coups sans jamais lever le bras */
-  filetT:0
+  filetT:0,
+  /* la glisse sur la glace : la vitesse réellement appliquée, qui traîne
+     derrière l'intention (voir majJoueur) */
+  gx:0, gy:0
 };
 
 function dire(t,duree=200){ message=t; msgT=duree; }
@@ -5288,6 +5308,11 @@ function exploser(b){
 /* ============================ JOUEUR ============================ */
 function majJoueur(){
   const b=baseSol(J.x,J.y);
+  /* On nage dès qu'on a de l'eau sous les pieds et qu'on n'est pas en l'air.
+     L'eau n'est franchissable qu'une fois les palmes trouvées (voir `dur`) :
+     inutile de le revérifier ici. */
+  { const t=Sol(Math.floor(J.x/TS),Math.floor(J.y/TS));
+    J.nage=(t===S.EAU||t===S.EAUPROF)&&!J.enAir&&!J.grap&&!J.porte&&J.z<=b+.5; }
 
   /* --- objet actif (on ne change pas d'objet les bras chargés) --- */
   if(!J.porte&&appui('L')&&J.objets.length){ pris('L'); J.objSel=(J.objSel+J.objets.length-1)%J.objets.length; SFX.menu(); }
@@ -5769,7 +5794,45 @@ function zoneDegats(cx,cy,w,h,deg,type){
 }
 
 /* ============================ IA ENNEMIS ============================ */
+/* ================= CE QUE LES MONSTRES VOIENT =================
+   Ils suivaient le héros à travers la pierre : un mur ne les arrêtait ni du
+   regard, ni du tir. Deux règles, une seule question posée par créature.
+
+   1. Un obstacle coupe la vue s'il est DUR et assez haut pour masquer le
+      regard — exactement comme il arrête une flèche. Mêmes tables (`DUR_O`,
+      `HAUT_O`, le relief), même modèle : ce qu'une flèche ne traverse pas,
+      un regard ne le traverse pas non plus.
+   2. Près d'un personnage du village, on est à couvert. C'est un refuge
+      portatif : sa seule présence tient les créatures à distance.
+
+   Le spectre et l'ombre font exception — ils TRAVERSENT les murs, il serait
+   absurde qu'un mur les aveugle. */
+const ABRI_PNJ=54;                        // rayon du halo de paix, en pixels
+let heroAbrite=false;                     // recalculé une seule fois par image
+function abriDUnPNJ(x,y){
+  for(const p of pnjs) if(Math.hypot(p.x-x,p.y-y)<ABRI_PNJ) return p;
+  return null;
+}
+function vueLibre(x0,y0,z0,x1,y1,z1){
+  const dx=x1-x0, dy=y1-y0, dz=z1-z0;
+  const n=Math.ceil(Math.hypot(dx,dy)/6);        // un point tous les six pixels
+  for(let i=1;i<n;i++){
+    const t=i/n, x=x0+dx*t, y=y0+dy*t, z=z0+dz*t;
+    const tx=Math.floor(x/TS), ty=Math.floor(y/TS);
+    if(!dansCarte(tx,ty)) return false;
+    if(Etg(tx,ty)*EH>z+6) return false;                        // un relief plus haut que l'œil
+    const o=Obj(tx,ty);
+    if(o&&DUR_O[o]&&z<Etg(tx,ty)*EH+HAUT_O[o]-4) return false;  // un obstacle qui masque
+  }
+  return true;
+}
+function voitLeHeros(e){
+  if(e.type==='spectre'||e.type==='ombre') return true;
+  if(heroAbrite) return false;
+  return vueLibre(e.x,e.y,e.z+8,J.x,J.y,J.z+14);
+}
 function majEnnemis(){
+  heroAbrite=!!abriDUnPNJ(J.x,J.y);
   for(let i=ennemis.length-1;i>=0;i--){
     const e=ennemis[i]; e.t++; e.anim++;
     if(e.flash>0) e.flash--;
@@ -5799,7 +5862,11 @@ function majEnnemis(){
     // région d'origine, fixée au premier passage : le monstre y restera confiné
     if(e.rIdx===undefined) e.rIdx=regionIdx(Math.floor(e.y/TS));
     const d=Math.hypot(e.x-J.x,e.y-J.y);
-    if(d>210){ e.kx*=.8; e.ky*=.8; continue; }
+    /* La ligne de vue coûte une douzaine de lectures de tuile et change
+       lentement : on la refait une image sur six. En plein bond, la créature
+       garde sa cible — sinon elle resterait figée en l'air, ce qui se voit. */
+    if(e.t%6===0||e.voit===undefined) e.voit=voitLeHeros(e);
+    if(d>210||(!e.vz&&!e.voit)){ e.kx*=.8; e.ky*=.8; continue; }
 
     /* ---------------- Terres de Cendre ---------------- */
     if(e.type==='braise'){
@@ -7321,7 +7388,57 @@ function dessinerArmeMain(g,derriere){
   }
 }
 
+/* ------------------------- LE HÉROS À LA NAGE -------------------------
+   Dans l'eau, on ne doit voir que ce qui dépasse : la tête, les épaules, et les
+   bras qui brassent. On enfonce donc le héros et on coupe net tout ce qui passe
+   sous la ligne d'eau — plutôt que de redessiner un corps immergé pour chacune
+   des vingt poses, ce qui aurait doublé l'atlas pour le même résultat. Les bras
+   et les remous sont tracés à la volée : huit rectangles, rien d'alloué. */
+/* Neuf pixels : mesuré pour que la ligne d'eau tombe SOUS LE MENTON. À quinze,
+   la tête passait dessous et il ne restait qu'un bout de bonnet vert. */
+const NAGE_ENFONCE=9;
+/* Les bras qui brassent, l'un après l'autre. C'est ce mouvement, et lui seul,
+   qui dit « il nage » plutôt que « il flotte ». */
+function brasNage(g,cx,eau){
+  const p=tick*.13;
+  for(let c=0;c<2;c++){
+    const e=(Math.sin(p+c*Math.PI)+1)/2;       // de 0 à 1, en opposition
+    const l=5+Math.round(e*4), dy=Math.round((1-e)*2);
+    const x=c?cx+6:cx-6-l, y=eau-3+dy;   // à hauteur d'épaule, pas d'oreille
+    rc(g,x-(c?0:2),y+3,l+2,1,'#14101f');       // le trait sombre : sinon ils se noient
+    rc(g,x,y,l,3,HP.T);
+    rc(g,c?x+l:x-2,y,2,3,HP.PE);               // la main
+  }
+}
+/* L'écume à fleur d'eau, et deux traînées qui s'écartent derrière lui. */
+function remousNage(g,cx,eau){
+  const p=tick*.09;
+  g.fillStyle='#eaf6ff'; g.fillRect(cx-7,eau-1,14,1);
+  g.fillStyle='#a9d6ee';
+  for(let k=0;k<3;k++){
+    const o=Math.round(Math.sin(p+k*1.7)*4);
+    g.fillRect(cx-12+o,eau+1+k*2,5,1);
+    g.fillRect(cx+7-o,eau+1+k*2,5,1);
+  }
+}
+function dessinerNageur(g){
+  const cx=Math.round(J.x), cy=Math.round(J.y-J.z);
+  const eau=cy-5;                              // la ligne d'eau, sous son menton
+  if(!(J.invuln>0&&(J.invuln%8)<4&&J.invuln<70)){
+    g.save();
+    g.beginPath(); g.rect(cx-20,cy-44,40,eau-cy+44); g.clip();
+    /* Ni bouclier ni outil au poing : on a les mains prises. L'épée, elle, est
+       dessinée DANS le sprite d'attaque — elle sort donc bien de l'eau. */
+    g.drawImage(SPR[sprHeros()],cx-20,cy-33+NAGE_ENFONCE);
+    if(J.atk<=0&&J.spin<=0&&J.slam<=0) brasNage(g,cx,eau);
+    g.restore();
+  }
+  remousNage(g,cx,eau);
+}
+
 function dessinerJoueur(g){
+  // à la nage, c'est le remous qui dit où il est : l'ombre portée n'a plus de sens
+  if(J.nage){ dessinerNageur(g); return; }
   ombre(g,J.x,J.y,J.z,6.5);
   if(J.invuln>0&&(J.invuln%8)<4&&J.invuln<70) return;
   const s=SPR[sprHeros()];
@@ -7656,6 +7773,20 @@ function rendreMonde(){
       }
     }
   }
+
+  /* Le halo de paix autour des personnages : tant qu'on s'y tient, les
+     créatures ne nous voient plus. Sans ce cercle, rien à l'écran ne dirait que
+     la zone existe. Il est tracé APRÈS les rangées : dessiné dans la rangée du
+     personnage, le terrain des rangées suivantes en effacerait la moitié
+     basse. */
+  for(const p of pnjs){
+    if(p.x<cam.x-90||p.x>cam.x+W+90||p.y<cam.y-90||p.y>cam.y+H+90) continue;
+    const dedans=heroAbrite&&Math.hypot(p.x-J.x,p.y-J.y)<ABRI_PNJ;
+    X.globalAlpha=dedans?.34:.12;
+    X.strokeStyle=dedans?'#9ff0c8':'#7fd0ff'; X.lineWidth=1;
+    X.beginPath(); X.ellipse(p.x,p.y+2,ABRI_PNJ,ABRI_PNJ*.5,0,0,6.2832); X.stroke();
+  }
+  X.globalAlpha=1;
 
   // particules
   for(const p of parts){
@@ -8474,7 +8605,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V1.8';
+const VERSION='V1.9';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
