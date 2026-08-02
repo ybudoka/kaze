@@ -1,8 +1,8 @@
 {
   "name": "kaze",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "Kaze & les Trois Étoiles — jeu d'action-aventure en un seul fichier HTML",
+  "description": "Kaze et le Rongeur d'Étoiles — jeu d'action-aventure en un seul fichier HTML",
   "scripts": {
     "test": "node tests/lancer.js"
   },

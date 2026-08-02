@@ -149,7 +149,9 @@ module.exports = {
         r.nbVignettes === 8 && r.rapport > 12,
         `${r.nbVignettes} vignettes, la grande n'est que ${r.rapport.toFixed(0)}× une vignette`);
       v(`${nom} : les statistiques sont toutes là`,
-        ['ÉTOILES', 'RUBIS', 'BOMBES', 'FLÈCHES', 'LUCIOLES']
+        /* « ÉTOILES » est devenu « PIERRES » : le premier monde ne donne plus
+           les étoiles, il donne les trois pierres de garde. */
+        ['PIERRES', 'RUBIS', 'BOMBES', 'FLÈCHES', 'LUCIOLES']
           .every(m => r.textes.some(t => t.startsWith(m))),
         r.textes.join(' | '));
       v(`${nom} : la légende explique les repères`,

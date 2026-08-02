@@ -62,7 +62,13 @@ module.exports = {
       out.wadiFromLagon = near(flood(LAGON.large.x0 + (LAGON.large.w >> 1), LAGON.large.y0 + 3, false), wx, wy);
       /* Bornée aux SABLES, et non au bas de la carte : la Faille rejoue
          l'épreuve du bloc lourd, et ses blocs se comptaient ici. */
-      out.blocsLourds = (() => { let n = 0; for (let y = Y_SABLES; y < Y_MARAIS; y++) for (let x = 0; x < MW; x++) if (Obj(x, y) === O.BLOCLOURD) n++; return n; })();
+      /* La réserve DE LA VANNE, et elle seule : la Citerne en a désormais
+         quatre autres, et compter tout le désert mélangeait les deux. */
+      out.blocsLourds = (() => { let n = 0;
+        const cx = SABLES.arene.x0 + (SABLES.arene.w >> 1), yTop = SABLES.vanne.y0 - 3;
+        for (let y = yTop - 3; y <= yTop + 1; y++) for (let dx = -2; dx <= 2; dx++)
+          if (Obj(cx + dx, y) === O.BLOCLOURD) n++;
+        return n; })();
 
       // ---- le bracelet : ramassé, il soulève et jette un bloc ----
       out.braceletButin = butins.some(b => b.type === 'bracelet');

@@ -99,10 +99,17 @@ module.exports = {
            On retient maintenant tout ce qui RESSEMBLE à du texte de jeu — des
            capitales, aucune minuscule, aucune syntaxe de code — puis on
            inspecte chacun de ses caractères. */
+        /* `&` ne figure PLUS parmi les signes qui font écarter une chaîne. Il y
+           était, et c'est ainsi que le sous-titre de l'écran-titre — le nom du
+           jeu, la première chose qu'on lit — s'est affiché « ? LES TROIS
+           ÉTOILES » pendant toutes les versions publiées : la police n'a pas
+           d'esperluette, et la chaîne qui en contenait une n'était même pas
+           examinée. Deux fois le même piège : une liste d'exclusion finit
+           toujours par protéger le caractère qu'on cherche. */
         const ressembleAuJeu = t =>
           (t.match(/[A-ZÀ-ŸŒ]/g) || []).length >= 4
           && !/[a-zà-ÿ]/.test(t)
-          && !/[<>{}$\\|_@&*`~^#]/.test(t);
+          && !/[<>{}$\\|_@`~^#]/.test(t);
         /* Les libellés des boutons HTML au-dessus du jeu (PLEIN ÉCRAN, MUSIQUE,
            DÉBUG…) sont écrits par le navigateur, avec SA police : ils n'ont
            jamais à passer par les glyphes pixel. Ceux-là seuls sont exemptés,

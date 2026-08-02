@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Kaze &amp; les Trois Étoiles</title>
+<title>Kaze et le Rongeur d&#39;Étoiles</title>
 <!-- Installé via « Ajouter à l'écran d'accueil », le jeu devient une vraie
      application : iOS cesse alors d'effacer son stockage au bout de sept
      jours sans visite, ce qui faisait disparaître les sauvegardes. -->
@@ -217,7 +217,7 @@ body.sanspad #pad{display:none}
 <script>
 "use strict";
 /* ==========================================================================
-   KAZE & LES TROIS ÉTOILES — action-aventure 16 bits
+   KAZE ET LE RONGEUR D'ÉTOILES — action-aventure 16 bits
    Rendu pseudo-3D : plateaux à étages, tuiles extrudées, axe Z réel,
    atlas de sprites détourés, Mode 7 sur l'écran-titre, color math.
    ========================================================================== */
@@ -2253,6 +2253,33 @@ function bakeEnnemis(){
     rc(g,17,2,2,16,'#8a6a3a'); rc(g,16,1,4,2,'#c8a060');           // javelot
     rc(g,16,1,1,4,'#c8a060'); rc(g,19,1,1,4,'#c8a060');
   });
+  /* CACTUS VIVANT : il ne marche pas, il est PLANTÉ. Il gonfle, puis lâche une
+     couronne d'épines tout autour de lui — ce n'est pas un tireur de plus, sa
+     salve part dans huit directions et l'on doit sortir de sa portée, ou
+     l'abattre de loin. Deux images : au repos, et gonflé juste avant la salve. */
+  for(let f=0;f<2;f++) faireSprite(`cactus${f}`,24,30,g=>{
+    const e=f?1:0;                                  // gonflé : plus large d'un pixel
+    rc(g,4,26,16,4,'#8a6a3a'); rc(g,5,27,14,2,'#a2814a');          // le pot de sable
+    rc(g,9-e,6,6+e*2,21,'#2f7a3a');                                // le tronc
+    rc(g,10-e,7,4+e*2,19,'#3f9a4a');
+    rc(g,11,8,2,17,'#5cb85c');                                     // sa nervure claire
+    rc(g,4-e,12,5+e,4,'#2f7a3a'); rc(g,4-e,9,3,5,'#2f7a3a');       // le bras gauche
+    rc(g,5-e,12,3,3,'#3f9a4a'); rc(g,5-e,10,1,4,'#3f9a4a');
+    rc(g,15,14,5+e,4,'#2f7a3a'); rc(g,18,10,3,6,'#2f7a3a');        // le bras droit
+    rc(g,16,15,3,2,'#3f9a4a'); rc(g,19,11,1,5,'#3f9a4a');
+    rc(g,9,11,2,2,'#241f30'); rc(g,13,11,2,2,'#241f30');           // les yeux
+    rc(g,10,16,4,2,'#1f5a2a');                                     // la bouche
+    // les épines, plus longues quand il gonfle
+    const s='#e8e0c0';
+    for(const [x,y] of [[8,9],[8,15],[8,21],[15,9],[15,15],[15,21]]){
+      rc(g,x-1-e,y,1+e,1,s); rc(g,x+1,y,1+e,1,s);
+    }
+    rc(g,11,4,2,3,s); rc(g,9,5,1,2,s); rc(g,14,5,1,2,s);
+  });
+  faireSprite('epine',8,8,g=>{                       // l'épine lancée
+    rc(g,1,3,6,2,'#e8e0c0'); rc(g,1,3,4,1,'#fffbe0');
+    rc(g,6,2,2,4,'#c8b48a');
+  });
   // DJINN DE SABLE : tourbillon qui se disperse et se reforme
   for(let f=0;f<3;f++) faireSprite(`djinn${f}`,22,24,g=>{
     const o=[0,1,2][f];
@@ -2511,6 +2538,20 @@ function bakeDecors(){
     rc(g,5,5,10,10,'#ffe86a'); rc(g,7,7,6,6,'#fffbe0');
     rc(g,4,4,3,3,'#f0c83c'); rc(g,13,13,3,3,'#f0c83c');
   });
+  /* La PIERRE DE GARDE : le socle qu'une étoile occupait, et qu'elle a laissé
+     éteint. Les trois de la vallée ouvrent le portail du sud. Elles ne
+     ressemblent PAS à une étoile : le Rongeur les a dévorées, on ne peut pas
+     les avoir dès le premier monde — c'est tout l'objet du changement. */
+  faireSprite('pierreGarde',18,18,g=>{
+    rc(g,3,4,12,12,'#6a7086');                          // le socle de pierre
+    rc(g,4,5,10,10,'#878ea6');
+    rc(g,3,4,12,2,'#a9b0c8'); rc(g,3,14,12,2,'#4a5060');
+    rc(g,6,7,6,6,'#2a2f3e');                            // l'alvéole, vide
+    rc(g,7,8,4,4,'#3d4356');
+    rc(g,2,2,3,3,'#a9b0c8'); rc(g,13,2,3,3,'#a9b0c8');  // les quatre ergots
+    rc(g,2,13,3,3,'#5a6070'); rc(g,13,13,3,3,'#5a6070');
+    rc(g,8,2,2,2,'#cfd6e8');                            // un reste de lueur
+  });
   faireSprite('bombeVive',16,18,g=>{
     rc(g,2,5,12,11,'#22262e'); rc(g,3,6,7,6,'#454b5c'); rc(g,5,7,3,2,'#868da4');
     rc(g,7,1,2,5,'#8a6a3a');
@@ -2753,7 +2794,10 @@ const Q={
   filet:false, naturalisteParle:false, papillonsPris:[0,0,0,0,0,0,0,0],
   papillonsRendus:false,
   /* Cimes Gelées : le guide du col, ses fleurs de givre, la Crevasse */
-  guideParle:false, fleurs:0, fleursRendues:false, tresorCimes:false
+  guideParle:false, fleurs:0, fleursRendues:false, tresorCimes:false,
+  /* Les trois étoiles ne se ramassent nulle part ailleurs : le Rongeur les a
+     dévorées, on ne les lui reprend qu'en le battant. */
+  etoiles:0
 };
 /* Le nombre de papillons en bocal se déduit du tableau : pas de second
    compteur à tenir d'accord avec lui. */
@@ -2846,7 +2890,8 @@ function razQuetes(){
     colosseTue:false,tresorSables:false,
     /* Marais des Murmures */ fanal:false,veilleuses:0,reineTue:false,tresorMarais:false,
     /* Cité des Nues */ cape:false,carillons:0,sentinelleTue:false,tresorNues:false,
-    /* la Faille */ failleOuverte:false,sceaux:0,rongeurTue:false,epreuveFinale:false});
+    /* la Faille */ failleOuverte:false,sceaux:0,rongeurTue:false,epreuveFinale:false,
+    /* les trois étoiles, reprises au Rongeur et à lui seul */ etoiles:0});
 }
 
 /* ---------------------------- SPRITES DE QUÊTE ---------------------------- */
@@ -3521,7 +3566,8 @@ function poserEnigmes(){
    putO(cx,s.y0+1,O.RIEN); putO(cx+1,s.y0+1,O.RIEN);         // l'alcôve du grappin, dégagée
    putO(cx,s.y0+6,O.CAISSE);                                 // la caisse, au-dessus de la plaque
    putS(cx,s.y0+7,S.PLAQUE);
-   PUZZLES.push({plaques:[[cx,s.y0+7]],portes:[[cx,wy],[cx+1,wy]]});
+   PUZZLES.push({plaques:[[cx,s.y0+7]],portes:[[cx,wy],[cx+1,wy]],
+                 caisses:[[cx,s.y0+6]],salle:s});
    panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"POUSSE LA CAISSE SUR LA DALLE."});
   }
   /* --- Vallée 2 : l'interrupteur à bascule et les blocs bleus --- */
@@ -3551,7 +3597,8 @@ function poserEnigmes(){
    putO(TRESOR_CENDRE[0],TRESOR_CENDRE[1],O.RIEN);
    putO(s.x0+2,s.y0+6,O.CAISSE); putS(s.x0+2,s.y0+7,S.PLAQUE);
    putO(s.x0+8,s.y0+6,O.CAISSE); putS(s.x0+8,s.y0+7,S.PLAQUE);
-   PUZZLES.push({plaques:[[s.x0+2,s.y0+7],[s.x0+8,s.y0+7]],portes:[[s.x0+5,wy],[s.x0+6,wy]]});
+   PUZZLES.push({plaques:[[s.x0+2,s.y0+7],[s.x0+8,s.y0+7]],portes:[[s.x0+5,wy],[s.x0+6,wy]],
+                 caisses:[[s.x0+2,s.y0+6],[s.x0+8,s.y0+6]],salle:s});
    panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,txt:"DEUX DALLES, DEUX CAISSES, EN MÊME TEMPS."});
   }
 }
@@ -3651,6 +3698,13 @@ const SABLES={
   vanne:{y0:358,y1:360}                // les trois rangées de sables mouvants à combler
 };
 const BRACELET_POS=[18,346];           // au cœur du Temple du Bracelet
+/* LA CITERNE ENSABLÉE : l'énigme du désert. Elle manquait — la région était la
+   seule, avec le Marais et les Nues, à n'avoir aucune salle à résoudre, et son
+   `tresorSables` était compté au bilan de fin sans être posé nulle part. Elle
+   se trouve SUR LE CHEMIN de l'arène, et exprès : elle apprend à combler un gué
+   au bracelet, ce que la vanne exigera ensuite sans plus rien expliquer. */
+const CITERNE={x0:26,y0:372,w:13,h:11};
+const TRESOR_SABLES=[CITERNE.x0+6,CITERNE.y0+1];
 const ARCHEO_POS=[37,329];             // l'archéologue, près de l'oued
 const FRESQUES_POS=[[10,330],[76,332],[20,388],[80,388],[44,352]];  // cinq fragments de fresque
 function genererSables(){
@@ -3749,7 +3803,47 @@ function genererSables(){
    putO(x-1,yTop,O.BLOCLOURD); putO(x+1,yTop,O.BLOCLOURD);       // 4 blocs en réserve
    putO(x-1,yTop-1,O.BLOCLOURD); putO(x+1,yTop-1,O.BLOCLOURD);
    putO(x,yBas,O.RIEN); putS(x,yBas,S.DALLE);          // la brèche de l'arène, une case
-   panneaux.push({x:(x-2)*TS+8,y:(yTop-3)*TS+8,txt:"COMBLE LES SABLES MOUVANTS AVEC LES BLOCS LOURDS."});
+   /* ON DOIT VOIR OÙ EST LA PORTE. Le désert compte 646 mares de sables
+      mouvants tirées au hasard : le gué de trois cases, lui, est voulu — et il
+      se noyait dans le bruit. Deux obélisques et deux torches marquent l'entrée
+      du couloir, une allée de dalles y mène, et le panneau se lit AVANT d'y
+      entrer. Sans cela on tournait dans le sable sans jamais trouver l'arène —
+      mesuré : zéro case de l'arène atteignable, et rien pour l'expliquer. */
+   /* La voie est tracée D'ABORD, jusqu'au haut de l'allée : elle écarte sables
+      mouvants et rochers sur son passage. L'allée ne fait qu'une case de large
+      et débouchait, elle, sur le terrain tiré au hasard — il a suffi d'une mare
+      de sables mouvants juste au-dessus pour couper l'unique accès à l'arène. */
+   voie(hub[0],hub[1],x,yTop-6);
+   for(let y=yTop-6;y<yTop-2;y++)for(let dx=-1;dx<=1;dx++){
+     putS(x+dx,y,S.DALLE); putO(x+dx,y,O.RIEN); putE(x+dx,y,0); }
+   putO(x-1,yTop-3,O.OBELISQUE); putO(x+1,yTop-3,O.OBELISQUE);
+   putO(x-2,yTop-5,O.TORCHE);    putO(x+2,yTop-5,O.TORCHE);
+   panneaux.push({x:x*TS+8,y:(yTop-7)*TS+8,
+     txt:"LA PORTE DU COLOSSE. UN BLOC LOURD JETÉ DANS LE SABLE MOUVANT LE COMBLE."});
+  }
+
+  /* --- LA CITERNE ENSABLÉE : l'énigme du désert ---
+     La région n'en avait aucune, et son cœur de cristal (`tresorSables`) était
+     compté au bilan de fin sans être posé nulle part : impossible à prendre.
+     Elle rejoue le verbe du monde — soulever un bloc, le jeter dans le sable —
+     mais en petit, à l'abri, AVANT la vanne qui l'exigera pour de bon. Le gué
+     comblé sert de pont au retour : pas besoin d'ancre ici. */
+  {const s=CITERNE;
+   salle(s);
+   const g=s.x0+1, d=s.x0+s.w-2, yGue=s.y0+5;
+   const ex=s.x0+2;                                    // l'entrée, en bas
+   for(const x of [ex,ex+1]){ putO(x,s.y0+s.h-1,O.RIEN); putS(x,s.y0+s.h-1,S.DALLE); }
+   // le gué : deux rangées de sables mouvants sur toute la largeur
+   for(let x=g;x<=d;x++)for(let y=yGue;y<=yGue+1;y++){ putS(x,y,S.SABLEMOU); putO(x,y,O.RIEN); }
+   // la réserve : quatre blocs lourds côté entrée, deux de plus qu'il n'en faut
+   putO(g+1,yGue+3,O.BLOCLOURD); putO(g+3,yGue+3,O.BLOCLOURD);
+   putO(d-1,yGue+3,O.BLOCLOURD); putO(d-3,yGue+3,O.BLOCLOURD);
+   // l'alcôve du trésor, sur la rive lointaine
+   putO(TRESOR_SABLES[0],TRESOR_SABLES[1],O.RIEN);
+   putS(TRESOR_SABLES[0],TRESOR_SABLES[1],S.TAPIS);
+   panneaux.push({x:(s.x0+1)*TS+8,y:(s.y0+s.h)*TS+6,
+     txt:"UN BLOC LOURD JETÉ DANS LE SABLE MOUVANT LE COMBLE."});
+   voie(hub[0],hub[1],ex,s.y0+s.h);
   }
 
   /* l'archéologue, campée près de l'oued : la quête des fresques */
@@ -3775,6 +3869,9 @@ const MARAIS={
   ronce:{y0:436,y1:438}                // le rideau de ronces vers l'arène
 };
 const FANAL_POS=[18,426];              // au cœur du Bosquet du Fanal
+/* Le cœur de cristal du Marais, muré de ronces : seul le fanal les brûle.
+   Il était compté au bilan de fin sans être posé nulle part. */
+const TRESOR_MARAIS=[31,459];
 const VEILLEUSES_POS=[[20,410],[70,414],[14,452],[74,450],[30,470],[62,468],[44,430]];  // sept veilleuses
 function genererMarais(){
   /* Graine propre à la région : sans elle, le moindre tirage supplémentaire
@@ -3854,6 +3951,22 @@ function genererMarais(){
   panneaux.push({x:VEILLEUSES_POS[0][0]*TS+8,y:(VEILLEUSES_POS[0][1]+2)*TS+8,
     txt:"VEILLEUSE ÉTEINTE. LE FANAL LA RALLUME."});
 
+  /* LE COFFRE DE RONCES : le cœur de cristal du Marais, cerné d'un rideau
+     d'épines que seul le fanal brûle. Il était compté au bilan de fin et
+     n'existait nulle part — trois des huit « énigmes » du bilan étaient dans
+     ce cas (Sables, Marais, Nues). Posé APRÈS la voie, sinon le traceur de
+     sentier ouvrirait lui-même le rideau. */
+  {const [tx,ty]=TRESOR_MARAIS;
+   for(let y=ty-2;y<=ty+2;y++)for(let x=tx-2;x<=tx+2;x++){
+     putS(x,y,S.MARAIS); putO(x,y,O.RIEN); putE(x,y,0); }
+   voie(hub[0],hub[1],tx,ty+3);
+   for(let y=ty-1;y<=ty+1;y++)for(let x=tx-1;x<=tx+1;x++)
+     if(x!==tx||y!==ty) putO(x,y,O.RONCE);            // le rideau, tout autour
+   putO(tx,ty,O.RIEN);
+   panneaux.push({x:tx*TS+8,y:(ty+3)*TS+8,
+     txt:"QUELQUE CHOSE BRILLE SOUS LES RONCES. LE FANAL EN VIENDRA À BOUT."});
+  }
+
   /* le RIDEAU DE RONCES : l'unique passage vers le Cœur du Marais. Un couloir
      d'une case, muré, barré de trois ronces — seul le fanal les brûle. Posé en
      dernier, pour qu'aucune voie ne le vide. */
@@ -3880,6 +3993,9 @@ const NUES={
    au boomerang, comme les cloches des Cimes. */
 const CARILLONS_POS=[[12,492],[74,494],[20,512],[68,510],[10,530],[78,528],[24,548],[66,546]];
 const CAPE_POS=[43,494];               // au fond du Parvis des Vents
+/* Le cœur de cristal des Nues, sur l'îlot le plus à l'écart : on n'y arrive
+   qu'en planant. Lui non plus n'était posé nulle part. */
+const TRESOR_NUES=[10,530];
 /* Les îles : centre et rayon. Tout le reste de la région est du vide. */
 const ILES_NUES=[
   [40,484,7],[40,492,6],                     // l'entrée et le parvis
@@ -4255,19 +4371,22 @@ function majMarchand(){
 function dialoguePNJ(p){
   switch(p.id){
   case 'doyenne':
-    if(J.fragments>=3) return parler(p.nom,["LES TROIS ÉTOILES SONT RÉUNIES.","LA VALLÉE TE DOIT TOUT, KAZE."]);
+    if(J.fragments>=3) return parler(p.nom,["LES TROIS PIERRES DE GARDE SONT RÉUNIES.",
+      "SUIS LA BÊTE VERS LE SUD, KAZE. ELLE A NOS ÉTOILES."]);
     if(Q.perle&&!Q.coeurCristal) return parler(p.nom,
       ["UNE PERLE DU LAC ! JE N'EN AVAIS PAS VU DEPUIS QUARANTE ANS.","TIENS, PRENDS CE COEUR DE CRISTAL."],
       ()=>{ Q.perle=false; Q.coeurCristal=true; autoSauver(); J.pvmax=Math.min(24,J.pvmax+4); J.pv=J.pvmax;
             SFX.coffre(); dire("COEUR DE CRISTAL : +2 COEURS !"); });
     if(!Q.parleDoyenne) return parler(p.nom,
-      ["TROIS ÉTOILES GARDAIENT LA VALLÉE. ELLES SONT TOMBÉES.","SANS ELLES, LA PIERRE S'ÉVEILLE ET MARCHE.",
+      ["TROIS ÉTOILES GARDAIENT LA VALLÉE. UNE BÊTE LES A DÉVORÉES.",
+       "ELLE A FUI PAR LE SUD. SANS ELLES, LA PIERRE S'ÉVEILLE ET MARCHE.",
+       "IL RESTE LEURS TROIS PIERRES DE GARDE, ÉTEINTES.",
        "LA PREMIÈRE DORT DANS LE SANCTUAIRE, AU NORD.","MAIS SA PORTE EST SCELLÉE. IL TE FAUT LA CLÉ DE PIERRE."],
       ()=>{ Q.parleDoyenne=true; dire("NOUVELLE QUÊTE : LA CLÉ DE PIERRE"); });
     if(!Q.cle&&!Q.porteOuverte) return parler(p.nom,["LE CHEF DES OSSEMENTS GARDE LA CLÉ.","ON L'A VU DANS LA CLAIRIÈRE DU BOIS DU NORD."]);
     if(!coffres[0].ouvert) return parler(p.nom,["TU AS LA CLÉ. LA PORTE DU SANCTUAIRE T'ATTEND."]);
-    if(!coffres[1].ouvert) return parler(p.nom,["LA DEUXIÈME ÉTOILE EST SOUS LE LAC.","LA GRILLE NE CÈDE QU'À UN OEIL DE PIERRE FRAPPÉ DE LOIN."]);
-    return parler(p.nom,["LA DERNIÈRE ÉTOILE EST DANS L'ARÈNE, À L'EST.","LE MUR EST FISSURÉ. LA POUDRE EN VIENDRA À BOUT."]);
+    if(!coffres[1].ouvert) return parler(p.nom,["LA DEUXIÈME PIERRE EST SOUS LE LAC.","LA GRILLE NE CÈDE QU'À UN OEIL DE PIERRE FRAPPÉ DE LOIN."]);
+    return parler(p.nom,["LA DERNIÈRE PIERRE EST DANS L'ARÈNE, À L'EST.","LE MUR EST FISSURÉ. LA POUDRE EN VIENDRA À BOUT."]);
   case 'marchand':
     return parler(p.nom,["BRAN, MARCHAND AMBULANT. TOUT SE VEND, TOUT S'ACHÈTE."],()=>ouvrirBoutique());
   case 'cuisiniere':
@@ -4591,9 +4710,34 @@ function plaqueCouverte(x,y){
   if(Obj(x,y)===O.CAISSE||Obj(x,y)===O.BLOCLOURD) return true;   // caisse ou bloc lourd
   return Math.floor(J.x/TS)===x&&Math.floor(J.y/TS)===y&&J.z<10;
 }
+/* LA CAISSE POUSSÉE DANS UN COIN NE CONDAMNE PLUS LA SALLE.
+   Une caisse ne peut se pousser QUE devant soi : acculée contre un mur, il n'y
+   a plus moyen de se placer derrière, et l'énigme était perdue pour toujours —
+   avec, dans la vallée, le GRAPPIN qu'elle garde, donc aussi le gouffre et la
+   Crevasse des Cimes. Rien ne le disait et rien ne le rattrapait : il fallait
+   recommencer la partie.
+   Les caisses reviennent donc à leur case de départ dès qu'on SORT de la salle
+   sans avoir résolu l'énigme — la convention du genre, et la seule qui ne
+   demande rien au joueur. On ne touche à rien tant qu'il est dedans : une
+   caisse qui se replace sous les yeux passerait pour un défaut. */
+function replacerCaisses(pz){
+  if(!pz.caisses||!pz.salle) return;
+  const s=pz.salle;
+  const dedans=J.x>=s.x0*TS&&J.x<(s.x0+s.w)*TS&&J.y>=s.y0*TS&&J.y<(s.y0+s.h)*TS;
+  if(dedans){ pz.vu=1; return; }
+  if(!pz.vu) return;                       // jamais entré : rien à remettre
+  let bouge=false;
+  for(let y=s.y0;y<s.y0+s.h;y++)for(let x=s.x0;x<s.x0+s.w;x++)
+    if(Obj(x,y)===O.CAISSE){ putO(x,y,O.RIEN); rafraichirTuile(x,y); bouge=true; }
+  for(const [cx,cy] of pz.caisses){
+    if(Obj(cx,cy)!==O.CAISSE){ putO(cx,cy,O.CAISSE); rafraichirTuile(cx,cy); bouge=true; }
+  }
+  if(bouge) pz.vu=0;
+}
 function majPuzzles(){
   for(const pz of PUZZLES){
     if(pz.fini) continue;
+    replacerCaisses(pz);
     if(pz.plaques.length&&pz.plaques.every(([x,y])=>plaqueCouverte(x,y))){
       pz.fini=true;
       let ouvert=false;
@@ -4846,9 +4990,9 @@ function lignesJournal(){
   L.push(['QUÊTE PRINCIPALE','#ffe06a']);
   L.push([f(Q.parleDoyenne)+'PARLER À LA DOYENNE','#d8e0ff']);
   L.push([f(Q.porteOuverte)+'PRENDRE LA CLÉ DE PIERRE','#d8e0ff']);
-  L.push([f(coffres[0]&&coffres[0].ouvert)+'ÉTOILE 1 - SANCTUAIRE','#d8e0ff']);
-  L.push([f(coffres[1]&&coffres[1].ouvert)+'ÉTOILE 2 - RUINE DU LAC','#d8e0ff']);
-  L.push([f(coffres[2]&&coffres[2].ouvert)+'ÉTOILE 3 - ARÈNE DU GARDIEN','#d8e0ff']);
+  L.push([f(coffres[0]&&coffres[0].ouvert)+'PIERRE 1 - SANCTUAIRE','#d8e0ff']);
+  L.push([f(coffres[1]&&coffres[1].ouvert)+'PIERRE 2 - RUINE DU LAC','#d8e0ff']);
+  L.push([f(coffres[2]&&coffres[2].ouvert)+'PIERRE 3 - ARÈNE DU GARDIEN','#d8e0ff']);
   L.push(['','#000']);
   L.push(['QUÊTES ANNEXES','#8fe0b0']);
   L.push([f(Q.epeeLongue)+'LUCIOLES D OR : '+Q.lucioles+'/8','#c8d0e8']);
@@ -5132,11 +5276,11 @@ function pondre(type,tx,ty){
   const pv={gluant:3,mini:1,pieuvre:3,chauve:2,squel:5,chef:16,
             braise:4,golem:12,spectre:5,
             harpie:3,piquier:5,loup:2,crabe:6,triton:4,meduse:3,
-            scarabee:2,lancier:4,djinn:3,
+            scarabee:2,lancier:4,djinn:3,cactus:7,
             follet:2,crapaud:4,ombre:3,
             /* Cité des Nues */ tourbillon:5,aigle:3,golemnuage:14,
             /* la Faille */ echo:8,echonoir:12}[type]||2;
-  const r={mini:4,chef:9,golem:9,crabe:8,piquier:6,scarabee:7,
+  const r={mini:4,chef:9,golem:9,crabe:8,piquier:6,scarabee:7,cactus:8,
            golemnuage:9,tourbillon:8,echonoir:9}[type]||6;
   ennemis.push({type,x:tx*TS+8,y:ty*TS+8,z:0,vz:0,r,dir:2,
     pv,pvmax:pv,t:Math.floor(rnd()*120),cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*100,stun:0});
@@ -5237,7 +5381,7 @@ function peupler(){
     if(x>ar.x0-2&&x<ar.x0+ar.w+2&&y>ar.y0-2&&y<ar.y0+ar.h+2) continue;   // l'arène reste vide
     if(salleDe(x*TS+8,y*TS+8)) continue;
     const r=rnd();
-    pondre(r<.40?'scarabee':r<.72?'lancier':'djinn',x,y);
+    pondre(r<.32?'scarabee':r<.58?'lancier':r<.80?'djinn':'cactus',x,y);
     nsa++;
   }
   // gardes du Temple de Givre (le boomerang), du Temple Englouti et du Temple du Bracelet
@@ -5316,6 +5460,9 @@ function peupler(){
   tresor(Q.tresorGouffre,TRESOR_GOUFFRE,'coeurmax','tresorGouffre');
   tresor(Q.tresorCendre,TRESOR_CENDRE,'coeurmax','tresorCendre');
   tresor(Q.tresorCimes,TRESOR_CIMES,'coeurmax','tresorCimes');
+  tresor(Q.tresorSables,TRESOR_SABLES,'coeurmax','tresorSables');
+  tresor(Q.tresorMarais,TRESOR_MARAIS,'coeurmax','tresorMarais');
+  tresor(Q.tresorNues,TRESOR_NUES,'coeurmax','tresorNues');
   // Sables du Mirage : le bracelet, les fragments de fresque restants
   tresor(Q.bracelet,BRACELET_POS,'bracelet');
   for(let k=Q.fresques;k<5;k++){ const [fx,fy]=FRESQUES_POS[k];
@@ -5524,10 +5671,11 @@ const SPR_BUTIN={coeur:'coeur',bombe:'bombeItem',champi:'champi',cle:'cle',
   boomerang:'boomerangItem',palmes:'palmesItem',grappin:'grappinItem',
   bracelet:'braceletItem',fanal:'fanalItem',cape:'capeItem',
   fresque:'fresqueItem',perle2:'perleItem',coeurmax:'coeurMaxItem',
-  filet:'filetItem',fleurgivre:'fleurgivre'};
+  filet:'filetItem',fleurgivre:'fleurgivre',etoileVolee:'etoileVolee',
+  pierre:'pierreGarde'};
 /* Ceux qui s'auréolent : on les repère de loin, ils comptent. */
 const LUEUR_BUTIN={cle:1,eclat:1,boomerang:1,palmes:1,grappin:1,bracelet:1,
-  fanal:1,cape:1,coeurmax:1,filet:1,papillon:1};
+  fanal:1,cape:1,coeurmax:1,filet:1,papillon:1,etoileVolee:1};
 function larguer(x,y,z){
   const r=rnd();
   /* Toutes les régions du sud — Cendres, Cimes, Lagon — lâchent de plus belles
@@ -5851,11 +5999,11 @@ function ouvrirCoffre(c){
   const equiper=id=>{ if(!J.objets.includes(id)) J.objets.push(id);
                       J.objSel=J.objets.indexOf(id); };
   if(c.contenu==='arc'){ equiper('arc'); J.fleches=Math.max(J.fleches,20);
-    dire("L'ARC ! FLÈCHES : 20. FRAGMENT "+J.fragments+"/3"); }
+    dire("L'ARC ! FLÈCHES : 20. PIERRE DE GARDE "+J.fragments+"/3"); }
   else if(c.contenu==='bombe'){ equiper('bombe'); J.bombes=Math.max(J.bombes,8);
-    dire("SAC DE BOMBES ! FRAGMENT "+J.fragments+"/3"); }
+    dire("SAC DE BOMBES ! PIERRE DE GARDE "+J.fragments+"/3"); }
   /* --- Terres de Cendre --- */
-  else if(c.contenu==='marteau'){ J.fragments--;            // ne compte pas comme étoile
+  else if(c.contenu==='marteau'){ J.fragments--;            // ne compte pas comme pierre
     equiper('marteau');
     Q.braises++; dire("LE MARTEAU DE FORGE ! ÉQUIPÉ : APPUIE SUR Y. BRAISE "+Q.braises+"/3",340); }
   else if(c.contenu==='bottes'){ J.fragments--;
@@ -5863,14 +6011,15 @@ function ouvrirCoffre(c){
     dire("LES BOTTES DE CENDRE ! TU MARCHES SUR LES BRAISES. BRAISE "+Q.braises+"/3",340); }
   else if(c.contenu==='braise'){ J.fragments--;
     Q.braises++; dire("LA DERNIÈRE BRAISE ! BRAISE "+Q.braises+"/3"); }
-  else dire("FRAGMENT D'ÉTOILE "+J.fragments+"/3");
+  else dire("PIERRE DE GARDE "+J.fragments+"/3");
 
-  /* Les trois étoiles n'achèvent plus l'aventure : elles ouvrent le portail
-     du sud. La victoire attend les trois braises des Terres de Cendre. */
+  /* Les trois PIERRES DE GARDE ouvrent le portail du sud. Ce ne sont pas les
+     étoiles : celles-là, le Rongeur les a dévorées, on ne les reprend qu'à lui,
+     huit mondes plus bas. La victoire attend les trois braises des Cendres. */
   if(J.fragments>=3&&!Q.portailOuvert) setTimeout(()=>{ if(etat==='jeu'){
     Q.portailOuvert=true; SFX.coffre(); secousse=10;
     annonce('LE PORTAIL DE CENDRE S OUVRE');
-    dire("LES TROIS ÉTOILES BRILLENT. AU SUD, LA TERRE S'EST FENDUE.",300);
+    dire("LES TROIS PIERRES S'ALLUMENT. AU SUD, LA TERRE S'EST FENDUE.",300);
     autoSauver();
   } },1400);
   /* Les trois braises n'achèvent plus l'aventure non plus : elles ouvrent la
@@ -5963,6 +6112,17 @@ function ramasserButin(o){
     particules(o.x,o.y,o.z+8,14,'#fff0a0',2,26);
     annonce(NOM_PAPILLON[r]);
     dire('PAPILLON ATTRAPÉ : '+nbPapillons()+'/8',150); autoSauver(); }
+  /* UNE ÉTOILE REPRISE AU RONGEUR. Elles tombaient déjà de sa carcasse, mais
+     aucune ligne ne les ramassait et aucune icône ne les dessinait : la
+     récompense de tout le jeu gisait au sol sous la forme d'une FLÈCHE, et
+     marcher dessus ne faisait rien. */
+  if(o.type==='etoileVolee'){ Q.etoiles=Math.min(3,Q.etoiles+1);
+    SFX.coffre(); secousse=8; son(1320,.2,'triangle',.06,420,.05);
+    particules(o.x,o.y,o.z+10,26,'#ffe86a',3,40);
+    annonce('ÉTOILE REPRISE : '+Q.etoiles+'/3');
+    dire(Q.etoiles>=3?"LES TROIS ÉTOILES SONT À TOI. LA VALLÉE VA REVIVRE."
+                     :'ÉTOILE '+Q.etoiles+'/3',260);
+    autoSauver(); }
   if(o.type==='fleurgivre'){ Q.fleurs=Math.min(6,Q.fleurs+1); SFX.rubis();
     son(980,.1,'triangle',.05,240,.05); particules(o.x,o.y,o.z+8,8,'#dff0ff',1.8,22);
     dire('FLEUR DE GIVRE : '+Q.fleurs+'/6',120); autoSauver(); }
@@ -6359,6 +6519,28 @@ function majEnnemis(){
       if(e.cd<=0&&d<185){ e.cd=100;
         tirs.push({x:e.x,y:e.y,z:e.z+10,vx:Math.cos(a)*2.8,vy:Math.sin(a)*2.8,vie:120,ami:0,spr:'javelot'});
         son(280,.1,'sawtooth',.05,-100); }
+    }
+    /* LE CACTUS VIVANT. Il est PLANTÉ : il ne poursuit pas, il ne recule pas.
+       Il gonfle une seconde — c'est le seul avertissement — puis lâche huit
+       épines en couronne. On ne s'en tire donc pas en tournant autour, comme
+       du lancier : il faut sortir de sa portée, ou le tuer avant la salve.
+       Ses épines ne partent que si le héros est assez près pour être visé,
+       sinon un cactus au loin arroserait le désert pour rien. */
+    else if(e.type==='cactus'){
+      e.z=baseSol(e.x,e.y);
+      e.dir=J.x>e.x?3:1;
+      e.kx*=.7; e.ky*=.7;                       // il encaisse sans se déplacer
+      e.gonfle=e.gonfle>0?e.gonfle-1:0;
+      if(e.cd>0) e.cd--;
+      if(e.cd<=0&&d<130){ e.cd=170; e.gonfle=54; // il se prépare, visiblement
+        son(150,.24,'sine',.045,90); }
+      if(e.gonfle===1){                          // la salve, au bout du gonflement
+        for(let k=0;k<8;k++){ const a=k/8*6.2832+(e.t%2?.39:0);
+          tirs.push({x:e.x,y:e.y,z:e.z+12,vx:Math.cos(a)*2.35,vy:Math.sin(a)*2.35,
+                     vie:70,ami:0,spr:'epine'}); }
+        particules(e.x,e.y,e.z+12,14,'#e8e0c0',2.4,20);
+        son(320,.12,'sawtooth',.05,-140); secousse=Math.max(secousse,3);
+      }
     }
     else if(e.type==='djinn'){
       // tourbillon de sable : traverse tout, s'efface par intermittence
@@ -7130,8 +7312,16 @@ function majDivers(){
     const bb=baseSol(o.x,o.y);
     o.vz-=.16; o.z+=o.vz;
     if(o.z<=bb){ o.z=bb; if(Math.abs(o.vz)>.6) o.vz=-o.vz*.42; else o.vz=0; }
+    /* Les étoiles reprises VIENNENT au héros. L'épilogue part 1,8 s après la
+       chute du Rongeur : à ce compte, il fallait courir sur trois butins avant
+       le fondu, et la récompense de tout le jeu restait par terre. */
+    if(o.type==='etoileVolee'&&o.t>16){
+      const dx=J.x-o.x, dy=J.y-o.y, d=Math.hypot(dx,dy);
+      if(d>1){ const v=Math.min(4.2,1.2+o.t*.06); o.x+=dx/d*v; o.y+=dy/d*v; }
+      if(o.t%3===0) particules(o.x,o.y,o.z+6,1,'#ffe86a',.8,12);
+    }
     // clé, outils et objets de quête ne disparaissent jamais
-    if(o.t>760&&!['cle','boomerang','palmes','grappin','bracelet','fanal','perle2','fresque','coeurmax'].includes(o.type))
+    if(o.t>760&&!['cle','boomerang','palmes','grappin','bracelet','fanal','perle2','fresque','coeurmax','etoileVolee','papillon'].includes(o.type))
       butins.splice(i,1);
   }
   for(let i=parts.length-1;i>=0;i--){
@@ -7164,7 +7354,7 @@ const ANCRE={gluant:[12,23],mini:[8,15],pieuvre:[12,22],chauve:[13,14],squel:[13
   braise:[12,23],golem:[14,29],spectre:[11,23],coeur:[22,46],
   harpie:[13,15],piquier:[14,29],loup:[13,17],crabe:[13,17],triton:[11,27],meduse:[10,18],
   yeti:[22,45],kraken:[24,38],
-  scarabee:[10,15],lancier:[11,27],djinn:[11,20],colosse:[24,47],
+  scarabee:[10,15],lancier:[11,27],djinn:[11,20],cactus:[12,29],colosse:[24,47],
   follet:[7,10],crapaud:[11,15],ombre:[11,20],reine:[20,42],
   tourbillon:[12,25],aigle:[13,17],golemnuage:[15,31],echo:[12,25],echonoir:[15,31],
   sentinelle:[22,44],rongeur:[26,50]};
@@ -7805,6 +7995,9 @@ function dessinerEnnemi(g,e){
   else if(e.type==='kraken') nom='kraken'+(Math.floor(e.anim/16)%2);
   else if(e.type==='scarabee') nom='scarabee'+(Math.floor(e.anim/5)%2);
   else if(e.type==='lancier') nom='lancier'+(Math.floor(e.anim/12)%2);
+  /* Le cactus ne s'anime pas au temps qui passe : il montre s'il GONFLE. Une
+     alternance régulière aurait menti sur le seul avertissement qu'il donne. */
+  else if(e.type==='cactus') nom='cactus'+(e.gonfle>0?1:0);
   else if(e.type==='djinn') nom='djinn'+(Math.floor(e.anim/9)%3);
   else if(e.type==='colosse') nom='colosse'+(Math.floor(e.anim/18)%2);
   else if(e.type==='follet') nom='follet'+(Math.floor(e.anim/6)%3);
@@ -7860,6 +8053,7 @@ const SALLES=[
   /* Sables du Mirage : le Temple du Bracelet et l'Arène du Colosse */
   {x0:SABLES.temple.x0, y0:SABLES.temple.y0, x1:SABLES.temple.x0+SABLES.temple.w-1, y1:SABLES.temple.y0+SABLES.temple.h-1},
   {x0:SABLES.arene.x0,  y0:SABLES.arene.y0,  x1:SABLES.arene.x0+SABLES.arene.w-1,  y1:SABLES.arene.y0+SABLES.arene.h-1},
+  {x0:CITERNE.x0, y0:CITERNE.y0, x1:CITERNE.x0+CITERNE.w-1, y1:CITERNE.y0+CITERNE.h-1},
   /* Marais des Murmures : le Bosquet du Fanal et le Cœur du Marais */
   {x0:MARAIS.bosquet.x0, y0:MARAIS.bosquet.y0, x1:MARAIS.bosquet.x0+MARAIS.bosquet.w-1, y1:MARAIS.bosquet.y0+MARAIS.bosquet.h-1},
   {x0:MARAIS.arene.x0,   y0:MARAIS.arene.y0,   x1:MARAIS.arene.x0+MARAIS.arene.w-1,   y1:MARAIS.arene.y0+MARAIS.arene.h-1},
@@ -8179,10 +8373,12 @@ function ath(){
   // rubis
   X.drawImage(SPR.rubis0,W-92,4);
   texte(X,String(J.rubis).padStart(3,'0'),W-80,7,'#e8f0ff');
-  // étoiles
+  /* les trois PIERRES DE GARDE. C'étaient trois étoiles : elles annonçaient
+     dès la première minute qu'on les avait, alors que le Rongeur les a
+     dévorées et qu'on ne les reprend qu'à la toute fin. */
   for(let i=0;i<3;i++){
     X.globalAlpha=i<J.fragments?1:.22;
-    X.drawImage(SPR.etoile,W-56+i*17,3,14,14);
+    X.drawImage(SPR.pierreGarde,W-56+i*17,3,14,14);
   }
   X.globalAlpha=1;
 
@@ -8361,17 +8557,55 @@ function ecranTitre(){
     X.fillStyle=i%4?`rgba(210,225,255,${.25+s*.5})`:`rgba(255,225,150,${.4+s*.5})`;
     X.fillRect(x,y,1,1);
   }
-  // lune
-  const lx=W-52, ly=Math.round(hor*.28);
-  X.fillStyle='#f4e8c0'; X.beginPath(); X.arc(lx,ly,13,0,6.2832); X.fill();
-  X.fillStyle='#e0d2a4'; X.beginPath(); X.arc(lx-4,ly-3,3,0,6.2832); X.fill();
-  X.beginPath(); X.arc(lx+4,ly+5,2,0,6.2832); X.fill();
+  // lune, repoussée dans un coin : le ciel appartient désormais au Rongeur
+  const lx=22, ly=Math.round(hor*.16);
+  X.fillStyle='#f4e8c0'; X.beginPath(); X.arc(lx,ly,9,0,6.2832); X.fill();
+  X.fillStyle='#e0d2a4'; X.beginPath(); X.arc(lx-3,ly-2,2,0,6.2832); X.fill();
+  /* ---- LE RONGEUR D'ÉTOILES, énorme, dans le ciel ----
+     L'écran d'accueil montrait une lune et un sol qui défile : rien du jeu.
+     Il montre maintenant CE QU'ON VIENT CHERCHER — la bête qui a dévoré les
+     trois étoiles, et qui les porte dans son ventre. Il respire lentement, ses
+     yeux battent, et les trois étoiles pulsent : c'est le seul mouvement du
+     ciel, donc c'est là que l'œil va. */
+  {
+    /* Il tient la moitié haute du ciel, quelle que soit la taille de l'écran :
+       c'est l'échelle qui raconte l'histoire, pas un nombre de pixels fixe. */
+    const rh=Math.round(hor*.56), ech=rh/52, rw=rh;
+    const rx=Math.round(W/2-rw/2);
+    const ry=Math.round(hor*.02)+Math.round(Math.sin(tick*.018)*3);
+    const sp=SPR['rongeur'+(Math.floor(tick/26)%2)];
+    // l'aura : elle le décolle du ciel, sinon il s'y confond
+    X.globalCompositeOperation='lighter'; X.globalAlpha=.20;
+    X.drawImage(glowCV,W/2-rw*.42,ry+rh*.22,rw*.84,rh*.62);
+    X.globalAlpha=1; X.globalCompositeOperation='source-over';
+    X.globalAlpha=.92;
+    X.drawImage(sp,rx,ry,rw,rh);
+    X.globalAlpha=1;
+    // les trois étoiles avalées, ravivées par-dessus : elles battent
+    const bat=.55+Math.sin(tick*.07)*.45;
+    X.globalCompositeOperation='lighter'; X.globalAlpha=bat*.9;
+    for(const [ex,ey] of [[22,28],[26,32],[30,28]])
+      X.drawImage(SPR.etoile,rx+ex*ech-ech*2,ry+ey*ech-ech*2,ech*6,ech*6);
+    X.globalAlpha=1; X.globalCompositeOperation='source-over';
+  }
   // sol Mode 7
   mode7(tick*.006,tick*.55,0);
   X.fillStyle='rgba(20,26,52,.65)'; X.fillRect(0,hor-4,W,6);
+  /* Kaze, minuscule au bord de l'horizon, face à lui. C'est l'échelle qui
+     raconte : la bête tient tout le ciel, le héros fait douze pixels. */
+  {
+    const hx=Math.round(W/2), hy=hor+22;   // sous le sous-titre, pas dedans
+    X.globalAlpha=.30; X.fillStyle='#05070f';
+    X.beginPath(); X.ellipse(hx,hy+2,9,3,0,0,6.2832); X.fill();
+    X.globalAlpha=1;
+    const hs=SPR['h0m'+(Math.floor(tick/14)%4)]||SPR['h0m0'];
+    if(hs) X.drawImage(hs,hx-20,hy-33);
+  }
 
-  // titre
-  const yT=Math.round(hor*.22);
+  /* Le titre passe SOUS la bête. Posé par-dessus, il lui couvrait exactement la
+     gueule et les trois étoiles du ventre — c'est-à-dire tout ce qu'on voulait
+     montrer. Il occupe donc le bas du ciel, elle occupe le haut. */
+  const yT=Math.round(hor*.60);
   texteCentre(X,'LA LÉGENDE DE',W/2,yT,'#b9c6ee','#0a0c18');
   const t='KAZE';
   const sc=Math.max(3,Math.min(6,Math.floor(W/64)));
@@ -8382,7 +8616,9 @@ function ecranTitre(){
     X.drawImage(glyphe(ch,'#ffe06a'),cx,yK,5*sc,7*sc);
     cx+=6*sc;
   }
-  texteCentre(X,'& LES TROIS ÉTOILES',W/2,yK+7*sc+6,'#e8b0c0','#0a0c18');
+  /* « & » n'existe pas dans la police pixel : le sous-titre s'affichait
+     « ? LES TROIS ÉTOILES » depuis toujours (cf. CORRECTIFS § 12 et § 34). */
+  texteCentre(X,"ET LE RONGEUR D'ÉTOILES",W/2,yK+7*sc+6,'#e8b0c0','#0a0c18');
   texte(X,VERSION,6,6,'#6a74a0','#0a0c18');       // numéro de version, discret dans le ciel
 
   const opts=optionsEcranTitre();
@@ -8395,8 +8631,14 @@ function ecranTitre(){
   X.fillRect(Math.round(W/2-larg/2),yM-8,larg,hMenu);
   dessinerMenu(opts,W/2,yM,larg-4);
   if(!persistant()) texteCentre(X,'SAUVEGARDE NON PERSISTANTE ICI',W/2,H-46,'#a08a6a','#0a0c18');
-  texteCentre(X,'B EPEE   A SAUT   Y OBJET   X BOUCLIER',W/2,H-34,'#93a0cc','#0a0c18');
-  texteCentre(X,'START CARTE   SELECT JOURNAL   B PARLER',W/2,H-22,'#7f8ab8','#0a0c18');
+  /* L'aide déborde des deux côtés dès que le canevas descend sous ~236 px :
+     on lisait « EPEE  A SAUT  Y OBJET  X BOUCLI ». Deux jeux de libellés, le
+     court quand le long ne rentre pas. */
+  const large=W>=236;
+  texteCentre(X,large?'B EPEE   A SAUT   Y OBJET   X BOUCLIER'
+                     :'B EPEE  A SAUT  Y OBJET  X BOUCL.',W/2,H-34,'#93a0cc','#0a0c18');
+  texteCentre(X,large?'START CARTE   SELECT JOURNAL   B PARLER'
+                     :'START CARTE  SELECT JOURNAL',W/2,H-22,'#7f8ab8','#0a0c18');
 }
 
 /* ============================ CARTE (START) ============================ */
@@ -8705,7 +8947,7 @@ function ecranCarte(){
     if(d) texte(X,d,W-8-largeurTexte(d),y,cd);
     y+=LP;
   };
-  paire('ÉTOILES '+J.fragments+'/3','#ffe06a','RUBIS '+J.rubis,'#4fe08a');
+  paire('PIERRES '+J.fragments+'/3','#c8d0e8','RUBIS '+J.rubis,'#4fe08a');
   paire('BOMBES '+J.bombes,'#c8d0e8','FLÈCHES '+J.fleches,'#c8d0e8');
   const der=resumeCourant();
   paire('LUCIOLES '+Q.lucioles+'/8','#fff0a0',
@@ -8751,6 +8993,10 @@ const EPI_ETOILES=150;                 // les étoiles montent
 const EPI_MONTEE=850;                  // le travelling (~14 s, huit mondes)
 function lancerEpilogue(){
   if(etat==='epilogue') return;
+  /* Filet de sécurité : le Rongeur tombé, les trois étoiles SONT reprises,
+     qu'on ait eu le temps de les cueillir ou non. L'épilogue les montre
+     s'élever — il ne peut pas commencer en en ayant perdu une en route. */
+  Q.etoiles=3;
   epiT=0; epiPause=0;
   epiY=(MH-14)*TS;                     // on part du fond de la Faille
   etat='epilogue'; viderTampon();
@@ -8883,7 +9129,7 @@ function ecranFin(gagne){
     panneau(X,bx,by,larg,gagne?46:46);
     texteCentre(X,'PARTIE : '+nomPartie,W/2,by+5,'#ffe06a','#0a0c18');
     const g=bx+8, d=Math.round(W/2+6);
-    texte(X,'ÉTOILES  '+J.fragments+'/3',g,by+18,'#e8b0a0','#0a0c18');
+    texte(X,'PIERRES  '+J.fragments+'/3',g,by+18,'#e8b0a0','#0a0c18');
     texte(X,'LUCIOLES '+Q.lucioles+'/8',g,by+30,'#fff0a0','#0a0c18');
     texte(X,'TEMPS  '+formatTemps(tempsJeu),d,by+18,'#9fe0b8','#0a0c18');
     texte(X,'RUBIS  '+J.rubis,d,by+30,'#8fe0b0','#0a0c18');
@@ -8915,7 +9161,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.0';
+const VERSION='V2.1';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
@@ -9169,8 +9415,8 @@ function menuFleche(){
    plus étroits (l'affichage interne descend jusqu'à 200 px), on la raccourcit. */
 function statsResume(r){
   return (W>=250)
-    ? 'ÉTOILES '+r.fragments+'/3   LUCIOLES '+r.lucioles+'/8   '+formatTemps(r.temps)
-    : 'ÉTOILES '+r.fragments+'/3   '+formatTemps(r.temps);
+    ? 'PIERRES '+r.fragments+'/3   LUCIOLES '+r.lucioles+'/8   '+formatTemps(r.temps)
+    : 'PIERRES '+r.fragments+'/3   '+formatTemps(r.temps);
 }
 let modeEffacer=false;
 function optionsTitre(){

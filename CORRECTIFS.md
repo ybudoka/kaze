@@ -2134,3 +2134,149 @@ correctif : **0**.
   côté, `cloches: 5` de l'autre). Ne pas figer un total dans un contrôle : le
   comparer à lui-même.
 - **Un tamis par liste permise protège précisément ce qu'il devrait attraper.**
+
+---
+
+## 34. Le nom du jeu était faux, et son sous-titre illisible
+
+Le jeu s'appelait « Kaze & les Trois Étoiles ». Il compte huit mondes, huit
+gardiens, et les trois étoiles ne sont plus qu'un fil parmi d'autres : c'est le
+RONGEUR D'ÉTOILES qui les a dévorées, et c'est lui qu'on va chercher, huit
+régions plus bas. Le jeu s'appelle donc **Kaze et le Rongeur d'Étoiles**.
+
+Et le sous-titre ne s'était jamais affiché correctement : la police pixel n'a
+pas d'esperluette, si bien que l'écran d'accueil annonçait, depuis toujours,
+**« ? LES TROIS ÉTOILES »**.
+
+### Le balayage de police protégeait le coupable
+
+Le contrôle de police (§ 12, § 32) balaie les chaînes de la source et vérifie
+chaque caractère. Il ne retenait que celles qui *ressemblaient* à du texte de
+jeu — et son tamis excluait `&` comme « syntaxe de code ». Une chaîne portant
+une esperluette n'était donc **même pas examinée**.
+
+C'est la **deuxième fois** que ce piège se referme : au § 32, c'était une liste
+de caractères *permis* qui écartait `=`. Ici, une liste de caractères *interdits*
+qui écarte `&`. Une liste, dans les deux sens, finit par protéger exactement ce
+qu'on cherche. `&` est retiré du tamis, et la réinjection du vieux sous-titre le
+fait rougir sur-le-champ.
+
+### L'écran d'accueil ne montrait rien du jeu
+
+Une lune, un ciel étoilé, un sol qui défile. Il montre maintenant **le Rongeur
+en entier** : il occupe la moitié haute du ciel quelle que soit la taille de
+l'écran, ses yeux brillent, et les trois étoiles avalées battent dans son
+ventre. Kaze fait douze pixels en contrebas — c'est l'échelle qui raconte.
+
+Le titre est passé **sous** la bête : posé par-dessus, il lui couvrait
+exactement la gueule et les trois étoiles, c'est-à-dire tout le sujet. Et
+l'aide du bas, qui débordait des deux côtés sous 236 px de canevas (« EPEE  A
+SAUT  Y OBJET  X BOUCLI »), a désormais une version courte.
+
+---
+
+## 35. On ramassait les trois étoiles dans le PREMIER monde
+
+Le Rongeur les a dévorées : on ne pouvait pas les avoir dès la première heure.
+Les trois coffres de la vallée donnaient pourtant « FRAGMENT D'ÉTOILE 1/3 », la
+barre de vie affichait trois étoiles dès le départ, et le récit de la doyenne
+disait « elles sont tombées » sans dire devant qui.
+
+- Les trois coffres donnent maintenant les **PIERRES DE GARDE** : les socles
+  que les étoiles occupaient, restés éteints. Elles ouvrent le portail du sud,
+  exactement comme avant — seul le récit change, et il tient debout.
+- La doyenne nomme la bête : « TROIS ÉTOILES GARDAIENT LA VALLÉE. UNE BÊTE LES
+  A DÉVORÉES. ELLE A FUI PAR LE SUD. »
+- La barre de vie, la carte, le journal et l'écran de sauvegarde disent
+  « PIERRES », et montrent un socle de pierre, pas une étoile.
+
+### Les vraies étoiles gisaient par terre sous la forme d'une flèche
+
+Le Rongeur abattu lâchait déjà trois butins `etoileVolee`. Mais ce type
+n'existait ni dans la table des sprites ni dans `ramasserButin` : **la
+récompense de tout le jeu était dessinée en FLÈCHE, et marcher dessus ne
+faisait rien.** C'est le dixième cas du défaut du § 29, et le plus cher.
+
+Elles ont leur icône, elles **viennent au héros** toutes seules (l'épilogue
+part 1,8 s après la chute : il fallait courir sur trois butins avant le fondu),
+et `lancerEpilogue` garantit `Q.etoiles=3` — l'épilogue les montre s'élever, il
+ne peut pas commencer en ayant perdu une en route.
+
+---
+
+## 36. Une caisse poussée dans un coin condamnait la partie
+
+Une caisse ne se pousse que **devant soi**. Acculée contre un mur, il n'y a plus
+moyen de se placer derrière : l'énigme était perdue **pour toujours**. Dans la
+vallée, celle qui garde le GRAPPIN — donc aussi le trésor du gouffre, et la
+Crevasse des Cimes. Rien ne le signalait, rien ne le rattrapait : il fallait
+recommencer la partie.
+
+Les caisses **reviennent à leur case de départ dès qu'on sort de la salle** sans
+avoir résolu l'énigme : la convention du genre, et la seule qui ne demande rien
+au joueur. On ne touche à rien tant qu'il est dedans — une caisse qui se replace
+sous les yeux passerait pour un défaut. Une énigme déjà résolue ne rejoue rien.
+
+---
+
+## 37. Le cinquième monde : un boss inatteignable et trois trésors fantômes
+
+### L'Arène du Colosse : zéro case atteignable
+
+Mesuré depuis l'entrée du désert, avec la collision du jeu et tout
+l'équipement : **0 case de l'arène accessible**. C'est voulu — un gué de trois
+sables mouvants barre l'unique couloir, et il faut le combler au bracelet. Mais
+rien ne le disait :
+
+- le désert compte **646 mares de sables mouvants tirées au hasard**, dans
+  lesquelles le gué de trois cases, lui *voulu*, se noyait complètement ;
+- le couloir fait **une case de large** dans une région de 5 137 cases ;
+- le panneau était planté **à côté** de l'entrée, pas devant.
+
+L'entrée est désormais marquée : une allée de dalles de trois cases de large,
+**deux obélisques**, deux torches, et un panneau qui se lit avant d'y entrer —
+« LA PORTE DU COLOSSE ». Et la voie qui y mène est tracée par `voie()`, qui
+écarte les sables mouvants : l'allée ne débouche plus sur du terrain tiré au
+sort.
+
+Le contrôle joue la solution **pour de vrai** — soulever un bloc, descendre, le
+jeter dans le gué, trois fois — et exige qu'après cela l'arène s'ouvre.
+
+### Trois « énigmes » du bilan de fin étaient impossibles
+
+`Q.tresorSables`, `Q.tresorMarais` et `Q.tresorNues` étaient comptés dans
+« ÉNIGMES x/8 » du bilan de fin. Aucun n'était posé nulle part, et aucune
+position n'existait pour eux : **trois des huit étaient inatteignables**, et le
+bilan ne pouvait jamais afficher le plein. C'est le journal refondu au § 32, qui
+les liste une par une, qui a rendu le mensonge visible.
+
+- **Les Sables** ont enfin leur salle d'énigme, **LA CITERNE ENSABLÉE** : un gué
+  de deux rangées, quatre blocs lourds en réserve (deux de plus qu'il n'en
+  faut : on ne peut pas s'y bloquer), le cœur de cristal sur l'autre rive. Elle
+  est **sur le chemin de l'arène**, et exprès : elle apprend à combler un gué là
+  où c'est sans risque, avant que la vanne l'exige sans plus rien expliquer.
+- **Le Marais** : son cœur de cristal est cerné d'un rideau de ronces que seul
+  le fanal brûle.
+- **Les Nues** : le sien est sur l'îlot le plus à l'écart — on n'y arrive qu'en
+  planant.
+
+### Le cactus vivant
+
+Le désert n'avait que trois créatures, toutes mobiles. Le **CACTUS VIVANT** est
+planté : il ne poursuit pas, il ne recule pas. Il gonfle une seconde — le seul
+avertissement, et c'est pour cela que son sprite suit le gonflement et non le
+temps qui passe — puis lâche **huit épines en couronne**. On ne s'en tire donc
+pas en tournant autour comme du lancier : il faut sortir de sa portée, ou
+l'abattre avant la salve. Hors de portée, il ne tire pas : un cactus au loin
+n'arrose pas le désert pour rien.
+
+### À ne pas réintroduire
+
+- **Un tamis qui écarte les chaînes « bizarres » écarte les bugs.** Deux fois :
+  `=` par une liste de permis, `&` par une liste d'interdits.
+- **Un couloir d'une case dans une région de cinq mille ne se trouve pas.**
+  Ce qui est voulu doit se distinguer de ce qui est tiré au hasard.
+- **Compter au bilan ce qui n'est posé nulle part.** Si un drapeau est compté,
+  un contrôle doit vérifier qu'on peut réellement le lever.
+- **Une mécanique qui ne pardonne pas doit se réarmer** : caisse dans un coin,
+  bloc gâché, gué manqué.
