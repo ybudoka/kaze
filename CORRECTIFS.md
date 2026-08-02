@@ -321,6 +321,18 @@ Autres pièges rencontrés en construisant la région :
   modifiées** : `torches` (l'éclairage) doit être refaite à chaque changement de
   décor **et après application des différences au chargement** (cf. 9.3). Même
   raisonnement pour toute liste future dérivée de `objs`.
+- **Ce qui change à l'exécution doit être sauvegardé** : `objs` l'était, `sol` ne
+  l'était pas, et un seul `putS` de jeu (le gué comblé au bracelet) fermait un
+  monde pour toujours. Toute écriture dans `sol` hors génération exige un
+  contrôle de rechargement (cf. 38).
+- **`panneaux.push` ne dessine rien** : c'est une zone de lecture, pas un
+  panneau. Ce qui se lit doit se voir — un poteau, et qui ne bouche aucun
+  passage (cf. 38).
+- **Un ramassage de quête sans repère de carte ne se trouve pas**, surtout peint
+  de la couleur de son décor. Quand il n'a pas de table de positions, le repère
+  se lit dans `butins` (cf. 38).
+- **Une mécanique qui se consomme doit se réarmer** : caisse acculée (cf. 36),
+  bloc lourd gâché, gué manqué (cf. 38). Jamais sous les yeux du joueur.
 - **`chemin()` ne perce que la lave et la roche noire, jamais les murs** : un
   point d'intérêt placé derrière une salle des Cendres reste injoignable, même
   si l'appel « trace » un chemin jusqu'à lui (cf. 9.2).
@@ -2280,3 +2292,142 @@ n'arrose pas le désert pour rien.
   un contrôle doit vérifier qu'on peut réellement le lever.
 - **Une mécanique qui ne pardonne pas doit se réarmer** : caisse dans un coin,
   bloc gâché, gué manqué.
+
+---
+
+## 38. Quatre culs-de-sac silencieux, tous dans le même désert
+
+Une capture d'écran : Kaze dans un couloir d'une case, muré des deux côtés, trois
+sables mouvants juste devant. « Je ne vois pas comment passer. » Puis : « Il n'y
+a pas de bloc lourd. » Puis : « On ne voit pas le panneau à l'entrée non plus. »
+Puis : « Reprendre la sauvegarde ne devrait pas repartir du village. » Quatre
+défauts distincts, dont trois se conjuguaient pour rendre la partie **définitivement
+bloquée**, sans rien pour le dire ni le défaire.
+
+### Le sol n'était pas sauvegardé
+
+`construireSauve()` conservait les différences du **décor** (`objs`) et rien
+d'autre. Or le bloc lourd jeté dans le gué fait DEUX choses : il disparaît de la
+carte (décor, conservé) et il change le sol en désert (sol, **non conservé**).
+
+Mesuré, à la case près :
+
+| | gué (3 cases) | réserve (4 blocs) |
+|---|---|---|
+| après avoir joué l'énigme | comblé, comblé, comblé | vide, vide, vide, vide |
+| après rechargement | **SABLEMOU, SABLEMOU, SABLEMOU** | vide, vide, vide, vide |
+
+Les blocs étaient dépensés, le gué rouvert : le couloir de l'Arène du Colosse
+— son unique porte — restait muré pour toujours. Une sauvegarde automatique se
+déclenche toutes les trois secondes ; il n'y avait aucun moyen de l'éviter.
+
+Le sol est désormais sauvegardé comme le décor (`diffS`, en regard de `solRef`).
+
+### Le bloc lourd se consomme, et rien ne le réarmait
+
+Même en conservant le sol, quatre blocs **gâchés** (jetés à côté, éclatés contre
+un obstacle) ferment le monde aussi sûrement. Le § 37 posait pourtant la règle —
+« une mécanique qui ne pardonne pas doit se réarmer » — et ne l'appliquait qu'aux
+caisses.
+
+L'invariant est maintenant tenu pour les deux gués du désert (la vanne du Colosse
+et la Citerne ensablée) : **tant qu'un gué n'est pas franchissable, sa réserve est
+pleine**. Il se refait au chargement, et en cours de partie dès qu'on **sort** de
+la zone — jamais sous les yeux du joueur, exactement comme les caisses. Un gué
+déjà comblé, lui, ne fait repousser aucun bloc.
+
+### Trente-trois panneaux sur trente-quatre étaient invisibles
+
+`panneaux.push({x, y, txt})` ne pose **qu'une zone de lecture**. Un seul panneau
+du jeu avait aussi un poteau : celui du village (`putO(27,44,O.PANNEAU)`). Les
+trente-trois autres étaient des carrés de sol identiques à leurs voisins, sur
+lesquels il fallait deviner qu'on avait quelque chose à lire — dont « LA PORTE DU
+COLOSSE. UN BLOC LOURD JETÉ DANS LE SABLE MOUVANT LE COMBLE. », c'est-à-dire la
+seule explication de l'énigme du cinquième monde. Le § 37 avait planté deux
+obélisques et une allée de dalles pour qu'on trouve cette entrée, et l'écriteau
+qui l'explique n'a jamais été visible.
+
+`planterPanneaux()` plante un poteau sur chaque zone de lecture, et la zone suit
+le poteau. Un poteau est **plein** : il ne doit couper aucun passage. La case
+retenue est donc celle dont les voisines libres restent **reliées entre elles sans
+passer par elle** (vérifié dans un voisinage de 5 × 5 : si l'on contourne
+localement, retirer la case ne coupe rien globalement). À candidats également
+valables on retient celui qui a le **moins** de voisines libres — le bas-côté :
+un poteau au centre d'une entrée de région se prend dans les jambes.
+
+Mesuré : 41 060 cases atteignables sans les poteaux, 41 027 avec, pour 33 poteaux
+posés sur des cases atteignables. **La différence est exactement les poteaux
+eux-mêmes** : aucun passage perdu.
+
+Le panneau du Temple Englouti, lui, était planté **derrière le temple, en pleine
+eau profonde** — aucun poteau ne peut s'y tenir et personne n'allait l'y lire. Il
+est passé à l'intérieur, sur la dalle, à droite en entrant.
+
+### On ressuscitait toujours à Val-des-Saules
+
+`sauverPointDeReprise()` réécrivait la sauvegarde avec `d.J.x=35*TS+8;
+d.J.y=45*TS+8` — le village de départ, **région 1 sur 8**, d'où que l'on soit
+tombé. Et comme ce point de reprise **écrase** l'emplacement, « REPRENDRE »
+repartait ensuite du village lui aussi, même après avoir quitté le jeu : mourir
+dans la Faille coûtait la traversée de six mondes, à chaque fois.
+
+On revient désormais à l'entrée de **sa propre** région — le défilé, le col, la
+cascade, l'oued, le marécage, la tour, la déchirure (`REPRISE_POS`). Le décor
+étant semé après le percement des entrées, la case visée peut avoir un saule
+dessus : `caseDeReprise()` cherche la case **ferme** la plus proche dans la même
+région — ni vide, ni eau, ni lave, ni sables mouvants. Ressusciter au-dessus du
+gouffre des Nues serait pire que le village.
+
+### Les fleurs de givre ne se voyaient pas
+
+Six fleurs **blanches** posées sur la **neige** d'une région de 6 400 cases, sans
+halo et **sans repère sur la carte**. La cause est structurelle : perles, fresques,
+cloches, carillons, veilleuses, sceaux ont tous une table de positions
+(`PERLES_POS`, `FRESQUES_POS`…) que l'écran de carte relit ; les fleurs et les
+papillons, eux, sont posés à la volée par `perchoirLibre()` et n'existent que
+dans `butins`. Ils étaient donc les **seuls** ramassages de quête sans repère —
+mesuré : 6 fleurs posées, **0 repère**, contre 3 repères pour les 3 cloches.
+
+La carte lit maintenant les butins eux-mêmes (ce qui a l'avantage de suivre le
+papillon, qui volette), avec deux entrées de `REPS` choisies pour ne se confondre
+avec aucun voisin de leur région — la cloche des Cimes bat en « braise » bleu
+pâle, la fleur bat en « phare » lilas — et la légende les nomme dès que leur quête
+est ouverte : un repère qu'on ne sait pas nommer ne renseigne personne.
+
+Fleur de givre, perle et fragment de fresque s'auréolent en outre au sol, comme
+les outils : chacun est peint de la couleur de son propre décor (blanc sur la
+neige, nacre sous l'eau, terre cuite sur le sable).
+
+### Vérification
+
+`tests/31-gue-panneaux-reprise.js` (13 contrôles) et
+`tests/32-reperes-de-quete.js` (5 contrôles). Le premier **joue la solution pour
+de vrai** — soulever un bloc, descendre, le jeter, trois fois — puis sauvegarde,
+recharge et exige que le gué soit encore comblé et l'arène ouverte.
+
+Les six défauts ont été **réinjectés un par un** ; chacun fait rougir son
+contrôle, et lui seul :
+
+| réinjection | contrôle qui rougit |
+|---|---|
+| `diffS` retiré de la sauvegarde | le gué comblé SURVIT au rechargement |
+| `planterPanneaux()` retiré | les trente-quatre panneaux ont un poteau *(33 sans poteau)* |
+| `garantirReserves()` vidé | un gué non comblé retrouve ses quatre blocs |
+| `majReserves()` court-circuité | la réserve se refait dès qu'on sort de la zone |
+| reprise forcée au village | mourir dans le désert ne renvoie pas au village |
+| repère des fleurs retiré | chaque fleur de givre a son repère *(0 pour 6)* |
+| halo retiré | fleur, perle et fresque s'auréolent au sol |
+
+### À ne pas réintroduire
+
+- **Ce qui change à l'exécution doit être sauvegardé.** `objs` l'était, `sol` ne
+  l'était pas : une seule ligne de jeu (`putS` dans `majBlocLourd`) suffisait à
+  fermer un monde. Toute nouvelle écriture dans `sol` hors génération doit
+  s'accompagner d'un contrôle de rechargement.
+- **Une zone de lecture n'est pas un panneau.** `panneaux.push` ne dessine rien ;
+  ce qui se lit doit se voir.
+- **Un ramassage de quête sans repère ne se trouve pas** — surtout peint de la
+  couleur de son décor. Le repère se lit dans la source de vérité (`butins`)
+  quand il n'y a pas de table de positions.
+- **Un point de reprise unique pour huit mondes** : le progrès de déplacement
+  fait partie du progrès.

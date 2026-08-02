@@ -1304,9 +1304,110 @@ function genererMonde(){
   /* --- les énigmes, semées dans les régions --- */
   poserEnigmes();
 
+  planterPanneaux();
+  inventorierGues();
+
   inventorierTorches();
 
   objsRef=objs.slice();          // état de référence pour les sauvegardes
+  solRef=sol.slice();            // le sol change aussi : un gué comblé le reste
+}
+
+/* LES PANNEAUX SE VOIENT. Trente-trois panneaux étaient posés dans `panneaux`
+   — une simple zone de lecture, invisible : SEUL celui du village avait un
+   poteau (`putO(27,44,O.PANNEAU)`). Tous les autres se lisaient par hasard, en
+   appuyant sur un carré de sable identique à ses voisins. Celui de la vanne du
+   désert disait « LA PORTE DU COLOSSE » — la seule explication de l'énigme du
+   monde, et personne ne pouvait deviner qu'il fallait s'arrêter là.
+   On plante donc un poteau sur chaque zone de lecture, et la zone SUIT le
+   poteau. Un poteau est plein : il ne doit couper aucun passage. La case
+   retenue est donc celle dont les voisines libres restent reliées entre elles
+   SANS passer par elle — vérifié dans un voisinage de 5 sur 5, ce qui suffit :
+   si l'on peut contourner la case localement, la retirer ne coupe rien. */
+function planterPanneaux(){
+  const libre=(x,y)=>dansCarte(x,y)&&!solide(x*TS+8,y*TS+8,Etg(x,y)*EH);
+  const surPNJ=(x,y)=>pnjs.some(p=>Math.floor(p.x/TS)===x&&Math.floor(p.y/TS)===y);
+  const contournable=(cx,cy)=>{
+    const bord=[];
+    for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]) if(libre(cx+dx,cy+dy)) bord.push([cx+dx,cy+dy]);
+    if(bord.length<2) return false;                     // cul-de-sac : on n'y plante rien
+    const vus=new Set([bord[0][0]+','+bord[0][1]]), pile=[bord[0]];
+    while(pile.length){
+      const [x,y]=pile.pop();
+      for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]){
+        const nx=x+dx, ny=y+dy;
+        if(nx===cx&&ny===cy) continue;                  // sans passer par la case du poteau
+        if(Math.abs(nx-cx)>2||Math.abs(ny-cy)>2) continue;
+        if(!libre(nx,ny)) continue;
+        const k=nx+','+ny; if(vus.has(k)) continue;
+        vus.add(k); pile.push([nx,ny]);
+      }
+    }
+    return bord.every(([x,y])=>vus.has(x+','+y));
+  };
+  /* Un poteau se plante AU BORD du chemin, pas au milieu : posé au centre d'une
+     entrée de région, on le prend dans les jambes en arrivant. À candidats
+     également valables, on retient donc celui qui a le moins de voisines
+     libres — le bas-côté — l'ordre ci-dessous ne servant qu'à départager. */
+  const ORDRE=[[0,0],[0,-1],[0,1],[-1,0],[1,0],[-1,-1],[1,-1],[-1,1],[1,1]];
+  const degre=(x,y)=>{ let n=0;
+    for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]) if(libre(x+dx,y+dy)) n++;
+    return n; };
+  for(const s of panneaux){
+    const tx=Math.floor(s.x/TS), ty=Math.floor(s.y/TS);
+    if(Obj(tx,ty)===O.PANNEAU) continue;                // celui du village a déjà le sien
+    let choix=null, mieux=9;
+    for(const [dx,dy] of ORDRE){
+      const x=tx+dx, y=ty+dy;
+      if(!libre(x,y)||surPNJ(x,y)||!contournable(x,y)) continue;
+      const d=degre(x,y);
+      if(d<mieux){ mieux=d; choix=[x,y]; }
+    }
+    if(choix){ putO(choix[0],choix[1],O.PANNEAU);
+               s.x=choix[0]*TS+8; s.y=choix[1]*TS+8; }   // la zone de lecture suit le poteau
+  }
+}
+
+/* LES RÉSERVES DE BLOCS SE REFONT. Le bloc lourd se CONSOMME : jeté dans le
+   gué, il disparaît de la carte. Quatre blocs gâchés — ou simplement dépensés
+   avant que le sol comblé ne soit conservé — et la seule porte de l'Arène du
+   Colosse restait fermée POUR TOUJOURS, sans rien pour le dire ni le défaire.
+   L'invariant, désormais tenu au chargement et dès qu'on sort de la zone :
+   TANT QU'UN GUÉ N'EST PAS FRANCHISSABLE, SA RÉSERVE EST PLEINE. Un gué déjà
+   comblé ne réarme rien — les blocs ne repoussent pas dans le dos du joueur,
+   et l'on ne replace jamais rien sous ses yeux (même règle que les caisses).
+   La liste est bâtie UNE fois : rien ne s'alloue à chaque image. */
+const GUES=[];
+function inventorierGues(){
+  GUES.length=0;
+  // la vanne du Colosse : trois cases en file dans un couloir d'une seule case
+  {const va=SABLES.vanne, x=SABLES.arene.x0+(SABLES.arene.w>>1), yTop=va.y0-3;
+   GUES.push({zone:{x0:x-3,y0:yTop-5,w:7,h:SABLES.arene.y0-yTop+7},
+     blocs:[[x-1,yTop-1],[x+1,yTop-1],[x-1,yTop],[x+1,yTop]], vu:0,
+     franchi(){ for(let y=va.y0;y<=va.y1;y++) if(Sol(x,y)===S.SABLEMOU) return false; return true; }});}
+  // la citerne : deux rangées sur toute la largeur — une seule colonne comblée suffit
+  {const s=CITERNE, g=s.x0+1, d=s.x0+s.w-2, yG=s.y0+5;
+   GUES.push({zone:s,
+     blocs:[[g+1,yG+3],[g+3,yG+3],[d-1,yG+3],[d-3,yG+3]], vu:0,
+     franchi(){ for(let x=g;x<=d;x++) if(Sol(x,yG)!==S.SABLEMOU&&Sol(x,yG+1)!==S.SABLEMOU) return true;
+                return false; }});}
+}
+function remplirReserve(gue){
+  let mis=false;
+  for(const [x,y] of gue.blocs) if(Obj(x,y)===O.RIEN){ putO(x,y,O.BLOCLOURD); rafraichirTuile(x,y); mis=true; }
+  return mis;
+}
+function garantirReserves(){
+  for(const gue of GUES) if(!gue.franchi()) remplirReserve(gue);
+}
+function majReserves(){
+  for(const gue of GUES){
+    const z=gue.zone;
+    const dedans=J.x>=z.x0*TS&&J.x<(z.x0+z.w)*TS&&J.y>=z.y0*TS&&J.y<(z.y0+z.h)*TS;
+    if(dedans){ gue.vu=1; continue; }
+    if(!gue.vu||gue.franchi()) continue;
+    if(remplirReserve(gue)) gue.vu=0;
+  }
 }
 
 /* Inventaire des sources de lumière. Refait à chaque chargement : un brasier
@@ -3663,7 +3764,11 @@ function genererLagon(){
     putS(cx,t.y0,S.DALLE); putS(cx-1,t.y0,S.DALLE); putS(cx+1,t.y0,S.DALLE); }
   putO(t.x0+1,t.y0+1,O.TORCHE); putO(t.x0+t.w-2,t.y0+1,O.TORCHE);
   rectS(t.x0+2,t.y0+2,t.w-4,t.h-4,S.TAPIS);
-  panneaux.push({x:(t.x0+2)*TS+8,y:(t.y0+t.h)*TS+8,txt:"TEMPLE ENGLOUTI. LE LÉVIATHAN VEILLE AU LARGE."});
+  /* Le panneau était posé DERRIÈRE le temple, en pleine eau profonde : aucun
+     poteau ne peut s'y planter et personne n'allait le lire. Il est désormais
+     juste à l'intérieur, sur la dalle, à droite en entrant. */
+  panneaux.push({x:(t.x0+(t.w>>1)+2)*TS+8,y:(t.y0+1)*TS+8,
+    txt:"TEMPLE ENGLOUTI. LE LÉVIATHAN VEILLE AU LARGE."});
 
   /* Le Large : une cuvette d'eau profonde, l'antre du Léviathan */
   const la=LAGON.large;
@@ -4735,6 +4840,7 @@ function replacerCaisses(pz){
   if(bouge) pz.vu=0;
 }
 function majPuzzles(){
+  majReserves();
   for(const pz of PUZZLES){
     if(pz.fini) continue;
     replacerCaisses(pz);
@@ -5674,8 +5780,13 @@ const SPR_BUTIN={coeur:'coeur',bombe:'bombeItem',champi:'champi',cle:'cle',
   filet:'filetItem',fleurgivre:'fleurgivre',etoileVolee:'etoileVolee',
   pierre:'pierreGarde'};
 /* Ceux qui s'auréolent : on les repère de loin, ils comptent. */
+/* Les trois ramassages de collection — fleur de givre, perle, fragment de
+   fresque — s'auréolent eux aussi : chacun est peint de la couleur de son
+   propre décor (blanc sur la neige, nacre sous l'eau, terre cuite sur le
+   sable), et sans halo on leur passe dessus sans les voir. */
 const LUEUR_BUTIN={cle:1,eclat:1,boomerang:1,palmes:1,grappin:1,bracelet:1,
-  fanal:1,cape:1,coeurmax:1,filet:1,papillon:1,etoileVolee:1};
+  fanal:1,cape:1,coeurmax:1,filet:1,papillon:1,etoileVolee:1,
+  fleurgivre:1,perle2:1,fresque:1};
 function larguer(x,y,z){
   const r=rnd();
   /* Toutes les régions du sud — Cendres, Cimes, Lagon — lâchent de plus belles
@@ -8786,6 +8897,14 @@ const REPS={
   carillon: {a:'#dfe6ff',b:'#6f7ba0',r:'braise'},
   sceau:    {a:'#e08aff',b:'#6a3a90',r:'braise'},
   veilleuse:{a:'#d8e060',b:'#6f7430',r:'braise'},
+  /* La fleur de givre et le papillon sont posés à la volée par `perchoirLibre` :
+     faute de table de positions, ils étaient les SEULS ramassages de quête sans
+     repère. Six fleurs blanches sur la neige d'une région de 6 400 cases ne se
+     cherchent pas à l'œil. Teintes et rythmes choisis pour ne se confondre avec
+     aucun voisin de leur région (la cloche des Cimes bat en « braise » bleu
+     pâle : la fleur bat en « phare » lilas). */
+  fleur:    {a:'#e0ccff',b:'#6a5a96',r:'phare'},
+  papillon: {a:'#ffb46a',b:'#96602a',r:'presse'},
 };
 for(const k in REPS) REPS[k].r=RYTHMES[REPS[k].r];
 const coulRep=p=>rythmeVif(p.r)?p.a:p.b;
@@ -8805,6 +8924,11 @@ function ecranCarte(){
   if(Q.lanterne===1) leg.push([REPS.lanterne,'LANTERNE']);
   if(Q.portailOuvert&&BRASIERS_POS.some(([x,y])=>Obj(x,y)===O.BRASIER))
     leg.push([REPS.brasier,'BRASIER']);
+  /* Un repère qu'on ne sait pas nommer ne renseigne personne : la fleur et le
+     papillon s'annoncent dès que leur quête est ouverte. */
+  if(Q.guideParle&&!Q.fleursRendues&&butins.some(o=>o.type==='fleurgivre'))
+    leg.push([REPS.fleur,'FLEUR']);
+  if(Q.filet&&butins.some(o=>o.type==='papillon')) leg.push([REPS.papillon,'PAPILLON']);
 
   /* Le pied de page est mesuré et posé À PARTIR DU BAS de l'écran ; la carte
      prend ce qui reste. Dans l'autre sens — carte d'abord, textes calés sous
@@ -8891,6 +9015,13 @@ function ecranCarte(){
   for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON) rep2(cx,cy,REPS.carillon);
   for(const [sx,sy] of SCEAUX_POS) if(Obj(sx,sy)===O.SCEAU) rep2(sx,sy,REPS.sceau);
   for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE) rep2(vx,vy,REPS.veilleuse);
+  /* Fleurs de givre et papillons : pas de table de positions — `perchoirLibre`
+     les pose où il trouve de la place. On lit donc les butins eux-mêmes, ce qui
+     a l'avantage de suivre le papillon, qui volette. */
+  for(const o of butins){
+    if(o.type==='fleurgivre') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.fleur);
+    else if(o.type==='papillon') rep2(Math.floor(o.x/TS),Math.floor(o.y/TS),REPS.papillon);
+  }
   for(const c of coffres) if(vu[Math.floor(c.y/TS)*MW+Math.floor(c.x/TS)]&&!c.ouvert)
     rep2(Math.floor(c.x/TS),Math.floor(c.y/TS),REPS.coffre);
   rep2(Math.floor(J.x/TS),Math.floor(J.y/TS),REPS.toi);
@@ -9161,8 +9292,9 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.1';
+const VERSION='V2.2';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
+let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
 let nomPartie='KAZE';             // nom donné à la partie en cours
 const resumes=[null,null,null];   // aperçu de chaque emplacement
@@ -9258,6 +9390,12 @@ function formatTemps(f){
 function construireSauve(){
   const diff=[];
   if(objsRef) for(let i=0;i<objs.length;i++) if(objs[i]!==objsRef[i]) diff.push(i,objs[i]);
+  /* Le SOL change aussi. On ne conservait que le décor : le bloc jeté dans les
+     sables mouvants disparaissait pour de bon (décor), mais le gué qu'il avait
+     comblé se rouvrait au rechargement (sol). Quatre blocs, une sauvegarde, et
+     l'Arène du Colosse devenait inatteignable définitivement. */
+  const diffS=[];
+  if(solRef) for(let i=0;i<sol.length;i++) if(sol[i]!==solRef[i]) diffS.push(i,sol[i]);
   return {
     v:VERSION_SAUVE, date:Date.now(), temps:tempsJeu, nom:nomPartie,
     Q:Object.assign({},Q),
@@ -9266,7 +9404,7 @@ function construireSauve(){
        objets:J.objets.slice(),objSel:J.objSel},
     coffres:coffres.map(c=>[c.ouvert?1:0,c.verrou?1:0]),
     lucioles:lucioles.map(l=>l.pris?1:0),
-    diff, vu:bitsVers(vu)
+    diff, diffS, vu:bitsVers(vu)
   };
 }
 async function sauver(silencieux){
@@ -9282,16 +9420,50 @@ function autoSauver(){
   if(tempsJeu-dernierAuto<180) return;      // au plus une fois toutes les 3 s
   dernierAuto=tempsJeu; sauver(true);
 }
+/* OÙ L'ON REVIENT APRÈS UNE MORT. C'était Val-des-Saules — le tout premier
+   village, région 1 sur 8 — d'où que l'on soit tombé : mourir dans la Faille
+   renvoyait à six mondes de là, et comme le point de reprise ÉCRASE la
+   sauvegarde, « REPRENDRE » repartait ensuite du village lui aussi, même après
+   avoir quitté le jeu. Tout le trajet était à refaire à chaque mort.
+   On revient désormais à l'entrée de SA PROPRE région : le défilé, le col, la
+   cascade, l'oued, le marécage, la tour, la déchirure. */
+const REPRISE_POS=[
+  [35,45],                                                          // Val-des-Saules
+  [(CENDRE.gorge.x0+CENDRE.gorge.x1)>>1,     Y_CENDRE+4],           // le défilé
+  [(CIMES.col.x0+CIMES.col.x1)>>1,           Y_CIMES+4],            // le col
+  [(LAGON.cascade.x0+LAGON.cascade.x1)>>1,   Y_LAGON+4],            // la cascade
+  [(SABLES.wadi.x0+SABLES.wadi.x1)>>1,       Y_SABLES+4],           // l'oued
+  [(MARAIS.laisse.x0+MARAIS.laisse.x1)>>1,   Y_MARAIS+4],           // le marécage
+  [(NUES.tour.x0+NUES.tour.x1)>>1,           Y_NUES+4],             // la tour
+  [(FAILLE.bouche.x0+FAILLE.bouche.x1)>>1,   Y_FAILLE+4]            // la déchirure
+];
+/* Le décor est semé APRÈS le percement des entrées : un saule du Marais, le
+   bord d'une île des Nues ont pu pousser sur la case visée. On cherche donc la
+   case FERME la plus proche, dans la même région — ni vide, ni eau, ni lave :
+   revenir à la vie au-dessus du gouffre des Nues serait pire que le village. */
+function caseDeReprise([tx,ty]){
+  const ferme=(x,y)=>{ const s=Sol(x,y);
+    return !solide(x*TS+8,y*TS+8,Etg(x,y)*EH)
+        && s!==S.VIDE&&s!==S.NEANT&&s!==S.EAU&&s!==S.EAUPROF&&s!==S.LAVE&&s!==S.SABLEMOU; };
+  for(let r=0;r<12;r++)
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==r) continue;
+      const x=tx+dx, y=ty+dy;
+      if(dansCarte(x,y)&&regionIdx(y)===regionIdx(ty)&&ferme(x,y)) return [x,y];
+    }
+  return [tx,ty];
+}
 /* Mourir ne doit jamais coûter la progression. La sauvegarde automatique ne
    passe qu'une fois par minute — et jamais pendant un combat de gardien — donc
    sans cela une mort effaçait tout ce qui avait été gagné depuis, combat de
    boss compris. On écrit ici un point de reprise qui conserve absolument tout
    (quêtes, objets, étoiles, lucioles, rubis, coffres, carte explorée) et se
-   contente de replacer le héros vivant au village. */
+   contente de replacer le héros vivant à l'entrée de sa région. */
 async function sauverPointDeReprise(){
   const d=construireSauve();
   d.J.pv=J.pvmax; d.J.z=0;                  // on revient debout et soigné
-  d.J.x=35*TS+8; d.J.y=45*TS+8;             // Val-des-Saules
+  const [rx,ry]=caseDeReprise(REPRISE_POS[regionIdx(Math.floor(J.y/TS))]);
+  d.J.x=rx*TS+8; d.J.y=ry*TS+8;
   const ou=await stockEcrire(d,emplacement);
   resumes[emplacement]=apercu(d);
   sauveEtat=(ou==='disque')?'PROGRESSION CONSERVÉE':'SAUVEGARDE TEMPORAIRE';
@@ -9343,6 +9515,8 @@ async function chargerInterne(slot){
   genererMonde();
   Object.assign(Q,d.Q||{});
   if(Array.isArray(d.diff)) for(let i=0;i<d.diff.length;i+=2) objs[d.diff[i]]=d.diff[i+1];
+  if(Array.isArray(d.diffS)) for(let i=0;i<d.diffS.length;i+=2) sol[d.diffS[i]]=d.diffS[i+1];
+  garantirReserves();            // un gué non comblé retrouve ses blocs : jamais de cul-de-sac
   inventorierTorches();          // brasiers rallumés, lanterne prise : la lumière suit
   prerendreSol(); construireMini();
   poserCoffres();
