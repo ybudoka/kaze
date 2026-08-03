@@ -3197,3 +3197,83 @@ Les régressions de la suite complète n'étaient pas où le message les plaçai
 - **Un test qui trie par préfixe de libellé.** Changer un texte affiché fait
   alors rougir un contrôle sans rapport apparent. Quand un échec paraît absurde,
   relire d'abord comment le test CLASSE ce qu'il mesure.
+
+---
+
+## 45. Les panneaux : une validation qui n'a rien trouvé, et deux fausses alertes
+
+Demande : « valide que les panneaux ne sont pas cachés par un mur ou un autre
+obstacle, déplace-les au besoin. »
+
+### Ce que la mesure dit
+
+**Les 34 panneaux sont sains.** Chacun a son poteau, chacun se lit depuis au
+moins une case atteignable à pied, aucun ne tient à une seule case. **Rien à
+déplacer.** `planterPanneaux()` (§ 30) fait déjà son travail.
+
+### Les deux fausses alertes, et pourquoi elles méritent d'être écrites
+
+**a) « Un panneau injoignable dans la Faille. »** Celui de la salle finale,
+`QUATRE ÉPREUVES D'AFFILÉE…`. Le premier relevé le donnait pour injoignable —
+mais il n'avait ouvert que les **verrous de région**, pas la progression : la
+salle finale reste fermée par ses éclats noirs tant que les trois sceaux ne
+sont pas brisés. Le panneau n'est pas mal placé, il est **plus loin**. Toute
+mesure d'atteignabilité de décor doit ouvrir TOUTE la progression, sinon elle
+mesure les verrous.
+
+**b) « Trois poteaux masqués par ce qui est dessiné devant. »** Critère
+inventé : un objet plus haut que le poteau sur la case du sud. Une capture
+d'écran a suffi à le démentir — le poteau des Cimes est parfaitement dégagé,
+le sapin est à côté, pas devant.
+
+Et une troisième, dans l'instrument lui-même : pour trancher, on a voulu
+compter les pixels que le poteau ajoute à l'image, en rendant deux fois avec et
+sans lui. **Le contrôle à blanc a rougi tout de suite** — 54 650 px d'écart
+entre deux rendus censés être identiques, parce que `rendreMonde()` décrémente
+`secousse` à chaque appel et décale l'image entière. On a renoncé au
+comptage de pixels : une capture d'écran répondait à la question, et la
+géométrie des tuiles répond au reste. *Sans le contrôle à blanc, on aurait
+« corrigé » trois panneaux parfaitement placés sur la foi de 20 000 px de
+bruit.*
+
+### Le seul vrai défaut : un renoncement silencieux
+
+`planterPanneaux` cherchait sa case dans un **3 sur 3** et, faute de candidat,
+renonçait sans rien dire :
+
+```js
+if(choix){ putO(…,O.PANNEAU); s.x=…; s.y=…; }     // et sinon ? rien.
+```
+
+Le panneau restait alors là où il était tombé : **sans poteau — donc invisible
+— et sans zone lisible**. C'est exactement le défaut que le § 30 avait voulu
+supprimer, qui pouvait revenir par la porte de derrière. Aucun des 34 n'en est
+là aujourd'hui ; mais la carte bouge à chaque monde ajouté, et les sous-salles
+à venir vont beaucoup la remuer.
+
+**Correctif** : la recherche s'éloigne par **anneaux carrés** jusqu'au rayon 4.
+Le rayon 1 garde exactement l'ancien ordre (`ORDRE`, qui privilégie le
+bas-côté), donc **aucun des 34 panneaux ne bouge** — le repli ne s'active que
+là où l'on ne trouvait rien du tout.
+
+### Comment c'est vérifié
+
+`tests/40-panneaux-plantes.js` tient l'invariant sur la vraie carte, toute la
+progression ouverte : chaque panneau a son poteau, et se lit depuis une case
+atteignable **à pied**.
+
+**Réinjection** : on mure un carré de 5 sur 5 en pleine prairie, on y jette un
+panneau, on rejoue la plantation. Avant correctif, il restait orphelin
+(`resté sans poteau en (49,45)`) ; après, il est planté et lisible.
+
+### À ne pas réintroduire
+
+- **Mesurer l'atteignabilité du décor sans ouvrir la progression.** On mesure
+  alors les verrous, et l'on « corrige » ce qui n'est pas cassé.
+- **Un critère de masquage déduit des hauteurs de tuiles.** Ce qui est devant à
+  l'écran ne se lit pas dans `HAUT_O` : une capture tranche en dix secondes.
+- **Comparer deux images sans contrôle à blanc.** `rendreMonde()` n'est pas
+  idempotent — il fait vivre `secousse`, les particules et le `tick`. Deux
+  rendus « identiques » diffèrent de 54 650 px.
+- **Un `if(trouvé)` sans branche `sinon`** dans un placement de décor. Le jour
+  où il ne trouve pas, il ne le dit à personne.

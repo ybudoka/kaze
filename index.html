@@ -1474,15 +1474,34 @@ function planterPanneaux(){
   const degre=(x,y)=>{ let n=0;
     for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]) if(libre(x+dx,y+dy)) n++;
     return n; };
+  /* Les cases d'un anneau carré de rayon `r` autour du poteau, du plus proche
+     au plus lointain. `ORDRE` en est le cœur : il départage les candidats à
+     rayon 1, où l'immense majorité des panneaux trouve sa place. */
+  const anneau=r=>{
+    if(r<=1) return ORDRE;
+    const l=[];
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++)
+      if(Math.max(Math.abs(dx),Math.abs(dy))===r) l.push([dx,dy]);
+    return l;
+  };
   for(const s of panneaux){
     const tx=Math.floor(s.x/TS), ty=Math.floor(s.y/TS);
     if(Obj(tx,ty)===O.PANNEAU) continue;                // celui du village a déjà le sien
-    let choix=null, mieux=9;
-    for(const [dx,dy] of ORDRE){
-      const x=tx+dx, y=ty+dy;
-      if(!libre(x,y)||surPNJ(x,y)||!contournable(x,y)) continue;
-      const d=degre(x,y);
-      if(d<mieux){ mieux=d; choix=[x,y]; }
+    /* On s'éloigne par anneaux tant qu'on n'a rien trouvé. Auparavant la
+       recherche s'arrêtait au 3 sur 3 et renonçait EN SILENCE : un panneau
+       tombé dans un mur y restait, sans poteau et sans zone lisible — invisible
+       et injoignable, exactement ce que § 30 avait voulu corriger. Aucun des
+       34 panneaux n'en est là aujourd'hui, mais la carte bouge à chaque monde
+       ajouté, et un défaut muet ne se voit qu'une fois qu'il a coûté cher. */
+    let choix=null;
+    for(let r=1;r<=4&&!choix;r++){
+      let mieux=9;
+      for(const [dx,dy] of anneau(r)){
+        const x=tx+dx, y=ty+dy;
+        if(!libre(x,y)||surPNJ(x,y)||!contournable(x,y)) continue;
+        const d=degre(x,y);
+        if(d<mieux){ mieux=d; choix=[x,y]; }
+      }
     }
     if(choix){ putO(choix[0],choix[1],O.PANNEAU);
                s.x=choix[0]*TS+8; s.y=choix[1]*TS+8; }   // la zone de lecture suit le poteau
@@ -9732,7 +9751,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.7';
+const VERSION='V2.8';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
