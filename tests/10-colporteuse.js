@@ -376,8 +376,18 @@ module.exports = {
         const bw = Math.min(CV.width - 20, 186), bx = Math.round(CV.width / 2 - bw / 2);
         const by = Math.round(CV.height / 2 - 52);
         /* `rendreMonde()` ne dessine PAS la boutique : elle est dans `ath()`.
-           Sans lui, la comparaison portait sur du décor et ne bougeait jamais. */
-        const snap = () => { tick = 1000; secousse = 0; rendreMonde(); ath();
+           Sans lui, la comparaison portait sur du décor et ne bougeait jamais.
+
+           Figer `tick` et `secousse` ne suffit pas : la VRAIE boucle continue de
+           tourner entre deux clichés, et tout ce que l'ATH affiche en temps
+           limité s'éteint pendant ce temps-là. Mesuré : un bandeau d'annonce qui
+           expire entre les deux change **2 700 pixels** sur la ligne suivante —
+           bien plus que la marque cherchée (une centaine). Ce contrôle rougissait
+           donc une fois sur deux, selon la charge de la machine. On éteint tout
+           ce qui est temporaire, et la comparaison ne porte plus que sur l'étal. */
+        const snap = () => { tick = 1000; secousse = 0;
+                             bandeauT = 0; msgT = 0; sauveEtatT = 0;
+                             rendreMonde(); ath();
                              return ctx.getImageData(0, 0, CV.width, CV.height).data; };
         const changes = (a, b, ligne) => {
           const y0 = by + 18 + ligne * 17;
@@ -389,9 +399,15 @@ module.exports = {
             }
           return n;
         };
+        /* On déclenche exprès un bandeau, et on le fait expirer entre les deux
+           clichés : c'est LA situation qui rendait ce contrôle intermittent.
+           Reproduite ici à la main, elle devient un contrôle de non-régression
+           au lieu d'un caprice de charge. */
+        annonce('UN BANDEAU QUI VA EXPIRER');
         const marquee = snap();
         // contrôle à blanc : deux rendus identiques ne doivent RIEN changer
         const out = { stable: changes(marquee, snap(), 0) };
+        bandeauT = 0;                                   // le bandeau s'éteint
         boutique.liste[0].rare = false;                 // on lui retire sa marque
         const nue = snap();
         out.surSaLigne = changes(marquee, nue, 0);

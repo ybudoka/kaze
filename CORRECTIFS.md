@@ -3606,3 +3606,53 @@ troisième.
 **Une liste d'exceptions écrite du mauvais côté est une bombe à retardement.**
 Quand l'oubli d'un nom cause une perte silencieuse, il faut énumérer le petit
 ensemble dangereux, pas le grand ensemble à protéger.
+
+---
+
+## 51. Un contrôle qui rougissait une fois sur deux : le bandeau, pas la marque
+
+| | |
+|---|---|
+| **Symptôme** | `10-colporteuse.js` : « et sa marque ne déborde pas sur les autres lignes → 2 697 pixels changent en dessous ». Vert en isolation, rouge sous charge, une fois sur deux. |
+| **Cause réelle** | Le contrôle rend la boutique **deux fois** et compare. Il figeait `tick` et `secousse`, mais **la vraie boucle continue de tourner entre les deux clichés**, et tout ce que l'ATH affiche en temps limité s'éteint pendant ce temps-là. Un **bandeau d'annonce** qui expire entre les deux change **2 700 pixels** sur la ligne suivante — trente fois plus que la marque cherchée. |
+
+### La mesure, et deux hypothèses fausses avant la bonne
+
+D'abord soupçonnée, la **caméra** : `rendreMonde()` redessine le monde derrière
+le panneau. Mesuré — `cam.x`, `cam.y`, la position du héros et le nombre
+d'entités sont **identiques** après 300 ms : la boutique ouverte gèle le jeu.
+Zéro pixel de différence. Hypothèse morte.
+
+Ensuite le **message** (`msgT`) : il descend bien pendant l'attente, mais son
+expiration ne change que **20 pixels** dans la bande comparée.
+
+Le coupable, isolé en éteignant chaque variable temporelle une à une :
+
+```
+message qui expire  : ligne0 0    ligne1 0
+bandeau qui expire  : ligne0 0    ligne1 2700   ←
+```
+
+2 700 — les 2 684, 2 697 et 2 700 relevés dans les échecs.
+
+### Le correctif
+
+`snap()` éteint désormais **tout ce qui est temporaire** — `bandeauT`, `msgT`,
+`sauveEtatT` — et non plus seulement l'animation. La comparaison ne porte plus
+que sur l'étal, ce qu'elle prétendait mesurer.
+
+Et le contrôle **provoque maintenant lui-même** la situation : il déclenche un
+bandeau avant le premier cliché et le fait expirer entre les deux. Le caprice de
+charge devient une non-régression.
+
+> **Réinjection** : gel retiré → **3 échecs sur 3** en isolation (au lieu d'une
+> fois sur deux sous charge) ; gel remis → 3 verts sur 3.
+
+### À ajouter aux pièges du § 8
+
+**Comparer deux rendus d'un jeu qui tourne, c'est comparer deux instants.**
+Figer l'animation ne suffit pas : tout compte à rebours affiché — bandeau,
+message, état de sauvegarde — doit être éteint, sinon la mesure porte sur ce qui
+a expiré entre les deux clichés. Et un contrôle intermittent n'est pas un
+contrôle : tant qu'on ne sait pas le faire rougir **à coup sûr**, on n'a pas
+trouvé la cause.
