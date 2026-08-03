@@ -3125,6 +3125,7 @@ const Q={
   prime:0, primeRendue:false, feeVue:false, prixItin:{},
   /* la magie : la baguette de la fée, et les runes du Temple Englouti */
   baguette:false, runes:0, tresorRunes:false, cryptOuverte:false,
+  /* la partie+ : combien de fois le monde a été rejoué */ cycle:0,
   /* Terres de Cendre */
   portailOuvert:false, braises:0, bottes:false, coeurTue:false,
   /* marchand itinérant — `achatsColporteuse` fait monter ses tarifs, et les
@@ -3222,7 +3223,7 @@ function razQuetes(){
     amulette:false,fioleFee:false,rune:false,
     lanterne:0,eclats:0,epeeCendre:false,brasiers:0,
     prime:0,primeRendue:false,feeVue:false,prixItin:{},
-    baguette:false,runes:0,tresorRunes:false,cryptOuverte:false,
+    baguette:false,runes:0,tresorRunes:false,cryptOuverte:false,cycle:0,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false,
     /* le cabinet des huit : un papillon par région, le filet pour les prendre */
     filet:false,naturalisteParle:false,papillonsPris:[0,0,0,0,0,0,0,0],
@@ -5838,7 +5839,8 @@ function pondre(type,tx,ty){
      état qu'on la découvre de loin. Mesuré : 39 créatures sur 374 à la
      génération, dont tout le plateau nord de la vallée. */
   ennemis.push({type,x:tx*TS+8,y:ty*TS+8,z:Etg(tx,ty)*EH,vz:0,r,dir:2,
-    pv,pvmax:pv,t:Math.floor(rnd()*120),cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*100,stun:0});
+    pv:Math.round(pv*mulPV()),pvmax:Math.round(pv*mulPV()),
+    t:Math.floor(rnd()*120),cd:0,flash:0,kx:0,ky:0,hx:0,hy:0,anim:rnd()*100,stun:0});
 }
 function libre(x,y){
   return dansCarte(x,y)&&Obj(x,y)===O.RIEN
@@ -6224,6 +6226,7 @@ const PAR_RECUP=50;
    retarder d'une image le coup qui vient. */
 const PAR_GRACE=18;
 function blesser(deg,sx,sy,parable=true){
+  deg=Math.max(1,Math.round(deg*mulDegats()));   // la partie+ frappe plus fort
   if(J.invuln>0||etat!=='jeu') return;
   if(parable&&J.bouclier){
     const a=Math.atan2(sy-J.y,sx-J.x);
@@ -6271,6 +6274,18 @@ function mourir(){
     Q.potions--; J.pv=pvTotal(); J.invuln=120;
     SFX.coeur(); annonce('POTION ROUGE !');
     particules(J.x,J.y,J.z+10,26,'#ff8fa4',3,40);
+    return;
+  }
+  /* Dans l'arène on ne meurt pas « dans une partie » : la manche s'achève, le
+     record se garde, et l'on revient au titre. Rien n'est sauvegardé — l'arène
+     n'a pas de partie à protéger. */
+  if(areneEtat.actif){
+    const record=garderRecordArene();
+    SFX.mort(); secousse=16;
+    particules(J.x,J.y,J.z+10,26,'#e8e0ff',3.4,40);
+    annonce(record?'NOUVEAU RECORD '+areneEtat.score:'SCORE '+areneEtat.score);
+    dire('VAGUE '+areneEtat.vague+' - '+areneEtat.tues+' CRÉATURES ABATTUES.',300);
+    quitterArene();
     return;
   }
   etat='mort'; finT=0; viderTampon(); SFX.mort();
@@ -6639,6 +6654,7 @@ function majJoueur(){
   /* --- verrous du monde --- */
   verifierVerrous();
   majPuzzles();
+  majArene();                       // vagues, combo, repos entre deux
   majMagie();                       // la fiole de fée refait la jauge, lentement
   majVol();
 
@@ -7047,6 +7063,7 @@ function majEnnemis(){
       if(e.type==='golem'&&Q.lanterne>=3&&!Q.epeeCendre
          &&Q.eclats+butins.filter(b=>b.type==='eclat').length<3)
         butins.push({x:e.x,y:e.y,z:e.z+8,vz:2,type:'eclat',t:0});
+      marquerArene(e.type);                    // l'arène compte ses points ici
       larguer(e.x,e.y,e.z); ennemis.splice(i,1); son(160,.16,'square',.05,-90); continue;
     }
     if(dansRefuge(e.x,e.y)){ sortirRefuge(e); e.kx=0; e.ky=0; e.hx=0; e.hy=0; }
@@ -7450,7 +7467,7 @@ const GARDIENS={
    fait qu'un gardien se retient au lieu de se marteler. */
 const indiceGardien=g=>g.coups+4*g.deg+6*g.regles;
 /* Les points de vie découlent des coups : deux points par coup d'épée. */
-const pvGardien=id=>GARDIENS[id].coups*2;
+const pvGardien=id=>Math.round(GARDIENS[id].coups*2*mulPV());
 
 function reveillerCoeur(){
   if(boss) return;
@@ -9470,6 +9487,14 @@ function ath(){
     else          v=(r>=2)?2:(r===1?1:0);
     coeurATH(X,6+(i%COEURS_RANGEE)*9,5+Math.floor(i/COEURS_RANGEE)*9,v);
   }
+  /* L'ARÈNE : sa ligne remplace les rubis et les pierres, qui n'y servent à
+     rien. Score, vague, et le multiplicateur d'enchaînement tant qu'il court. */
+  if(areneEtat.actif){
+    texte(X,'VAGUE '+areneEtat.vague,W-92,4,'#c8d8f8');
+    texte(X,String(areneEtat.score).padStart(6,'0'),W-92,13,'#ffe86a');
+    if(areneEtat.combo>1)
+      texte(X,'x'+(1+Math.min(9,areneEtat.combo-1)*.1).toFixed(1),W-40,13,'#7de0a0');
+  }
   /* La jauge de magie : sous les cœurs, et seulement une fois la baguette
      obtenue — une barre vide dès la première minute annoncerait un objet qu'on
      n'a pas encore, comme les trois étoiles autrefois (§ 45). */
@@ -9655,6 +9680,7 @@ function mode7(ang,camX,camY){
   }
   X.putImageData(m7img,0,hor);
 }
+let titreCompact=false;
 function ecranTitre(){
   const hor=HOR();
   /* ---------------------- LA MISE EN PAGE, D'ABORD ----------------------
@@ -9674,12 +9700,25 @@ function ecranTitre(){
      place est pris au logo, puis à la bête, puis au héros. Jamais au
      recouvrement. */
   const opts=optionsEcranTitre();
-  const hMenu=opts.reduce((a,o)=>a+(o.sous?20:14),0)+10;
+  /* Le menu s'allonge quand on lui ajoute une entrée — l'arène en a ajouté une,
+     et l'écran-titre a recommencé à se recouvrir (411 px² sur 620×180). Quand
+     la place manque, on RENTRE LES SOUS-TITRES : six pixels par ligne, rendus
+     au ciel et à la bête, sans retirer aucune option du menu. */
+  const hAvec=opts.reduce((a,o)=>a+(o.sous?20:14),0)+10;
+  const hSans=opts.length*14+10;
+  const placePour=h=>{
+    const yA=H-((W>=460)?22:34), bM=(persistant()?yA:yA-12)-6;
+    return Math.max(20,bM-h)-10;
+  };
+  const compact=placePour(hAvec)-(28+7*3)-8 < Math.round(hor*.40);
+  titreCompact=compact;
+  const hMenu=compact?hSans:hAvec;
   /* La largeur du menu suit sa ligne la plus longue. Elle était figée à 212 px,
      et « PIERRES 3/3   LUCIOLES 8/8   209:02 » en fait 209 : le résumé touchait
      les deux bords du panneau. */
   const largMenu=Math.min(W-8,
-    opts.reduce((m,o)=>Math.max(m,largeurTexte(o.txt),o.sous?largeurTexte(o.sous):0),0)+28);
+    opts.reduce((m,o)=>Math.max(m,largeurTexte(o.txt),
+      (!compact&&o.sous)?largeurTexte(o.sous):0),0)+28);
   /* L'aide du bas tient sur UNE ligne dès que l'écran est large : les deux
      lignes coûtaient 12 px de ciel à un écran qui n'en a que 110. */
   const aide1=W>=460;
@@ -10213,6 +10252,169 @@ const VERROU_FIN=52;
 let epiT=0, epiY=0, epiPause=0;
 const EPI_ETOILES=150;                 // les étoiles montent
 const EPI_MONTEE=850;                  // le travelling (~14 s, huit mondes)
+/* ====================== LA PARTIE + ======================
+   Le Rongeur tombé, il ne restait rien à faire d'un héros complet. La partie+
+   rejoue les huit mondes en GARDANT tout ce qu'on a gagné — outils, cœurs,
+   magie, quêtes annexes rendues — et en remettant à zéro ce qui se rejoue :
+   les gardiens, les sceaux de région, les coffres, les énigmes.
+
+   Elle monte d'un cran à chaque tour : `Q.cycle` multiplie ce que rendent les
+   créatures et les gardiens, et grossit leur vie. Le compte est écrit dans la
+   sauvegarde, donc il tient au rechargement, et l'écran-titre le dit.
+
+   Ce qu'on garde délibérément : les OUTILS. Une partie+ où l'on repart nu
+   n'est pas une partie+, c'est une nouvelle partie. */
+const CYCLE_MAX=9;
+const cycle=()=>Math.max(0,Q.cycle|0);
+/* Ce que la difficulté multiplie. Le premier tour vaut 1 : la formule ne
+   change donc RIEN à une première partie. */
+const mulPV=()=>1+cycle()*.35;
+const mulDegats=()=>1+cycle()*.25;
+
+function ouvrirPartiePlus(){
+  Q.cycle=Math.min(CYCLE_MAX,cycle()+1);
+  /* Ce qui se rejoue : les sept gardiens, les verrous de région, les coffres,
+     les énigmes, et les sceaux de la Faille. Tout le reste — outils, cœurs,
+     magie, collections rendues — reste acquis. */
+  for(const d of ['coeurTue','yetiTue','leviathanTue','colosseTue','reineTue',
+                  'sentinelleTue','rongeurTue','failleOuverte','epreuveFinale',
+                  'cryptOuverte','porteOuverte','portailOuvert','grilleOuverte',
+                  'fissureOuverte','chefTue']) Q[d]=false;
+  Q.sceaux=0; Q.braises=0; Q.runes=0; Q.etoiles=0; Q.cle=false;
+  Q.sceauForce=null;
+  J.fragments=0;
+  genererMonde(); prerendreSol(); construireMini(); poserCoffres(); peupler();
+  vu.fill(0);
+  J.x=35*TS+8; J.y=45*TS+8; J.z=0; J.pv=pvTotal(); J.magie=J.magiemax;
+  J.invuln=120; J.plane=0; J.solX=J.x; J.solY=J.y; J.solZ=J.z;
+  boss=null; dial=null; boutique=null; journal=false;
+  cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
+  etat='jeu'; viderTampon(); msgT=0; bandeauT=0;
+  SFX.rare(); secousse=14;
+  annonce('PARTIE PLUS '+cycle());
+  dire("LE MONDE RECOMMENCE. TU GARDES TOUT CE QUE TU AS APPRIS.",340);
+  sauver(true);
+}
+
+/* ====================== L'ARÈNE INFINIE ======================
+   Vingt-cinq espèces de créatures peuplent les huit mondes, et l'on n'en croise
+   qu'une poignée à la fois, chacune dans sa région. L'arène les convoque TOUTES,
+   par vagues, dans un enclos clos — et compte les points.
+
+   Elle se joue depuis l'écran-titre, sur sa propre partie : elle ne touche à
+   aucune sauvegarde, ne déverrouille rien, et le meilleur score est gardé à
+   part. On y entre avec tout l'outillage, sinon la moitié du bestiaire serait
+   intouchable (le crabe cuirassé, le golem, l'ombre…). */
+const ARENE={x0:30,y0:38,w:26,h:20};
+/* Le bestiaire, par ordre d'apparition : on ouvre sur ce qu'on connaît, on
+   finit sur ce qui exige un outil. C'est la même idée que l'escalade des
+   gardiens — une chose de plus à comprendre, pas seulement plus de vie. */
+const ARENE_BESTIAIRE=[
+  'gluant','chauve','pieuvre','loup','scarabee','follet','braise','harpie',
+  'squel','piquier','triton','crapaud','lancier','aigle','meduse','djinn',
+  'spectre','ombre','cactus','crabe','tourbillon','echo','golem','golemnuage',
+  'echonoir','chef'
+];
+/* Ce que vaut chaque créature. Ce qui demande un outil vaut davantage : le
+   score doit récompenser d'avoir compris, pas d'avoir tenu. */
+const ARENE_POINTS={gluant:10,mini:5,chauve:10,pieuvre:12,loup:12,scarabee:12,
+  follet:14,braise:16,harpie:16,squel:20,piquier:25,triton:20,crapaud:18,
+  lancier:22,aigle:18,meduse:25,djinn:28,spectre:28,ombre:30,cactus:26,
+  crabe:35,tourbillon:30,echo:35,golem:50,golemnuage:55,echonoir:60,chef:80};
+const areneEtat={actif:false,vague:0,score:0,tues:0,combo:0,comboT:0,repos:0,record:0};
+
+function chargerRecordArene(){
+  try{ areneEtat.record=parseInt(localStorage.getItem('kaze-arene')||'0',10)||0; }catch(e){}
+}
+function garderRecordArene(){
+  if(areneEtat.score<=areneEtat.record) return false;
+  areneEtat.record=areneEtat.score;
+  try{ localStorage.setItem('kaze-arene',String(areneEtat.record)); }catch(e){}
+  return true;
+}
+/* La composition d'une vague : les espèces débloquées jusque-là, en nombre
+   croissant. La vague 1 n'a qu'une bête ; la dixième en a onze, de six espèces. */
+function compositionVague(n){
+  const dispo=Math.min(ARENE_BESTIAIRE.length,1+Math.floor(n*.8));
+  const combien=Math.min(14,1+Math.floor(n*1.15));
+  const out=[];
+  for(let i=0;i<combien;i++){
+    // on pioche vers le HAUT de la liste débloquée : les vagues se durcissent
+    const biais=Math.min(1,n/22);
+    const k=Math.floor(dispo*(1-Math.pow(rnd(),1+biais*2)));
+    out.push(ARENE_BESTIAIRE[clamp(k,0,dispo-1)]);
+  }
+  return out;
+}
+function lancerVague(){
+  areneEtat.vague++;
+  const c=ARENE, liste=compositionVague(areneEtat.vague);
+  for(const t of liste){
+    let tx=0,ty=0,essais=0;
+    do{ tx=c.x0+2+Math.floor(rnd()*(c.w-4)); ty=c.y0+2+Math.floor(rnd()*(c.h-4)); essais++; }
+    while(essais<30&&(solide(tx*TS+8,ty*TS+8,0)||Math.hypot(tx*TS-J.x,ty*TS-J.y)<70));
+    pondre(t,tx,ty);
+  }
+  SFX.menu(); secousse=8;
+  annonce('VAGUE '+areneEtat.vague);
+}
+function marquerArene(type){
+  if(!areneEtat.actif) return;
+  areneEtat.tues++;
+  areneEtat.combo++; areneEtat.comboT=150;      // 2,5 s pour enchaîner
+  const base=ARENE_POINTS[type]||10;
+  const mult=1+Math.min(9,areneEtat.combo-1)*.1;
+  areneEtat.score+=Math.round(base*mult*(1+(areneEtat.vague-1)*.05));
+}
+function majArene(){
+  if(!areneEtat.actif) return;
+  if(areneEtat.comboT>0&&--areneEtat.comboT<=0) areneEtat.combo=0;
+  if(ennemis.length===0){
+    if(areneEtat.repos<=0){ areneEtat.repos=90; dire('VAGUE SUIVANTE...',80); }
+    else if(--areneEtat.repos<=0) lancerVague();
+  }
+}
+function ouvrirArene(){
+  razQuetes();
+  genererMonde(); prerendreSol(); construireMini(); poserCoffres();
+  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
+  batirEnclosArene();
+  /* Tout l'outillage : sans lui la moitié du bestiaire est intouchable. */
+  Q.portailOuvert=true; Q.bottes=true; Q.palmes=true; Q.boomerang=true;
+  Q.bracelet=true; Q.grappin=true; Q.fanal=true; Q.cape=true; Q.filet=true;
+  Q.baguette=true; Q.epeeLongue=true;
+  J.objets=['arc','bombe','marteau','boomerang','grappin','bracelet','fanal','cape','baguette'];
+  J.equipe={Y:'boomerang',X:'baguette'};
+  J.pvmax=20; J.dores=0; J.pv=pvTotal(); J.magiemax=12; J.magie=12;
+  J.fleches=99; J.bombes=40; J.rubis=0; J.fragments=0;
+  J.x=(ARENE.x0+(ARENE.w>>1))*TS+8; J.y=(ARENE.y0+ARENE.h-4)*TS+8; J.z=0;
+  J.invuln=120; J.plane=0; J.solX=J.x; J.solY=J.y; J.solZ=J.z;
+  areneEtat.actif=true; areneEtat.vague=0; areneEtat.score=0;
+  areneEtat.tues=0; areneEtat.combo=0; areneEtat.comboT=0; areneEtat.repos=0;
+  chargerRecordArene();
+  cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
+  etat='jeu'; viderTampon(); msgT=0; bandeauT=0;
+  annonce("L'ARÈNE"); dire('TIENS AUSSI LONGTEMPS QUE TU PEUX.',240);
+  lancerVague();
+}
+/* Un enclos fermé, au milieu de la vallée : on ne s'en échappe pas, et rien
+   n'en sort. On le bâtit dans le monde déjà généré plutôt que d'inventer une
+   carte : le rendu, les collisions et la caméra marchent alors sans un mot. */
+function batirEnclosArene(){
+  const c=ARENE;
+  rectS(c.x0,c.y0,c.w,c.h,S.DALLE); rectE(c.x0,c.y0,c.w,c.h,0);
+  rectO(c.x0,c.y0,c.w,c.h,O.RIEN);
+  cadreO(c.x0,c.y0,c.w,c.h,O.MUR);
+  for(const [dx,dy] of [[2,2],[c.w-3,2],[2,c.h-3],[c.w-3,c.h-3]])
+    putO(c.x0+dx,c.y0+dy,O.TORCHE);
+  inventorierTorches();
+}
+function quitterArene(){
+  areneEtat.actif=false;
+  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
+  etat='titre'; menuSel=0; viderTampon();
+}
+
 function lancerEpilogue(){
   if(etat==='epilogue') return;
   /* Filet de sécurité : le Rongeur tombé, les trois étoiles SONT reprises,
@@ -10283,7 +10485,10 @@ function ecranEpilogue(){
         texte(X,d,Math.round(W/2+84)-largeurTexte(d),y,'#7de0a0');
         y+=11;
       }
-      if(epiPause) texteCentre(X,'START POUR CONTINUER',W/2,H-16,'#8b96b4');
+      if(epiPause){
+        texteCentre(X,'START POUR CONTINUER',W/2,H-24,'#8b96b4');
+        texteCentre(X,'Y POUR LA PARTIE PLUS '+(cycle()+1),W/2,H-14,'#c8a8ff');
+      }
     }
   }
 }
@@ -10430,7 +10635,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.3';
+const VERSION='V4.4';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10615,7 +10820,8 @@ function apercu(d){
   if(!d||d.v!==VERSION_SAUVE) return null;
   return {nom:(d.nom||'SANS NOM'),temps:d.temps||0,
           fragments:(d.J&&d.J.fragments)||0,
-          lucioles:(d.Q&&d.Q.lucioles)||0,date:d.date};
+          lucioles:(d.Q&&d.Q.lucioles)||0,
+          cycle:(d.Q&&d.Q.cycle)|0,date:d.date};
 }
 /* Les parties d'avant les emplacements sont reprises telles quelles dans le
    premier emplacement, pour ne perdre aucune progression. */
@@ -10755,9 +10961,13 @@ function menuFleche(){
 /* Stats d'un emplacement. La ligne complète ne tient pas sur les écrans les
    plus étroits (l'affichage interne descend jusqu'à 200 px), on la raccourcit. */
 function statsResume(r){
+  /* La partie+ se voit DÈS L'ÉCRAN-TITRE : c'est le seul endroit où l'on
+     choisit sa partie, et deux sauvegardes au même temps de jeu peuvent être à
+     des tours différents. */
+  const c=(r.cycle|0)>0?'  +'+(r.cycle|0):'';
   return (W>=250)
-    ? 'PIERRES '+r.fragments+'/3   LUCIOLES '+r.lucioles+'/8   '+formatTemps(r.temps)
-    : 'PIERRES '+r.fragments+'/3   '+formatTemps(r.temps);
+    ? 'PIERRES '+r.fragments+'/3   LUCIOLES '+r.lucioles+'/8   '+formatTemps(r.temps)+c
+    : 'PIERRES '+r.fragments+'/3   '+formatTemps(r.temps)+c;
 }
 let modeEffacer=false;
 function optionsTitre(){
@@ -10768,6 +10978,11 @@ function optionsTitre(){
       txt:(i+1)+'  '+(r?r.nom:'- VIDE -'),
       sous:r?statsResume(r):null});
   }
+  /* L'ARÈNE, sur sa propre partie : elle ne touche à aucune sauvegarde. Le
+     meilleur score s'affiche là, c'est le seul écran où l'on choisit. */
+  chargerRecordArene();
+  o.push({id:'arene',txt:"L'ARÈNE INFINIE",
+          sous:areneEtat.record>0?('MEILLEUR SCORE '+areneEtat.record):'AUCUN SCORE ENCORE'});
   if(resumes.some(Boolean)) o.push({id:'effacer',txt:'EFFACER UNE PARTIE'});
   return o;
 }
@@ -10926,14 +11141,14 @@ function dessinerMenu(opts,cx,y,largeur){
   opts.forEach((o,i)=>{
     if(i===menuSel){
       X.fillStyle='rgba(40,52,92,.75)';
-      X.fillRect(cx-largeur/2,yy-3,largeur,o.sous?19:13);
+      X.fillRect(cx-largeur/2,yy-3,largeur,(o.sous&&!titreCompact)?19:13);
       X.fillStyle='#ffe06a';
       X.fillRect(cx-largeur/2+3,yy+1,3,4);
       X.fillRect(cx+largeur/2-6,yy+1,3,4);
     }
     texteCentre(X,o.txt,cx,yy,i===menuSel?'#ffffff':'#8f9cc4','#0a0c18');
-    if(o.sous) texteCentre(X,o.sous,cx,yy+10,i===menuSel?'#9fe0b8':'#5f6a90','#0a0c18');
-    yy+=o.sous?20:14;
+    if(o.sous&&!titreCompact) texteCentre(X,o.sous,cx,yy+10,i===menuSel?'#9fe0b8':'#5f6a90','#0a0c18');
+    yy+=(o.sous&&!titreCompact)?20:14;
   });
 }
 /* « valid » liste les touches qui confirment. L'écran de fin s'en sert pour
@@ -11521,6 +11736,7 @@ function boucleCorps(){
   if(etat==='titre'){
     ecranTitre();
     naviguerMenu(optionsEcranTitre(),id=>{
+      if(id==='arene'){ SFX.coffre(); ouvrirArene(); return; }
       if(id==='effacer'){ SFX.menu(); modeEffacer=true; menuSel=0; return; }
       if(id==='retour'){ SFX.menu(); modeEffacer=false; menuSel=0; return; }
       if(id.startsWith('eff')){
@@ -11547,6 +11763,9 @@ function boucleCorps(){
       pris('Start','B'); menuSel=0; sauver(true);
       etat='victoire'; finT=0; viderTampon();
     }
+    /* La PARTIE + s'ouvre ici, et nulle part ailleurs : c'est la récompense de
+       la fin, elle ne doit pas s'offrir à qui n'a pas fini. */
+    if(epiPause&&appui('Y')){ pris('Y'); ouvrirPartiePlus(); }
     return;
   }
   if(etat==='mort'||etat==='victoire'){

@@ -4232,3 +4232,56 @@ donc ils ne peuvent plus diverger.
 >
 > Le garde-fou du § 62 a immédiatement signalé que `47-gardiens.js` manquait au
 > sommaire. Il sert.
+
+---
+
+## 64. La partie + et l'arène infinie
+
+| | |
+|---|---|
+| **Demande** | « Je veux aussi une possible partie+ à la fin du jeu. Je veux aussi un mode arène infinie pour combattre tous les monstres sous forme de vagues et avec un score. » |
+
+### La partie +
+
+Le Rongeur tombé, il n'y avait plus rien à faire d'un héros complet. La partie+
+s'ouvre **à l'épilogue, et nulle part ailleurs** — c'est la récompense de la
+fin, elle ne s'offre pas à qui n'a pas fini.
+
+Elle **garde ce qui s'est gagné** — outils, cœurs et dorures, magie, quêtes
+annexes rendues, épée longue — et **remet à zéro ce qui se rejoue** : les sept
+gardiens, les verrous de région, les coffres, les énigmes, les sceaux de la
+Faille. Se tromper de côté est la seule vraie façon de la rater : garder les
+gardiens morts la rend vide, effacer les outils en fait une partie neuve.
+
+Chaque tour monte d'un cran — `Q.cycle` grossit la vie des créatures et des
+gardiens et durcit ce qu'on encaisse. **Le premier tour vaut exactement 1** : la
+formule ne change donc rien à une première partie. Le tour est écrit dans la
+sauvegarde et s'affiche à l'écran-titre, où l'on choisit.
+
+### L'arène infinie
+
+Vingt-six espèces peuplent les huit mondes et l'on n'en croise qu'une poignée à
+la fois, chacune dans sa région. L'arène les convoque **toutes**, par vagues,
+dans un enclos clos bâti au milieu de la vallée — dans le monde déjà généré
+plutôt qu'une carte inventée : le rendu, les collisions et la caméra marchent
+alors sans un mot.
+
+- Les vagues grossissent **en nombre et en espèces**, et le tirage se biaise
+  vers le haut de la liste : les bêtes qui exigent un outil arrivent tard.
+- Le score récompense **d'avoir compris**, pas d'avoir tenu : un golem vaut
+  cinq fois un gluant, et l'**enchaînement** multiplie jusqu'à ×1,9.
+- On y entre **équipé**. Sans les outils, la moitié du bestiaire — crabe
+  cuirassé, golem, ombre — serait intouchable.
+- Elle **ne touche à aucune sauvegarde**, ne déverrouille rien, et son meilleur
+  score est gardé à part.
+
+### Ce que le contrôle a trouvé
+
+Ajouter une entrée au menu de l'écran-titre l'a fait **se recouvrir de nouveau**
+— 411 px² sur 620×180, le défaut du § 39. Son propre contrôle l'a signalé dans
+la foulée. Quand la place manque, les **sous-titres rentrent** : six pixels par
+ligne rendus au ciel et à la bête, sans retirer aucune option.
+
+> **Réinjection**, cinq fois : partie+ qui efface les outils ; partie+ qui garde
+> les gardiens abattus ; cycle qui ne durcit plus rien ; arène qui écrase la
+> sauvegarde ; score sans enchaînement.
