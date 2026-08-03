@@ -461,8 +461,10 @@ document.addEventListener('pointerdown',e=>{
 },{passive:false});
 document.addEventListener('pointermove',e=>{
   if(e.pointerId===stickId) return;
-  if(!doigts[e.pointerId]&&!(e.buttons||e.pointerType==='touch')) return;
-  if(e.pointerType==='mouse'&&!e.buttons){ finDoigt(e.pointerId); return; }
+  /* Glisser d'un bouton à l'autre reste possible — mais seulement le doigt (ou
+     le laser) DÉJÀ enfoncé. `e.buttons` sert de second témoin pour les
+     pointeurs qui n'ont pas émis de `pointerdown` sur cette page. */
+  if(!pointeursBas.has(e.pointerId)&&!e.buttons){ finDoigt(e.pointerId); return; }
   majDoigt(e.pointerId,e.clientX,e.clientY);
 },{passive:false});
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>
@@ -683,8 +685,18 @@ document.addEventListener('wheel',     stop,{passive:false,capture:true});
    sur mobile. Quand plus aucun doigt ne touche l'écran, on relâche tout. */
 const contacts=new Set();
 let sourisBas=false;
-addEventListener('pointerdown',e=>{ if(e.pointerType==='mouse') sourisBas=true; },true);
-addEventListener('pointerup',  e=>{ if(e.pointerType==='mouse') sourisBas=false; },true);
+/* Les pointeurs RÉELLEMENT enfoncés, quel que soit leur type.
+   Le laser d'un casque Quest émet des `pointermove` de type « touch » SANS que
+   la gâchette soit pressée. La règle d'avant — « c'est un contact tactile, donc
+   c'est un appui » — pressait donc le bouton au simple SURVOL. On ne se fie
+   plus au type du pointeur : on retient qui est descendu. */
+const pointeursBas=new Set();
+addEventListener('pointerdown',e=>{ pointeursBas.add(e.pointerId);
+  if(e.pointerType==='mouse') sourisBas=true; },true);
+const relachePointeur=e=>{ pointeursBas.delete(e.pointerId);
+  if(e.pointerType==='mouse') sourisBas=false; };
+addEventListener('pointerup',relachePointeur,true);
+addEventListener('pointercancel',relachePointeur,true);
 const resync=e=>{ contacts.clear(); for(const t of e.touches) contacts.add(t.identifier); stickIdle=0; };
 document.addEventListener('touchstart',resync,{passive:true,capture:true});
 document.addEventListener('touchmove', resync,{passive:true,capture:true});
@@ -9934,7 +9946,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.3';
+const VERSION='V3.4';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

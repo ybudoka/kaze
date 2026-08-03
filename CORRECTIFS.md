@@ -3656,3 +3656,46 @@ message, état de sauvegarde — doit être éteint, sinon la mesure porte sur c
 a expiré entre les deux clichés. Et un contrôle intermittent n'est pas un
 contrôle : tant qu'on ne sait pas le faire rougir **à coup sûr**, on n'a pas
 trouvé la cause.
+
+---
+
+## 52. Sur Quest, le simple survol pressait les boutons
+
+| | |
+|---|---|
+| **Symptôme** | « En web sur Quest, il faudrait toujours avoir à cliquer sur les boutons ; présentement dès que le pointeur passe dessus, ça clique. » |
+| **Cause réelle** | La règle de `pointermove` était : *« ce pointeur n'est pas suivi, mais c'est un contact tactile — donc c'est un appui »*. Le laser d'une manette Touch émet des `pointermove` de type **« touch » sans que la gâchette soit pressée**. Traverser la manette à l'écran déclenchait donc trois attaques. |
+
+```js
+// avant : le type du pointeur tenait lieu de preuve d'appui
+if(!doigts[e.pointerId]&&!(e.buttons||e.pointerType==='touch')) return;
+```
+
+Sur un téléphone la règle était juste — un pointeur tactile qui bouge est
+toujours un doigt posé. Elle ne l'est plus dès qu'un appareil sait **pointer
+sans toucher**.
+
+### Le correctif
+
+On ne se fie plus au **type** du pointeur, on retient **qui est descendu** :
+`pointeursBas`, alimenté par `pointerdown` en phase de capture — donc même
+lorsque l'appui a commencé hors de tout bouton, ce qui est justement le cas que
+la règle trop large servait à rattraper.
+
+```js
+if(!pointeursBas.has(e.pointerId)&&!e.buttons){ finDoigt(e.pointerId); return; }
+```
+
+### Le contrôle encadre le correctif des deux côtés
+
+`43-pointeur.js` fabrique les événements exactement comme le casque les envoie
+(`pointerType:'touch'`, `buttons:0`) et lit l'état réel de `BTN`.
+
+> **Réinjection**, deux fois et dans les deux sens :
+> - règle d'origine remise → **3 rouges** (le survol presse, vingt survols
+>   pressent, un pointeur annulé reste pressé) ;
+> - correctif trop zélé (`!doigts[e.pointerId]` seul) → **1 rouge** : entrer sur
+>   un bouton avec le doigt déjà posé ailleurs ne marche plus.
+>
+> Un correctif qui ne casse rien n'est prouvé que si l'on sait aussi faire
+> rougir le contrôle **en corrigeant trop**.
