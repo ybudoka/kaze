@@ -1,6 +1,6 @@
 {
   "name": "kaze",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "description": "Kaze et le Rongeur d'Étoiles — jeu d'action-aventure en un seul fichier HTML",
   "scripts": {

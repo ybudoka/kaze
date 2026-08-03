@@ -2966,19 +2966,45 @@ function bakeDecors(){
   /* ---- Le filet à papillons, et les huit papillons ----
      Le filet est un OUTIL, pas un simple jeton de quête : il cueille les
      papillons, et il renvoie au vol ce qu'on lui jette (voir coupDeFilet). */
+  /* Le filet lisait comme un MIROIR posé à côté d'un bâton : arceau carré et
+     plein, manche horizontal qui ne le touchait pas. Un objet se reconnaît à sa
+     silhouette d'un seul tenant — d'où le manche EN BIAIS qui rejoint l'arceau,
+     l'anneau ouvert, et la poche qui s'effile en dessous. */
   faireSprite('filetItem',14,14,g=>{
-    rc(g,1,9,7,2,'#8a6030'); rc(g,1,9,6,1,'#c08a4e');        // le manche
-    rc(g,5,1,7,2,'#c8cede'); rc(g,5,1,6,1,'#eaf0ff');        // l'arceau, en haut
-    rc(g,4,2,2,6,'#c8cede'); rc(g,11,2,2,6,'#c8cede');       // ses deux montants
-    rc(g,6,3,5,5,'#dff0ff');                                 // la gaze, claire
-    rc(g,7,4,3,3,'#f4faff');
-    rc(g,5,7,7,2,'#a9c0d8');                                 // le fond de la poche
+    // le manche, en diagonale du coin bas-gauche vers l'arceau
+    rc(g,1,11,3,2,'#6a4a24'); rc(g,3,10,3,2,'#8a6030'); rc(g,5,9,3,2,'#8a6030');
+    rc(g,1,11,2,1,'#c08a4e'); rc(g,3,10,2,1,'#c08a4e'); rc(g,5,9,2,1,'#c08a4e');
+    rc(g,6,7,2,3,'#5f5a52'); rc(g,6,7,1,3,'#8f8a80');        // la virole, qui rejoint l'anneau
+    /* L'intérieur doit être PLUS SOMBRE que l'anneau : à luminosité égale, la
+       gaze noyait le cerceau et l'objet lisait comme une sucette. */
+    rc(g,8,2,4,4,'#7f9ab8');                                 // la gaze, en retrait
+    rc(g,8,3,4,1,'#9db4cc'); rc(g,10,2,1,4,'#9db4cc');       // deux fils de maille
+    // l'anneau : coins ÉVIDÉS, sinon c'est une fenêtre, pas un cerceau
+    rc(g,8,1,4,1,'#eaf0ff'); rc(g,8,6,4,1,'#b8c8dc');
+    rc(g,7,2,1,4,'#eaf0ff'); rc(g,12,2,1,4,'#c8d4e6');
+    // la poche, qui pend sous l'anneau et s'effile
+    rc(g,8,7,4,1,'#6a86a4'); rc(g,8,8,3,1,'#6a86a4');
+    rc(g,9,9,2,1,'#5c7690'); rc(g,9,10,1,1,'#4e6479');
   });
-  faireSprite('baguetteItem',14,14,g=>{              // la baguette de la fée
-    rc(g,2,10,8,2,'#6a4a2c'); rc(g,2,10,7,1,'#9a7048');      // le manche, en biais
-    rc(g,8,4,4,4,'#2b3a66'); rc(g,9,5,2,2,'#8fd0ff');        // la monture
-    rc(g,9,2,2,3,'#c8a8ff'); rc(g,8,3,4,1,'#c8a8ff');        // l'étoile
-    rc(g,10,1,1,1,'#f0e8ff'); rc(g,7,4,1,1,'#f0e8ff');
+  /* La baguette lisait comme un DOMINO surmonté d'une fleur : trois morceaux
+     qui ne se touchaient pas. Une baguette, c'est un fût en biais et une
+     étoile au bout — d'un seul tenant, du poing à la pointe. */
+  faireSprite('baguetteItem',14,14,g=>{
+    // le fût, en diagonale du bas-gauche vers le haut-droite
+    rc(g,1,11,3,2,'#4a3320'); rc(g,3,9,3,2,'#6a4a2c'); rc(g,5,7,3,2,'#6a4a2c');
+    rc(g,7,5,2,2,'#6a4a2c');
+    rc(g,1,11,2,1,'#9a7048'); rc(g,3,9,2,1,'#9a7048'); rc(g,5,7,2,1,'#9a7048');
+    rc(g,2,10,3,1,'#3a2718');                                // la poignée, sombre
+    rc(g,6,6,2,2,'#8f86a8');                                 // la virole d'argent
+    /* L'étoile : quatre branches FINES qui s'affinent vers la pointe. Un cœur
+       massif la faisait lire comme une fleur. */
+    rc(g,9,0,2,8,'#c8a8ff'); rc(g,6,3,8,2,'#c8a8ff');        // la croix
+    rc(g,9,1,2,6,'#e8dcff'); rc(g,7,3,6,2,'#e8dcff');
+    rc(g,9,3,2,2,'#ffffff');                                 // le cœur, net
+    rc(g,8,2,1,1,'#e8dcff'); rc(g,11,2,1,1,'#e8dcff');       // les écoinçons
+    rc(g,8,5,1,1,'#e8dcff'); rc(g,11,5,1,1,'#e8dcff');
+    // deux étincelles, à l'écart du fût pour ne pas le salir
+    rc(g,13,1,1,1,'#e8dcff'); rc(g,12,7,1,1,'#c8a8ff');
   });
   faireSprite('etincelle',10,10,g=>{                 // le trait de magie
     rc(g,4,0,2,10,'#c8a8ff'); rc(g,0,4,10,2,'#c8a8ff');
@@ -10305,7 +10331,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.0';
+const VERSION='V4.1';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

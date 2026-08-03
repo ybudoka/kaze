@@ -4076,3 +4076,51 @@ restants à 0 : **or, rouge, rouge, demi, vide**.
 >
 > *Tester une copie de la règle, ce n'est pas tester la règle.* Troisième fois
 > dans ce dépôt (§ 19, § 20, § 53).
+
+---
+
+## 61. Le filet et la baguette : deux icônes qui ne racontaient rien
+
+| | |
+|---|---|
+| **Demande** | « Le dessin de filet à papillon et la baguette magique doivent être améliorés. » |
+
+### Regarder avant de corriger
+
+Les deux icônes rendues à dix fois leur taille, à côté du fanal et du marteau
+— deux dessins qui, eux, se reconnaissent d'un coup d'œil :
+
+- le **filet** était un carré pâle et plein surmontant un bâton horizontal : il
+  lisait comme un **miroir posé à côté d'un manche** ;
+- la **baguette** était une barre brune, un rectangle bleu et une fleur violette
+  empilés : un **domino surmonté d'une fleur**.
+
+Le fanal et le marteau ont en commun une **silhouette d'un seul tenant, en
+diagonale ou verticale, avec un manche qui rejoint la tête**. C'est ce qui
+manquait aux deux autres.
+
+### Trois passes, chacune regardée
+
+1. **Manche en biais** rejoignant la tête, pour les deux. Le filet lit alors
+   comme une **sucette** : l'intérieur du cerceau est aussi clair que le
+   cerceau, qui disparaît donc.
+2. **Gaze plus sombre que l'anneau**, deux fils de maille. Le cerceau apparaît,
+   mais ses **coins carrés** en font une fenêtre, et la poche goutte sur le côté.
+3. **Coins évidés**, poche centrée et effilée, virole qui relie manche et anneau.
+   Pour la baguette : croix à quatre branches fines, cœur blanc net, et les deux
+   étincelles écartées du fût — posées dessus, elles le salissaient.
+
+### Ce que le contrôle ajouté NE couvre PAS
+
+J'ai ajouté à `27-icones.js` une mesure de la **plus grosse composante connexe**
+de chaque icône, en croyant tenir le défaut : « les morceaux ne se touchent
+pas ». **Réinjection des deux anciens dessins : le contrôle est resté vert.**
+
+Mesuré : les deux anciennes icônes étaient connexes à **100 %**. Leurs morceaux
+se touchaient — par un pixel, en diagonale — elles composaient simplement mal.
+
+Le contrôle est conservé, mais **réétiqueté pour ce qu'il garde vraiment** :
+aucune icône n'est faite de taches franchement séparées, avec son contrôle à
+blanc. La lisibilité d'un pixel art se juge **à l'œil, sur l'image rendue** ;
+je n'ai pas trouvé de nombre qui la capture, et il vaut mieux l'écrire que
+laisser un contrôle faire croire à une garantie qu'il n'offre pas.

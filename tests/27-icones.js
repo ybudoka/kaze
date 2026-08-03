@@ -120,6 +120,66 @@ module.exports = {
     v('aucune vignette n est vide ou illisible', r.vides.length === 0, r.vides.join(' '));
     v('aucune vignette ne s écrasera dans son carré',
       r.deformes.length === 0, r.deformes.join(' | '));
+    /* ---------- § 61 : une icône ne doit pas être ÉPARSE ----------
+       AVERTISSEMENT, écrit après coup : ce contrôle N'AURAIT PAS attrapé le
+       défaut qui l'a motivé. Le filet lisait comme un miroir posé à côté d'un
+       bâton et la baguette comme un domino surmonté d'une fleur — mais mesuré,
+       les deux anciens dessins étaient connexes à 100 %. Leurs morceaux SE
+       TOUCHAIENT ; ils composaient mal. La lisibilité d'un pixel art se juge à
+       l'œil sur l'image rendue, et je n'ai pas trouvé de nombre qui la capture.
+
+       Ce qui reste ici est une garantie plus faible, mais vraie : aucune icône
+       n'est faite de taches franchement séparées. Elle est gardée pour ce
+       qu'elle est, pas pour ce qu'on aurait aimé qu'elle soit. */
+    const cx = await page.evaluate(() => {
+      const part = (nom) => {
+        const s = SPR[nom]; if (!s) return null;
+        const c = document.createElement('canvas'); c.width = s.width; c.height = s.height;
+        const g = c.getContext('2d'); g.drawImage(s, 0, 0);
+        const d = g.getImageData(0, 0, s.width, s.height).data, W = s.width, H = s.height;
+        const op = new Uint8Array(W * H); let tot = 0;
+        for (let i = 0; i < W * H; i++) if (d[i * 4 + 3] > 24) { op[i] = 1; tot++; }
+        if (!tot) return { tot: 0, frac: 0 };
+        const vus = new Uint8Array(W * H); let best = 0;
+        for (let i = 0; i < W * H; i++) {
+          if (!op[i] || vus[i]) continue;
+          let n = 0; const f = [i]; vus[i] = 1;
+          while (f.length) {
+            const p = f.pop(); n++; const x = p % W, y = (p / W) | 0;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx, ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+              const q = ny * W + nx; if (op[q] && !vus[q]) { vus[q] = 1; f.push(q); }
+            }
+          }
+          if (n > best) best = n;
+        }
+        return { tot, best, frac: best / tot };
+      };
+      const out = { eparses: [], mesurees: 0, filet: 0, baguette: 0 };
+      for (const o of OBJETS) {
+        const m = part(o.spr); if (!m) continue;
+        out.mesurees++;
+        if (m.frac < 0.9) out.eparses.push(`${o.spr} ${Math.round(m.frac * 100)}%`);
+        if (o.spr === 'filetItem') out.filet = m.frac;
+        if (o.spr === 'baguetteItem') out.baguette = m.frac;
+      }
+      /* Contrôle à blanc : deux taches franchement séparées doivent être vues
+         comme éparses, sinon la mesure dirait « tout va bien » de n'importe quoi. */
+      const c = document.createElement('canvas'); c.width = 14; c.height = 14;
+      const g = c.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, 4, 4); g.fillRect(10, 10, 4, 4);
+      SPR.__essai = c;
+      out.blanc = part('__essai').frac;
+      delete SPR.__essai;
+      return out;
+    });
+    v('CONTRÔLE À BLANC : DEUX TACHES SÉPARÉES SONT VUES COMME ÉPARSES',
+      cx.blanc <= 0.6, `plus grosse composante : ${Math.round(cx.blanc * 100)} %`);
+    v(`les ${cx.mesurees} icônes d'objet ont été mesurées`, cx.mesurees >= 9, cx.mesurees);
+    v('aucune icône n\'est faite de taches franchement séparées',
+      cx.eparses.length === 0, cx.eparses.join(' · '));
+
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },
