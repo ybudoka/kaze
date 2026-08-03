@@ -3548,3 +3548,61 @@ l'API, la correspondance des boutons, le suivi de tête, la compilation des
 shaders, le cycle de vie de la session. **Ne sont pas vérifiés** : le confort,
 la lisibilité réelle à 2,60 m, la latence, la taille de l'écran. Ces quatre-là
 se règlent en casque — `XR_DIST` et `XR_LARGE` sont les deux molettes.
+
+---
+
+## 50. La cape et les six fleurs de givre s'évaporaient en 12,7 secondes
+
+| | |
+|---|---|
+| **Symptôme** | « J'ai trouvé et parlé à Borve mais aucune fleur à l'horizon… » puis « j'en ai juste vu une ». |
+| **Cause réelle** | Rien à voir avec Borve, ni avec la carte, ni avec le brouillard. Les butins **vieillissent et s'effacent** au bout de 760 images — et la règle était écrite **à l'envers** : une liste des objets qui SURVIVENT. Elle avait oublié la **cape** et les **six fleurs de givre**. Douze secondes et sept dixièmes après le chargement, ils étaient supprimés du monde. |
+
+### La mesure
+
+On fait vieillir la vraie boucle de 900 images (le seuil est à 760) et l'on
+compte ce qui reste :
+
+```
+avant : boomerang 1  palmes 1  perle2 5  grappin 1  coeurmax 7
+        bracelet 1  fresque 5  fanal 1  cape 1  papillon 8  fleurgivre 6
+après : boomerang 1  palmes 1  perle2 5  grappin 1  coeurmax 7
+        bracelet 1  fresque 5  fanal 1            papillon 8
+perdus : cape 1 → 0   fleurgivre 6 → 0
+```
+
+Le joueur avait donc **12,7 s** après chaque chargement pour courir sur une
+fleur. D'où « j'en ai juste vu une » : celle qui était sous ses pieds.
+
+La **cape** est l'outil du monde 7. Elle disparaissait exactement pareil.
+
+### Pourquoi aucun contrôle ne l'avait vu
+
+Tous mesurent dans les **premières secondes** d'une partie. `20-nues-faille.js`
+vérifie `butins.some(b => b.type === 'cape')` — vrai, et il le restera : la cape
+est bien posée. Elle s'efface treize secondes plus tard, quand plus personne ne
+regarde. **Un contrôle qui ne mesure qu'à t = 0 ne dit rien de t = 13 s.**
+
+### Le correctif : écrire la règle dans l'autre sens
+
+```js
+const BUTIN_PERISSABLE={rubis:1,saphir:1,grenat:1,coeur:1,bombe:1,fleche:1};
+...
+if(o.t>760&&BUTIN_PERISSABLE[o.type]) butins.splice(i,1);
+```
+
+Seul ce qui **tombe d'un monstre** s'efface ; tout ce qui est **posé dans le
+monde** reste. Ce sens-là est le seul sûr : un objet de quête ajouté demain est
+permanent **par défaut**, et un oubli n'efface plus rien. Écrite dans l'autre
+sens, la liste avait déjà oublié deux objets sur onze — elle en oubliera un
+troisième.
+
+> **Réinjection**, deux fois : la liste des rescapés remise telle qu'elle était
+> (rouge : `cape 1→0 · fleurgivre 6→0`), et l'effacement retiré tout entier
+> (rouge sur le contrôle à blanc : `6 → 6`).
+
+### À ajouter aux pièges du § 8
+
+**Une liste d'exceptions écrite du mauvais côté est une bombe à retardement.**
+Quand l'oubli d'un nom cause une perte silencieuse, il faut énumérer le petit
+ensemble dangereux, pas le grand ensemble à protéger.

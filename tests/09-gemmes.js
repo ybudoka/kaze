@@ -85,6 +85,34 @@ module.exports = {
       // un butin hors de portée reste au sol
       out.horsPortee = !(await frapper(3, 70, 0, 'rubis'));
       butins.length = 0;
+      /* ---- ce qui est POSÉ dans le monde ne s'évapore pas ----
+         Les butins vieillissent et s'effacent : sans quoi le sol se couvre de
+         rubis oubliés. Mais la règle était écrite à l'envers — une liste des
+         RESCAPÉS — et elle avait oublié la CAPE (l'outil du monde 7) et les
+         SIX FLEURS de Borve. Ils s'évaporaient 12,7 s après le chargement, ce
+         que ne voyait aucun contrôle : tous mesurent dans les premières
+         secondes d'une partie. On fait donc vieillir la vraie boucle. */
+      const inventaire = () => { const c = {}; for (const b of butins) c[b.type] = (c[b.type] || 0) + 1; return c; };
+      /* Les contrôles précédents ont ramassé et déplacé : on repeuple le monde
+         pour partir de ce qu'une PARTIE FRAÎCHE contient réellement. */
+      Q.cape = false; Q.fleurs = 0; Q.fleursRendues = false;
+      peupler();
+      out.avantAge = inventaire();
+      for (const b of butins) b.t = 0;
+      for (let i = 0; i < 900; i++) majDivers();       // 900 images > le seuil de 760
+      out.apresAge = inventaire();
+
+      /* Contrôle à blanc : le vieillissement DOIT effacer ce qui tombe d'un
+         monstre. Sinon « rien n'a disparu » ne prouverait rien — il suffirait
+         que la boucle ne vieillisse pas. */
+      butins.length = 0;
+      for (const t of ['rubis', 'saphir', 'grenat', 'coeur', 'bombe', 'fleche'])
+        butins.push({ x: 4 * TS, y: 4 * TS, z: 0, vz: 0, type: t, t: 0 });
+      J.x = 60 * TS; J.y = 60 * TS;                     // loin : pas de ramassage
+      out.chuteAvant = butins.length;
+      for (let i = 0; i < 900; i++) majDivers();
+      out.chuteApres = butins.length;
+
       return out;
     });
 
@@ -113,6 +141,16 @@ module.exports = {
       `droite=${r.frappeDroite} haut=${r.frappeHaut} gauche=${r.frappeGauche} bas=${r.frappeBas}`);
     v('le gain est bien crédité par la frappe', r.gainParFrappe === 20, r.gainParFrappe);
     v('un butin hors de portée reste au sol', r.horsPortee, 'ramassé de trop loin');
+    const disparus = Object.keys(r.avantAge).filter(k => (r.apresAge[k] || 0) < r.avantAge[k]);
+    v('CE QUI EST POSÉ DANS LE MONDE NE S\'ÉVAPORE PAS',
+      disparus.length === 0,
+      disparus.map(k => `${k} ${r.avantAge[k]}→${r.apresAge[k] || 0}`).join(' · '));
+    v('la cape et les six fleurs de givre sont encore là',
+      r.apresAge.cape === 1 && r.apresAge.fleurgivre === 6,
+      `cape=${r.apresAge.cape || 0} fleurs=${r.apresAge.fleurgivre || 0}`);
+    v('CONTRÔLE À BLANC : CE QUI TOMBE D\'UN MONSTRE S\'EFFACE BIEN',
+      r.chuteAvant === 6 && r.chuteApres === 0,
+      `${r.chuteAvant} → ${r.chuteApres}`);
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
   },

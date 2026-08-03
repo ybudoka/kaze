@@ -5697,6 +5697,17 @@ function libre(x,y){
        S.NEIGE,S.GLACE,S.ROCHE,S.CORAIL,S.DESERT,S.MARAIS,S.VASE,
        S.PIERRECIEL,S.NUAGE,S.FRACTURE].includes(Sol(x,y));
 }
+/* Ce qui tombe d'un monstre s'efface au bout d'un moment — sans quoi le sol se
+   couvre de rubis oubliés. TOUT LE RESTE est posé dans le monde et ne s'efface
+   JAMAIS.
+
+   Ce sens-là est le seul sûr. La règle était écrite à l'envers — une liste des
+   rescapés — et elle avait oublié deux choses, mesurées 760 images (12,7 s)
+   après le chargement : les SIX FLEURS DE GIVRE de Borve (6 -> 0) et la CAPE
+   (1 -> 0), c'est-à-dire l'outil du monde 7. Écrite dans ce sens, un objet de
+   quête ajouté demain est permanent par défaut : l'oubli n'efface plus rien. */
+const BUTIN_PERISSABLE={rubis:1,saphir:1,grenat:1,coeur:1,bombe:1,fleche:1};
+
 function peupler(){
   ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
   let n=0,g=0;
@@ -7781,9 +7792,9 @@ function majDivers(){
       if(d>1){ const v=Math.min(4.2,1.2+o.t*.06); o.x+=dx/d*v; o.y+=dy/d*v; }
       if(o.t%3===0) particules(o.x,o.y,o.z+6,1,'#ffe86a',.8,12);
     }
-    // clé, outils et objets de quête ne disparaissent jamais
-    if(o.t>760&&!['cle','boomerang','palmes','grappin','bracelet','fanal','perle2','fresque','coeurmax','etoileVolee','papillon'].includes(o.type))
-      butins.splice(i,1);
+    /* Seul ce qui TOMBE D'UN MONSTRE s'efface ; tout ce qui est POSÉ dans le
+       monde reste. Voir BUTIN_PERISSABLE : la règle était écrite à l'envers. */
+    if(o.t>760&&BUTIN_PERISSABLE[o.type]) butins.splice(i,1);
   }
   for(let i=parts.length-1;i>=0;i--){
     const p=parts[i]; p.t++;
@@ -9923,7 +9934,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.1';
+const VERSION='V3.2';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
