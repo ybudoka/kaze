@@ -3893,3 +3893,93 @@ Deux règles apprises des boutons d'écran :
 > session déjà close. `majViseurVR`, `majManetteXR` et `boucleVR` s'abstiennent
 > désormais dès que la session a disparu — un vrai défaut, trouvé parce que la
 > réinjection a mal tourné.
+
+---
+
+## 57. La magie : une baguette qui sert d'arme ET d'outil, et une fée enfin utile
+
+| | |
+|---|---|
+| **Demande** | « Ajoute un concept de magie et de baguette magique, utilisée comme arme et comme outil à différents endroits. Change la hausse de prix de la colporteuse pour que seul l'article acheté augmente. Regarde pour rendre la fée plus utile : elle semble faire comme la potion. » |
+
+### La colporteuse : chaque article a son tarif
+
+Un **compteur unique** montait à chaque vente. Acheter une potion à 40 rubis
+renchérissait donc le cœur à 120 **et les trois pièces rares**. On payait la
+rareté d'un objet en achetant l'autre — exactement ce qu'une boutique ne doit
+pas décourager. `Q.prixItin` compte désormais **par identifiant**.
+
+> Le contrôle d'origine mesurait la hausse sur un article qu'on **n'achetait
+> pas**, en disant explicitement : « s'il ne bougeait pas, c'est que la hausse
+> ne touche que l'article acheté ». Le comportement voulu était donc écrit
+> noir sur blanc comme un défaut. Le test est retourné.
+
+### La fée : elle vendait une seconde potion à 260 rubis
+
+| | prix | effet |
+|---|---|---|
+| POTION ROUGE | 40 | relève une fois, pleine vie |
+| FIOLE DE FÉE | 260 | relève une fois, pleine vie |
+
+À vingt images d'invulnérabilité près, **le même objet**, six fois et demie plus
+cher. La fiole ne relève plus : elle **refait la magie toute seule**, un point
+toutes les quatre secondes — la seule source de régénération du jeu.
+
+Et la fée elle-même n'avait plus rien à dire une fois l'épée forgée. Elle est
+maintenant **la source de la magie** : elle donne la baguette après la lame.
+
+### La baguette, seul outil qui sert deux fois
+
+- **Comme arme** : un trait qui coûte un point de magie et **passe là où l'épée
+  ricoche** — le squelette et le piquier parent les coups de face, pas la magie.
+  Elle ne remplace pas pour autant l'outil d'un gardien cuirassé.
+- **Comme outil, premier usage** : les **RUNES**, qu'aucune lame n'allume. Quatre
+  d'entre elles ouvrent la porte de la **Crypte des Runes** — posée dans le
+  **Lagon d'Azur**, la seule région qui n'avait aucune énigme (§ 48).
+- **Comme outil, second usage** : les **MURS ILLUSOIRES**, que le marteau ne
+  brise pas et que le trait dissipe.
+
+La jauge ne se remplit pas seule : on la reprend sur les **éclats** que lâchent
+les monstres — et seulement une fois la baguette en main, sinon ce serait un
+butin qu'on ne peut pas dépenser.
+
+> **Réinjection**, quatre fois : prix redevenu global ; fiole qui relève de
+> nouveau ; magie sans effet sur les runes ; mur illusoire insensible.
+
+---
+
+## 58. Sept tuiles du monde ne dessinaient rien du tout
+
+| | |
+|---|---|
+| **Symptôme** | « Les carillons du vent sont invisibles. » |
+| **Cause réelle** | Exact — et plus large. **Sept** entrées de la table `O` n'avaient aucune branche de dessin : le carillon, sa version sonnée, la colonne d'air, l'obélisque (Cité des Nues), le sceau et les éclats noirs (la Faille). Elles occupaient une case, portaient une hauteur, comptaient dans une quête, et ne posaient **pas un pixel**. |
+
+### La mesure
+
+Chaque tuile dessinée seule par le vrai `decorTuile`, pixels opaques comptés :
+
+```
+CLOCHE (Cimes)      462
+CARILLON              0     ←
+CARILLONVIF           0     ←
+COLONNE               0     ←
+OBELISQUE             0     ←
+SCEAU                 0     ←
+ECLATNOIR             0     ←
+```
+
+Les huit carillons de la quête n'étaient trouvables **que par leur repère de
+carte** — ajouté au § 45, et c'est justement lui qui rendait la quête faisable
+et le défaut invisible. Dans la Faille, les éclats noirs formaient un **mur
+invisible devant la dernière porte du jeu**.
+
+### Le correctif, et le balayage qui l'empêchera de revenir
+
+Les six tuiles sont dessinées. `46-tuiles-visibles.js` **balaie toute la table
+`O`** et exige un dessin de chacune, avec un contrôle à blanc (la case vide ne
+dessine rien) et une **liste d'exceptions courte et justifiée** : `BLOC` seul y
+figure, emprise des maisons, qui sont dessinées comme structures.
+
+> Une tuile ajoutée demain sans son dessin tombera ici. C'est ce qui manquait :
+> aucun contrôle ne regardait le décor.

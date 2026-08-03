@@ -45,11 +45,14 @@ module.exports = {
       out.exclusifs = sien.filter(i => !bran.includes(i));
       out.communs = sien.filter(i => bran.includes(i));
 
-      /* SES PRIX MONTENT À CHAQUE VENTE. On relève le tarif d'un article que
-         l'on n'achète PAS (la potion) : s'il ne bougeait pas, c'est que la
-         hausse ne touche que l'article acheté, ou rien du tout. */
-      Q.achatsColporteuse = 0;
-      out.prixDepart = articlesItinerants().find(a => a.id === 'potion').prix;
+      /* CHAQUE ARTICLE A SON PROPRE TARIF. Un compteur global faisait monter
+         tout le ballot à chaque vente : acheter une potion à 40 rubis
+         renchérissait le cœur à 120 et les trois pièces rares. On relève donc
+         DEUX tarifs — celui qu'on rachète, et un qu'on ne touche pas. */
+      Q.prixItin = {};
+      const tarif = id => articlesItinerants().find(a => a.id === id).prix;
+      out.potionDepart = tarif('potion');
+      out.coeurDepart = tarif('coeur');
 
       // acheter chez elle : capacités augmentées
       J.objets = ['arc', 'bombe']; J.rubis = 500; J.pvmax = 6; J.pv = 6;
@@ -59,14 +62,25 @@ module.exports = {
       const acheterId = id => { boutique.sel = boutique.liste.findIndex(a => a.id === id); acheter(); };
       acheterId('carquois'); acheterId('sac'); acheterId('coeur');
       out.apres = { fleches: maxFleches(), bombes: maxBombes(), pvmax: J.pvmax, rubis: J.rubis };
-      out.achats = Q.achatsColporteuse;
-      out.prixApres = articlesItinerants().find(a => a.id === 'potion').prix;
+      /* Le cœur vient d'être acheté : son tarif a monté, c'est normal. Le
+         repère utile est celui-là — il ne doit plus bouger d'un rubis quand on
+         achète AUTRE CHOSE. */
+      out.coeurApresSonAchat = tarif('coeur');
+      // on rachète DEUX potions : c'est le seul article qu'on peut reprendre
+      Q.potions = 0;
+      acheterId('potion');
+      out.potionApres1 = tarif('potion');
+      acheterId('potion');
+      out.potionApres2 = tarif('potion');
+      // ... et le cœur, qu'on n'a pas racheté, doit être au MÊME prix qu'avant
+      out.coeurApres = tarif('coeur');
+      out.comptes = JSON.parse(JSON.stringify(Q.prixItin || {}));
       // et chez Bran, rien ne bouge : la hausse est la sienne, pas celle du jeu
       out.prixBran = articles().find(a => a.id === 'potion').prix;
-      // un article déjà acquis ne se rachète pas — et ne fait pas monter les prix
-      const avantRubis = J.rubis, avantAchats = Q.achatsColporteuse;
+      // un article déjà acquis ne se rachète pas — et ne fait monter aucun prix
+      const avantRubis = J.rubis, avantPotion = tarif('potion');
       acheterId('carquois');
-      out.pasDeRachat = J.rubis === avantRubis && Q.achatsColporteuse === avantAchats;
+      out.pasDeRachat = J.rubis === avantRubis && tarif('potion') === avantPotion;
       boutique = null;
 
       // elle finit par plier bagage
@@ -83,8 +97,9 @@ module.exports = {
       await charger(0); await dort(400);
       out.apresRechargement = { carquois: !!Q.carquois, sac: !!Q.grandSac,
                                 fleches: maxFleches(), bombes: maxBombes(),
-                                achats: Q.achatsColporteuse,
-                                potion: articlesItinerants().find(a => a.id === 'potion').prix };
+                                comptes: JSON.parse(JSON.stringify(Q.prixItin || {})),
+                                potion: articlesItinerants().find(a => a.id === 'potion').prix,
+                                coeur: articlesItinerants().find(a => a.id === 'coeur').prix };
       out.absenteApresChargement = !marchand.actif;
       return out;
     });
@@ -109,9 +124,18 @@ module.exports = {
     v('un article acquis ne se rachète pas', r.pasDeRachat, 'racheté et repayé');
     v('UN SEUL MESSAGE ANNONCE SON ARRIVÉE',
       r.messagesArrivee === 1, `${r.messagesArrivee} messages`);
-    v('SES PRIX MONTENT À CHAQUE ACHAT CONCLU CHEZ ELLE',
-      r.achats === 3 && r.prixApres > r.prixDepart,
-      `${r.achats} achats, potion ${r.prixDepart} -> ${r.prixApres}`);
+    v('RACHETER UN ARTICLE LE RENCHÉRIT, LUI',
+      r.potionApres1 > r.potionDepart && r.potionApres2 > r.potionApres1,
+      `potion ${r.potionDepart} -> ${r.potionApres1} -> ${r.potionApres2}`);
+    v('SON PROPRE ACHAT LE RENCHÉRIT',
+      r.coeurApresSonAchat > r.coeurDepart,
+      `cœur ${r.coeurDepart} -> ${r.coeurApresSonAchat}`);
+    v('MAIS ACHETER AUTRE CHOSE NE LE BOUGE PAS D\'UN RUBIS',
+      r.coeurApres === r.coeurApresSonAchat,
+      `cœur ${r.coeurApresSonAchat} -> ${r.coeurApres} après deux potions`);
+    v('chaque article a son propre compteur',
+      (r.comptes.potion | 0) === 2 && (r.comptes.coeur | 0) === 1,
+      JSON.stringify(r.comptes));
     v('ceux de Bran, eux, ne bougent pas', r.prixBran === 35, r.prixBran);
     v('elle finit par plier bagage et reviendra',
       r.repartie && r.reviendra, `repartie=${r.repartie} reviendra=${r.reviendra}`);
@@ -124,10 +148,12 @@ module.exports = {
     v('elle-même n\'est pas sauvegardée', r.absenteApresChargement, 'ressuscitée au chargement');
     /* Sans cela, il suffirait de recharger pour retrouver les tarifs du premier
        jour : la hausse ne tiendrait pas une sauvegarde. */
-    v('LA HAUSSE DE SES PRIX SURVIT AU RECHARGEMENT',
-      r.apresRechargement.achats === 3 && r.apresRechargement.potion === r.prixApres,
-      JSON.stringify({ achats: r.apresRechargement.achats,
-                       potion: r.apresRechargement.potion, attendu: r.prixApres }));
+    v('LA HAUSSE, ARTICLE PAR ARTICLE, SURVIT AU RECHARGEMENT',
+      r.apresRechargement.potion === r.potionApres2
+      && r.apresRechargement.coeur === r.coeurApresSonAchat
+      && (r.apresRechargement.comptes.potion | 0) === 2,
+      JSON.stringify({ potion: r.apresRechargement.potion, attendu: r.potionApres2,
+                       coeur: r.apresRechargement.coeur, comptes: r.apresRechargement.comptes }));
 
     /* ---------- SON KIOSQUE EST-IL VRAIMENT À L'ÉCRAN ? ----------
        On rend la scène sans elle puis avec elle, sur un terrain aplani, et on
@@ -272,15 +298,32 @@ module.exports = {
         out.jamaisZero = 20 - J.pv === 1;
         razQuetes();
 
-        // la fiole relève, une seule fois, et se consomme
+        /* LA FIOLE DE FÉE NE DOIT PLUS DOUBLER LA POTION.
+           Elle faisait exactement ce que fait une potion rouge à 40 rubis —
+           pleine vie, une fois — pour 260. Elle refait maintenant la MAGIE,
+           toute seule, ce que rien d'autre ne fait. */
         J.pvmax = 12; J.pv = 2; J.invuln = 0; Q.potions = 0; Q.fioleFee = true;
         blesser(9, J.x + 30, J.y, false);
-        out.releve = etat === 'jeu' && J.pv === J.pvmax;
-        out.fioleConsommee = Q.fioleFee === false;
-        J.invuln = 0; J.pv = 2;
-        blesser(9, J.x + 30, J.y, false);
-        out.deuxiemeFoisOnMeurt = etat === 'mort';
+        out.fioleNeRelevePas = etat === 'mort' && Q.fioleFee === true;
         etat = 'jeu'; J.pv = J.pvmax; J.invuln = 9999;
+        // ... alors que la potion, elle, relève toujours
+        Q.potions = 1; Q.fioleFee = false; J.pv = 2; J.invuln = 0;
+        blesser(9, J.x + 30, J.y, false);
+        out.potionRelevePpToujours = etat === 'jeu' && Q.potions === 0;
+        etat = 'jeu'; J.pv = J.pvmax; J.invuln = 9999;
+
+        // la fiole refait la magie, lentement, et seulement si on l'a
+        Q.baguette = true; J.magiemax = 12; J.magie = 3;
+        Q.fioleFee = false;
+        for (let i = 0; i < MAGIE_REPOS + 10; i++) majMagie();
+        out.sansFioleRienNeRevient = J.magie === 3;
+        Q.fioleFee = true;
+        for (let i = 0; i < MAGIE_REPOS + 10; i++) majMagie();
+        out.avecFioleLaMagieRevient = J.magie === 4;
+        // et elle ne déborde pas
+        J.magie = J.magiemax;
+        for (let i = 0; i < MAGIE_REPOS * 3; i++) majMagie();
+        out.magieNeDeborde = J.magie === J.magiemax;
         razQuetes();
 
         /* la rune mord plus profond. J.atk=13 ne laisse passer qu'une frappe :
@@ -348,11 +391,13 @@ module.exports = {
       v('L AMULETTE ENCAISSE LA MOITIÉ DES DÉGÂTS',
         q.degatsAmulette * 2 === q.degatsNus, `${q.degatsNus} -> ${q.degatsAmulette}`);
       v('mais jamais jusqu à zéro', q.jamaisZero, 'un coup d un point ne coûtait plus rien');
-      v('LA FIOLE DE FÉE RELÈVE AU LIEU DE LAISSER MOURIR',
-        q.releve, 'le héros est mort quand même');
-      v('elle se consomme, et la fois d après on meurt',
-        q.fioleConsommee && q.deuxiemeFoisOnMeurt,
-        `consommée=${q.fioleConsommee} mort=${q.deuxiemeFoisOnMeurt}`);
+      v('LA FIOLE DE FÉE NE FAIT PLUS DOUBLON AVEC LA POTION',
+        q.fioleNeRelevePas && q.potionRelevePpToujours,
+        `fiole relève=${!q.fioleNeRelevePas} potion relève=${q.potionRelevePpToujours}`);
+      v('ELLE REFAIT LA MAGIE, CE QUE RIEN D AUTRE NE FAIT',
+        q.sansFioleRienNeRevient && q.avecFioleLaMagieRevient,
+        `sans fiole ${q.sansFioleRienNeRevient} / avec ${q.avecFioleLaMagieRevient}`);
+      v('et la jauge ne déborde pas', q.magieNeDeborde, 'la magie dépasse son plafond');
       v('LA RUNE DE TRANCHANT AJOUTE UN POINT À CHAQUE COUP D ÉPÉE',
         q.lameRunee === q.lameNue + 1, `${q.lameNue} -> ${q.lameRunee}`);
       v('UN SEUL MESSAGE, MÊME QUAND ELLE TIENT UNE PIÈCE RARE',

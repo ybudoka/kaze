@@ -1206,14 +1206,19 @@ const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNE
            /* Cité des Nues */ COLONNE:40,CARILLON:41,CARILLONVIF:42,OBELISQUE:43,
            /* la Faille */ SCEAU:44,ECLATNOIR:45,
            /* le sceau qui ferme l'entrée d'une région (voir VERROUS_REGION) */
-           SCEAUMONDE:46};
+           SCEAUMONDE:46,
+           /* la magie : une rune à allumer, la même allumée, et un mur qui
+              n'en est pas un — tous trois ne répondent qu'à la baguette */
+           RUNE:47,RUNEVIVE:48,MURILL:49};
 
 /*                index 0  1  2 3  4  5  6  7  8 9 10 11 12 13 14 15  16 17 18  19 20 21  22 23 24 25  26 27  28 29 30 31 32 33  34 35  36 37 38 39 */
 const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16,  14,18,16,16,28,20,  16,26,  16,20,20,34,
-                /* Nues */ 26,22,22,34,  /* Faille */ 24,18,  /* sceau de région */ 30];
+                /* Nues */ 26,22,22,34,  /* Faille */ 24,18,  /* sceau de région */ 30,
+                /* magie : rune, rune vive, mur illusoire */ 6,6,26];
 /* La colonne d'air et le carillon se traversent : l'une porte, l'autre sonne. */
 const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  1,1,0,0,1,1,  1,1,  1,1,1,1,
-                0,0,0,1,  1,1,  1];
+                0,0,0,1,  1,1,  1,
+                /* la rune se traverse (c'est une marque au sol), le mur non */ 0,0,1];
 /* Ce qu'un saut permet réellement d'enjamber. Tout le reste — murs, portes,
    grilles, murs fissurés, piliers, statues, arbres, maisons — reste infranchissable
    quelle que soit la hauteur atteinte, sinon le saut annulerait toute la progression. */
@@ -1223,7 +1228,8 @@ const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  
    lourd ne se pousse pas : il ne se soulève qu'au bracelet de force. La ronce
    ne s'enjambe pas : elle ne cède qu'au fanal. */
 const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0,  0,0,0,0,0,0,  0,0,  0,0,0,0,
-                  0,0,0,0,  0,0,  0];
+                  0,0,0,0,  0,0,  0,
+                  /* rune, rune vive, mur illusoire */ 0,0,0];
 
 const sol   = new Uint8Array(MW*MH);
 const objs  = new Uint8Array(MW*MH);
@@ -2967,6 +2973,16 @@ function bakeDecors(){
     rc(g,7,4,3,3,'#f4faff');
     rc(g,5,7,7,2,'#a9c0d8');                                 // le fond de la poche
   });
+  faireSprite('baguetteItem',14,14,g=>{              // la baguette de la fée
+    rc(g,2,10,8,2,'#6a4a2c'); rc(g,2,10,7,1,'#9a7048');      // le manche, en biais
+    rc(g,8,4,4,4,'#2b3a66'); rc(g,9,5,2,2,'#8fd0ff');        // la monture
+    rc(g,9,2,2,3,'#c8a8ff'); rc(g,8,3,4,1,'#c8a8ff');        // l'étoile
+    rc(g,10,1,1,1,'#f0e8ff'); rc(g,7,4,1,1,'#f0e8ff');
+  });
+  faireSprite('etincelle',10,10,g=>{                 // le trait de magie
+    rc(g,4,0,2,10,'#c8a8ff'); rc(g,0,4,10,2,'#c8a8ff');
+    rc(g,3,3,4,4,'#e8dcff'); rc(g,4,4,2,2,'#ffffff');
+  });
   /* Un papillon par région : sa teinte est celle de son monde, c'est ce qui le
      rend reconnaissable au premier coup d'œil comme au journal. */
   const PAP=[['#ffd84a','#fff0a0','#c89a2a'],   // vallée : machaon d'or
@@ -3075,7 +3091,9 @@ const Q={
   fissureOuverte:false, chefTue:false,
   champignons:0, tarte:false, perle:false, coeurCristal:false,
   lucioles:0, epeeLongue:false, bouclierFort:false, potions:0,
-  prime:0, primeRendue:false, feeVue:false,
+  prime:0, primeRendue:false, feeVue:false, prixItin:{},
+  /* la magie : la baguette de la fée, et les runes du Temple Englouti */
+  baguette:false, runes:0, tresorRunes:false, cryptOuverte:false,
   /* Terres de Cendre */
   portailOuvert:false, braises:0, bottes:false, coeurTue:false,
   /* marchand itinérant — `achatsColporteuse` fait monter ses tarifs, et les
@@ -3172,7 +3190,8 @@ function razQuetes(){
     carquois:false,grandSac:false,achatsColporteuse:0,
     amulette:false,fioleFee:false,rune:false,
     lanterne:0,eclats:0,epeeCendre:false,brasiers:0,
-    prime:0,primeRendue:false,feeVue:false,
+    prime:0,primeRendue:false,feeVue:false,prixItin:{},
+    baguette:false,runes:0,tresorRunes:false,cryptOuverte:false,
     portailOuvert:false,braises:0,bottes:false,coeurTue:false,
     /* le cabinet des huit : un papillon par région, le filet pour les prendre */
     filet:false,naturalisteParle:false,papillonsPris:[0,0,0,0,0,0,0,0],
@@ -4040,6 +4059,44 @@ function genererLagon(){
     txt:"UN NAUFRAGÉ CAMPE ICI. IL CHERCHE SES PERLES."});
   pnjs.push({id:'naufrage',x:NAUFRAGE_POS[0]*TS+8,y:NAUFRAGE_POS[1]*TS+12,
     spr:'pnj4',nom:'LE NAUFRAGÉ',anim:rnd()*90,dir:2});
+
+  poserCrypte();
+}
+
+/* ---------------------- LA CRYPTE AUX RUNES ----------------------
+   Le Lagon était la seule région sans la moindre énigme (§ 48). Il a désormais
+   la sienne, et c'est celle de la MAGIE : quatre runes qu'aucune arme ne touche,
+   une porte qu'elles ouvrent, et un mur qui n'en est pas un. */
+const CRYPTE={x0:24,y0:266,w:17,h:13};
+const RUNES_POS=[[26,269],[38,269],[26,277],[38,277]];
+const CRYPTE_PORTE={x:[31,32],y:271};
+const MURS_ILLUSOIRES=[[32,275],[33,275]];   // au fond : le trésor de la crypte
+const TRESOR_RUNES=[32,278];
+function poserCrypte(){
+  const c=CRYPTE;
+  rectS(c.x0,c.y0,c.w,c.h,S.DALLE); rectE(c.x0,c.y0,c.w,c.h,0);
+  rectO(c.x0,c.y0,c.w,c.h,O.RIEN);
+  cadreO(c.x0,c.y0,c.w,c.h,O.MUR);
+  putO(c.x0+1,c.y0+1,O.TORCHE); putO(c.x0+c.w-2,c.y0+1,O.TORCHE);
+  // l'entrée, au nord, alignée sur la grève
+  for(const x of [c.x0+7,c.x0+8]){ putO(x,c.y0,O.RIEN); putS(x,c.y0,S.DALLE); }
+  // le mur intérieur et sa porte à mécanisme : les runes seules l'ouvrent
+  for(let x=c.x0+1;x<c.x0+c.w-1;x++) putO(x,CRYPTE_PORTE.y,O.MUR);
+  for(const x of CRYPTE_PORTE.x) putO(x,CRYPTE_PORTE.y,O.PORTEP);
+  for(const [rx,ry] of RUNES_POS) putO(rx,ry,O.RUNE);
+  for(const [mx,my] of MURS_ILLUSOIRES) putO(mx,my,O.MURILL);
+  putO(TRESOR_RUNES[0],TRESOR_RUNES[1],O.RIEN);
+  panneaux.push({x:(c.x0+1)*TS+8,y:(c.y0+c.h)*TS+6,
+    txt:"CRYPTE DES RUNES. AUCUNE LAME N'Y PEUT RIEN."});
+}
+/* Les quatre runes éveillées : la porte du fond s'efface. */
+function ouvrirCryptePar(){
+  if(Q.cryptOuverte) return;
+  Q.cryptOuverte=true;
+  for(const x of CRYPTE_PORTE.x){ putO(x,CRYPTE_PORTE.y,O.RIEN); rafraichirTuile(x,CRYPTE_PORTE.y); }
+  SFX.coffre(); secousse=10; annonce('LES QUATRE RUNES BRÛLENT');
+  dire("LA CRYPTE S'OUVRE. QUELQUE CHOSE DORT AU FOND.",300);
+  autoSauver();
 }
 
 /* ==========================================================================
@@ -4613,7 +4670,14 @@ function articles(){
    son ballot se vide, et elle sait qu'on ne la reverra pas de sitôt. Le compte
    est dans `Q`, donc sauvegardé — sinon le tarif retomberait au rechargement.
    Arrondi à cinq rubis près : les prix du jeu sont tous ronds. */
-const prixItinerant=p=>Math.round(p*(1+.4*(Q.achatsColporteuse|0))/5)*5;
+/* Chaque article a SON compteur. Auparavant un seul compteur global montait à
+   chaque vente : acheter une potion à 40 rubis renchérissait le cœur à 120 et
+   les trois pièces rares. On payait la rareté d'un objet en achetant l'autre —
+   ce qui décourageait exactement ce qu'une boutique doit encourager. */
+const prixItinerant=(p,id)=>{
+  const n=(Q.prixItin&&Q.prixItin[id])|0;
+  return Math.round(p*(1+.4*n)/5)*5;
+};
 /* ---- LES TROIS PIÈCES RARES ----
    Elle n'en sort une que de temps en temps, et une seule à la fois : c'est ce
    qui fait qu'on guette son passage. Chacune touche un axe différent —
@@ -4622,7 +4686,7 @@ const RARES=[
   {id:'amulette',nom:'AMULETTE DE GARDE',prix:220,spr:'amuletteItem',drap:'amulette',
    dit:"ELLE ENCAISSE LA MOITIÉ DE CE QUI TE FRAPPE."},
   {id:'fiole',nom:'FIOLE DE FÉE',prix:260,spr:'fioleItem',drap:'fioleFee',
-   dit:"SI TU TOMBES, LA FÉE TE RELÈVE. UNE FOIS."},
+   dit:"LA FÉE VEILLE : TA MAGIE SE REFAIT TOUTE SEULE."},
   {id:'rune',nom:'RUNE DE TRANCHANT',prix:300,spr:'runeItem',drap:'rune',
    dit:"TA LAME MORDRA PLUS PROFOND, POUR TOUJOURS."}
 ];
@@ -4640,24 +4704,24 @@ function articleRare(){
   /* Acquise entre-temps (rechargement, seconde visite) : elle sort de l'étal
      plutôt que d'y rester grisée à occuper la place d'une vraie affaire. */
   if(!a||Q[a.drap]) return null;
-  return {id:a.id,nom:a.nom,prix:prixItinerant(a.prix),spr:a.spr,rare:true,dit:a.dit,
+  return {id:a.id,nom:a.nom,prix:prixItinerant(a.prix,a.id),spr:a.spr,rare:true,dit:a.dit,
           ok:()=>!Q[a.drap], effet:()=>{ Q[a.drap]=true; }};
 }
 function articlesItinerants(){
   const rare=articleRare();
   return [
     ...(rare?[rare]:[]),
-    {id:'carquois',nom:'CARQUOIS DE CUIR',prix:prixItinerant(60),spr:'carquoisItem',
+    {id:'carquois',nom:'CARQUOIS DE CUIR',prix:prixItinerant(60,'carquois'),spr:'carquoisItem',
      ok:()=>J.objets.includes('arc')&&!Q.carquois,
      effet:()=>{Q.carquois=true; J.fleches=Math.min(maxFleches(),J.fleches+20);}},
-    {id:'sac',nom:'GRAND SAC',prix:prixItinerant(70),spr:'sacItem',
+    {id:'sac',nom:'GRAND SAC',prix:prixItinerant(70,'sac'),spr:'sacItem',
      ok:()=>J.objets.includes('bombe')&&!Q.grandSac,
      effet:()=>{Q.grandSac=true; J.bombes=Math.min(maxBombes(),J.bombes+8);}},
     /* « COEUR » et non « CŒUR » : la police pixel du jeu n'a pas de Œ et
        afficherait un point d'interrogation. */
-    {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:prixItinerant(120),spr:'coeurMaxItem',
+    {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:prixItinerant(120,'coeur'),spr:'coeurMaxItem',
      ok:()=>J.pvmax<PVMAX, effet:()=>{J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;}},
-    {id:'potion',nom:'POTION ROUGE',prix:prixItinerant(40),spr:'potion',
+    {id:'potion',nom:'POTION ROUGE',prix:prixItinerant(40,'potion'),spr:'potion',
      ok:()=>Q.potions<4, effet:()=>{Q.potions++;}}
   ];
 }
@@ -4673,8 +4737,11 @@ function acheter(){
   if(!a.ok()){ SFX.erreur(); dire(qui+" : JE N'AI RIEN DE PLUS POUR TOI."); return; }
   if(J.rubis<a.prix){ SFX.erreur(); dire(qui+" : IL TE MANQUE DES RUBIS."); return; }
   J.rubis-=a.prix; a.effet();
-  // chez elle, chaque vente renchérit le reste du ballot
-  if(qui==='LA COLPORTEUSE') Q.achatsColporteuse=(Q.achatsColporteuse|0)+1;
+  // chez elle, un article racheté renchérit — mais LUI SEUL
+  if(qui==='LA COLPORTEUSE'){
+    if(!Q.prixItin) Q.prixItin={};
+    Q.prixItin[a.id]=((Q.prixItin[a.id])|0)+1;
+  }
   boutique.liste=(boutique.recharger||articles)();
   SFX.coffre(); autoSauver();
   /* On le DIT : sans cela, la ligne suivante coûte plus cher sans raison
@@ -4682,7 +4749,7 @@ function acheter(){
      dise ce qu'elle FAIT — rien d'autre à l'écran ne l'expliquerait. */
   if(a.rare){ SFX.rare(); secousse=Math.max(secousse,6);
               annonce(a.nom+' !'); dire("LA COLPORTEUSE : "+a.dit,340); return; }
-  dire(qui==='LA COLPORTEUSE' ? "LA COLPORTEUSE : MERCI BIEN ! LE RESTE MONTE, TU T'EN DOUTES."
+  dire(qui==='LA COLPORTEUSE' ? "LA COLPORTEUSE : MERCI BIEN ! LE PROCHAIN DU MÊME SERA PLUS CHER."
                               : qui+" : MERCI BIEN !");
 }
 
@@ -4802,7 +4869,21 @@ function dialoguePNJ(p){
       ()=>{ Q.tarte=false; Q.perle=true; SFX.coffre(); dire("TU REÇOIS LA PERLE DU LAC."); });
     return parler(p.nom,["JE PÊCHE ICI DEPUIS SOIXANTE ANS.","SI SEULEMENT QUELQU'UN M'APPORTAIT UNE BONNE TARTE..."]);
   case 'fee':
-    if(Q.epeeLongue) return parler(p.nom,["QUE TA LAME RESTE VIVE, KAZE."]);
+    /* Elle ne s'arrêtait pas à l'épée longue : elle n'avait plus rien à dire.
+       C'est elle, la source de la MAGIE — la seule du jeu — et la baguette est
+       son second présent, une fois la lame forgée. */
+    if(Q.baguette) return parler(p.nom,
+      ["LA BAGUETTE T'OBÉIT. GARDE-LA POUR CE QU'AUCUNE LAME N'ATTEINT.",
+       "LES VIEILLES RUNES DORMENT SOUS L'EAU, AU SUD."]);
+    if(Q.epeeLongue) return parler(p.nom,
+      ["TA LAME EST VIVE. MAIS TOUT NE SE TRANCHE PAS, KAZE.",
+       "PRENDS CETTE BAGUETTE. ELLE PORTE UN PEU DE MA LUMIÈRE.",
+       "ELLE FRAPPE DE LOIN, ET ELLE ÉVEILLE CE QUI DORT."],
+      ()=>{ Q.baguette=true; J.magiemax=12; magiePleine(); equiper('baguette');
+            autoSauver(); SFX.rare(); secousse=10;
+            particules(J.x,J.y,J.z+12,34,'#c8a8ff',3,44);
+            annonce('LA BAGUETTE DE LA FÉE');
+            dire("MAGIE : "+J.magie+" SUR "+J.magiemax+". LES MONSTRES EN LAISSENT.",320); });
     if(Q.lucioles>=8) return parler(p.nom,
       ["HUIT LUCIOLES D'OR. MA LUMIÈRE EST COMPLÈTE.","TENDS TON ÉPÉE. JE L'ALLONGE ET JE L'AIGUISE."],
       ()=>{ Q.epeeLongue=true; autoSauver(); SFX.coffre(); secousse=8;
@@ -5620,7 +5701,8 @@ const OBJETS=[
   {id:'bracelet',nom:'BRACELET',spr:'braceletItem'},
   {id:'fanal',nom:'FANAL',spr:'fanalItem'},
   {id:'cape',nom:'CAPE',spr:'capeItem'},
-  {id:'filet',nom:'FILET',spr:'filetItem'}
+  {id:'filet',nom:'FILET',spr:'filetItem'},
+  {id:'baguette',nom:'BAGUETTE',spr:'baguetteItem'}
 ];
 /* ------------------------ DEUX OUTILS EN MAIN ------------------------
    Neuf outils sur un seul cycle L/R, c'était jusqu'à QUATRE pressions pour en
@@ -5651,7 +5733,7 @@ function equiper(id,fente){
 
 const J={
   x:35*TS, y:45*TS, z:0, vz:0, dir:2, r:5,
-  pv:6, pvmax:6, rubis:0, bombes:0, fleches:0, fragments:0,
+  pv:6, pvmax:6, magie:0, magiemax:0, rubis:0, bombes:0, fleches:0, fragments:0,
   objets:[], equipe:{Y:null,X:null},
   atk:0, charge:0, spin:0, invuln:0, bouclier:false, parRecup:0, kx:0, ky:0, nage:false,
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
@@ -6116,15 +6198,10 @@ function blesser(deg,sx,sy,parable=true){
 }
 function mourir(){
   menuSel=0;
-  /* La fiole de fée passe AVANT les potions : elle est rare et ne sert qu'une
-     fois, autant qu'elle serve là où l'on serait vraiment mort. */
-  if(Q.fioleFee){
-    Q.fioleFee=false; J.pv=J.pvmax; J.invuln=140;
-    SFX.rare(); annonce('LA FÉE TE RELÈVE !');
-    particules(J.x,J.y,J.z+10,34,'#ffe86a',3.2,46);
-    autoSauver();
-    return;
-  }
+  /* La fiole de fée ne relève plus : elle faisait EXACTEMENT ce que fait une
+     potion rouge à 40 rubis — pleine vie, une fois — pour 260. Elle est
+     désormais la seule source de magie qui se refait seule (voir majMagie), et
+     ne se consomme donc pas ici. */
   if(Q.potions>0){
     Q.potions--; J.pv=J.pvmax; J.invuln=120;
     SFX.coeur(); annonce('POTION ROUGE !');
@@ -6151,7 +6228,7 @@ const SPR_BUTIN={coeur:'coeur',bombe:'bombeItem',champi:'champi',cle:'cle',
   bracelet:'braceletItem',fanal:'fanalItem',cape:'capeItem',
   fresque:'fresqueItem',perle2:'perleItem',coeurmax:'coeurMaxItem',
   filet:'filetItem',fleurgivre:'fleurgivre',etoileVolee:'etoileVolee',
-  pierre:'pierreGarde'};
+  pierre:'pierreGarde',baguette:'baguetteItem',eclatMagie:'etincelle'};
 /* Ceux qui s'auréolent : on les repère de loin, ils comptent. */
 /* Les trois ramassages de collection — fleur de givre, perle, fragment de
    fresque — s'auréolent eux aussi : chacun est peint de la couleur de son
@@ -6171,7 +6248,10 @@ function larguer(x,y,z){
                        : (g<.04?'grenat':g<.24?'saphir':'rubis');
     butins.push({x,y,z,vz:1.6,type,t:0});
   }
-  else if(r<.44) butins.push({x,y,z,vz:1.6,type:'coeur',t:0});
+  else if(r<.40) butins.push({x,y,z,vz:1.6,type:'coeur',t:0});
+  /* Un éclat de magie, mais SEULEMENT une fois la baguette en main : avant, il
+     ne serait qu'un butin qu'on ne peut pas dépenser. */
+  else if(r<.44&&Q.baguette) butins.push({x,y,z,vz:1.6,type:'eclatMagie',t:0});
   else if(r<.55&&J.objets.includes('bombe')) butins.push({x,y,z,vz:1.6,type:'bombe',t:0});
   else if(r<.66&&J.objets.includes('arc')) butins.push({x,y,z,vz:1.6,type:'fleche',t:0});
 }
@@ -6208,6 +6288,69 @@ function exploser(b){
 
 /* Ce que fait un outil, quelle que soit la fente d'où il vient : `Y` et `X`
    partagent ce corps, sinon les deux se seraient mis à diverger. */
+/* ============================ LA MAGIE ============================
+   La baguette de la fée est le seul outil qui SERT DEUX FOIS : c'est une arme
+   à distance, et c'est la clé de deux choses que rien d'autre ne touche —
+   les RUNES, qu'elle allume, et les MURS ILLUSOIRES, qu'elle dissipe.
+
+   Elle puise dans une jauge, la magie, qui ne se remplit pas toute seule : on
+   la reprend sur les éclats que lâchent les monstres. Sans quoi ce serait une
+   arme sans munitions, donc l'arme par défaut. */
+const COUT_MAGIE=1, PORTEE_MAGIE=170;
+function magiePleine(){ J.magie=J.magiemax; }
+function gagnerMagie(n){
+  if(J.magiemax<=0) return false;
+  if(J.magie>=J.magiemax) return false;
+  J.magie=Math.min(J.magiemax,J.magie+n);
+  return true;
+}
+/* La fiole veille : un point toutes les quatre secondes, et seulement hors
+   combat rapproché — sinon elle rendrait la jauge inépuisable en plein duel. */
+const MAGIE_REPOS=240;
+let magieT=0;
+function majMagie(){
+  if(!Q.fioleFee||J.magiemax<=0||J.magie>=J.magiemax){ magieT=0; return; }
+  magieT++;
+  if(magieT<MAGIE_REPOS) return;
+  magieT=0; J.magie++;
+  particules(J.x,J.y-6,J.z+14,5,'#ffe86a',1.4,20);
+  son(1180,.06,'sine',.025,180);
+}
+function traitDeMagie(){
+  if(J.magie<COUT_MAGIE){ SFX.erreur(); dire("PLUS DE MAGIE."); return; }
+  J.magie-=COUT_MAGIE;
+  const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
+  tirs.push({x:J.x+vd[0]*9,y:J.y+vd[1]*9-2,z:J.z+10,
+    vx:vd[0]*3.6,vy:vd[1]*3.6,vie:Math.round(PORTEE_MAGIE/3.6),
+    ami:1,spr:'etincelle',magie:1,frappes:new Set()});
+  SFX.fleche(); son(760,.10,'triangle',.045,260); son(1140,.08,'sine',.03,180,.05);
+  particules(J.x+vd[0]*10,J.y+vd[1]*10,J.z+10,4,'#c8a8ff',1.4,16);
+}
+/* Ce que le trait rencontre. Rendu séparé : c'est la SEULE porte d'entrée des
+   deux usages d'outil, et le contrôle les rejoue un par un. */
+function magieTouche(tx,ty){
+  const o=Obj(tx,ty);
+  if(o===O.RUNE){ allumerRune(tx,ty); return true; }
+  if(o===O.MURILL){
+    putO(tx,ty,O.RIEN); rafraichirTuile(tx,ty);
+    SFX.coffre(); secousse=5;
+    particules(tx*TS+8,ty*TS+8,Etg(tx,ty)*EH+10,22,'#c8a8ff',2.6,32);
+    dire("LE MUR N'ÉTAIT QU'UNE ILLUSION.");
+    return true;
+  }
+  return false;
+}
+function allumerRune(tx,ty){
+  if(Obj(tx,ty)!==O.RUNE) return false;
+  putO(tx,ty,O.RUNEVIVE); rafraichirTuile(tx,ty);
+  Q.runes=Math.min(RUNES_POS.length,(Q.runes|0)+1);
+  SFX.coffre(); son(880,.14,'triangle',.05,300);
+  particules(tx*TS+8,ty*TS+4,Etg(tx,ty)*EH+12,18,'#c8a8ff',2.2,30);
+  dire('RUNE ÉVEILLÉE : '+Q.runes+'/'+RUNES_POS.length);
+  if(Q.runes>=RUNES_POS.length) ouvrirCryptePar();
+  return true;
+}
+
 function utiliserOutil(o){
   if(o==='marteau'){
     // on ARME le marteau : il monte au-dessus de la tête, puis s'abat. Le
@@ -6238,6 +6381,7 @@ function utiliserOutil(o){
   else if(o==='fanal') fanalAction();
   else if(o==='cape') capeAction();
   else if(o==='filet') coupDeFilet();
+  else if(o==='baguette') traitDeMagie();
 }
 
 /* ============================ JOUEUR ============================ */
@@ -6430,6 +6574,7 @@ function majJoueur(){
   /* --- verrous du monde --- */
   verifierVerrous();
   majPuzzles();
+  majMagie();                       // la fiole de fée refait la jauge, lentement
   majVol();
 
   /* --- points de sauvegarde : le village, puis toutes les minutes --- */
@@ -6506,7 +6651,7 @@ const PVMAX=40;                  // 20 cœurs : deux rangées pleines
 const COEURS_RANGEE=10;          // dix par rangée — mesuré : onze tiennent
                                  // encore à W=200, douze touchent les rubis
 const rangeesCoeurs=()=>Math.ceil((J.pvmax/2)/COEURS_RANGEE);
-const hauteurATH=()=>20+(rangeesCoeurs()-1)*9;
+const hauteurATH=()=>20+(rangeesCoeurs()-1)*9+(J.magiemax>0?7:0);
 
 function ouvrirCoffre(c){
   if(!c||c.ouvert) return;          // un coffre ne se rouvre pas : sinon il redonne son contenu
@@ -6641,6 +6786,10 @@ function ramasserButin(o){
     dire('FLEUR DE GIVRE : '+Q.fleurs+'/6',120); autoSauver(); }
   if(o.type==='coeurmax'){ J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;
     SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
+  if(o.type==='eclatMagie'){ if(gagnerMagie(2)) SFX.rubis();
+    particules(o.x,o.y,o.z+8,8,'#c8a8ff',1.8,22); }
+  if(o.type==='baguette'){ Q.baguette=true; J.magiemax=Math.max(12,J.magiemax); magiePleine();
+    equiper('baguette'); SFX.rare(); annonce('LA BAGUETTE'); }
   // trésor unique d'une énigme : on retient qu'il est pris, il ne repousse plus
   if(o.uf){ Q[o.uf]=true; autoSauver(); }
 }
@@ -7803,15 +7952,24 @@ function majDivers(){
     if(p.ami&&Obj(tx,ty)===O.INTER){
       basculerInter(tx,ty); eclat(p.x,p.y-p.z,p.z,'#a8f0ff'); tirs.splice(i,1); continue;
     }
+    /* Le trait de magie, avant le test des murs : le mur illusoire EST un mur
+       tant qu'il n'a pas été dissipé, il l'arrêterait donc avant de l'atteindre. */
+    if(p.magie&&magieTouche(tx,ty)){
+      eclat(p.x,p.y-p.z,p.z,'#c8a8ff'); tirs.splice(i,1); continue;
+    }
     const mur=!dansCarte(tx,ty)||(Obj(tx,ty)&&DUR_O[Obj(tx,ty)]&&p.z<Etg(tx,ty)*EH+HAUT_O[Obj(tx,ty)]-4)
              ||Etg(tx,ty)*EH>p.z+6||(!p.ami&&dansRefuge(p.x,p.y));
     if(p.vie<=0||mur){ particules(p.x,p.y,p.z,5,'#b0a890',1.6,14); tirs.splice(i,1); continue; }
     if(p.ami){
       let touche=false;
+      /* La magie porte son propre nom de coup : elle passe là où l'épée
+         ricoche — le squelette qui pare de face, le piquier — mais pas sur ce
+         qui exige un outil précis (le Colosse, le crabe cuirassé). */
+      const type=p.magie?'magie':'fleche', deg=p.magie?3:2;
       for(const e of ennemis) if(Math.hypot(e.x-p.x,e.y-p.y)<11&&Math.abs(e.z-p.z)<18){
-        frapper(e,2,p.x-p.vx*4,p.y-p.vy*4,'fleche'); touche=true; break; }
+        frapper(e,deg,p.x-p.vx*4,p.y-p.vy*4,type); touche=true; break; }
       if(!touche&&boss&&Math.hypot(boss.x-p.x,boss.y-p.y)<20&&Math.abs(boss.z-p.z)<30){
-        frapper(boss,2,p.x-p.vx*6,p.y-p.vy*6,'fleche'); touche=true; }
+        frapper(boss,deg,p.x-p.vx*6,p.y-p.vy*6,type); touche=true; }
       if(touche) tirs.splice(i,1);
     } else if(Math.hypot(J.x-p.x,J.y-p.y)<10&&Math.abs(J.z-p.z)<18){
       blesser(1,p.x,p.y); tirs.splice(i,1);
@@ -7986,6 +8144,28 @@ function decorTuile(g,x,y){
   /* Le sceau qui ferme l'entrée d'une région. Il n'est dessiné que fermé : une
      fois cédé, la tuile est effacée pour de bon (voir majSceaux). On le veut
      lisible de loin et clairement DIFFÉRENT d'un mur — d'où la rune qui bat. */
+  /* Les trois tuiles de magie. La rune est une marque au SOL, qu'on traverse :
+     elle doit se lire d'en haut, sans hauteur, sinon on la prend pour un mur.
+     Le mur illusoire, lui, imite le mur voisin — sans quoi il s'annonce. */
+  if(o===O.RUNE||o===O.RUNEVIVE){
+    const gx=x*TS, t=by-6, vive=(o===O.RUNEVIVE);
+    const v=Math.sin(tick*.05+x*1.3+y)*.5+.5;
+    g.fillStyle=vive?'#3a2b52':'#201b2e'; g.fillRect(gx+2,t,TS-4,6);
+    g.globalAlpha=vive?(.65+v*.35):(.22+v*.12);
+    g.fillStyle=vive?'#c8a8ff':'#6a5a8a';
+    g.fillRect(gx+5,t+1,2,4); g.fillRect(gx+9,t+1,2,4); g.fillRect(gx+5,t+2,6,2);
+    g.globalAlpha=1;
+    if(vive){ g.fillStyle='#f0e8ff'; g.fillRect(gx+7,t+2,2,2); }
+    return;
+  }
+  if(o===O.MURILL){
+    const gx=x*TS, t=by-26;
+    g.fillStyle='#2b2436'; g.fillRect(gx,t,TS,26);
+    g.fillStyle='#3a3350'; g.fillRect(gx,t,TS,3);
+    g.fillStyle='#221c2e'; g.fillRect(gx+1,t+4,TS-2,20);
+    g.fillStyle='#332c46'; g.fillRect(gx+2,t+7,TS-4,2); g.fillRect(gx+2,t+16,TS-4,2);
+    return;
+  }
   if(o===O.SCEAUMONDE){
     const gx=x*TS, t=by-30, v=Math.sin(tick*.06+x*.7)*.5+.5;
     g.fillStyle='#241c33'; g.fillRect(gx,t,TS,30);
@@ -8086,6 +8266,79 @@ function decorTuile(g,x,y){
     g.fillStyle='#6a7183'; g.fillRect(gx+4,t+4,8,4);
     g.fillStyle='#787f92'; g.fillRect(gx+5,t,6,5);
     g.fillStyle='#eaf1fb'; g.fillRect(gx+5,t,6,1);
+    return;
+  }
+  /* ---- Cité des Nues ----
+     Quatre tuiles de cette région ne dessinaient RIEN : mesuré, zéro pixel
+     pour le carillon, sa version sonnée, la colonne d'air et l'obélisque —
+     là où une cloche de givre en pose 462. Les huit carillons de la quête
+     étaient donc introuvables autrement que par leur repère de carte. */
+  if(o===O.CARILLON||o===O.CARILLONVIF){
+    const gx=x*TS, t=by-22, vif=(o===O.CARILLONVIF);
+    const bal=Math.sin(tick*(vif?.14:.045)+x*1.7)*(vif?1.6:.6);
+    g.fillStyle='#6f7ba0'; g.fillRect(gx+2,t,12,2);              // la traverse
+    g.fillStyle='#4a5270'; g.fillRect(gx+2,t+2,12,1);
+    for(let k=0;k<4;k++){                                        // quatre tubes
+      const lx=gx+3+k*3, lg=9+((k*5)%4);
+      g.fillStyle=vif?'#a8f0f4':'#8f9ab8';
+      g.fillRect(Math.round(lx+bal*(k-1.5)*.5),t+3,2,lg);
+      g.fillStyle=vif?'#eaffff':'#c2ccdf';
+      g.fillRect(Math.round(lx+bal*(k-1.5)*.5),t+3,1,lg);
+    }
+    if(vif){
+      const v=Math.sin(tick*.09+x)*.5+.5;
+      g.globalCompositeOperation='lighter'; g.globalAlpha=.20+v*.28;
+      g.drawImage(glowCV,cx-18,t-8,36,36);
+      g.globalAlpha=1; g.globalCompositeOperation='source-over';
+    }
+    return;
+  }
+  if(o===O.COLONNE){                             // colonne d'air : elle porte qui a la cape
+    const gx=x*TS, t=by-26;
+    for(let k=0;k<4;k++){
+      const yy=t+((tick*.9+k*7)%26);
+      const w=3+Math.sin((yy-t)*.35)*2;
+      g.globalAlpha=.22+.30*(1-(yy-t)/26);
+      g.fillStyle='#cfe4ff';
+      g.fillRect(Math.round(cx-w/2),Math.round(yy),Math.max(1,Math.round(w)),2);
+    }
+    g.globalAlpha=.16; g.fillStyle='#8fd0ff'; g.fillRect(gx+3,t,10,26);
+    g.globalAlpha=1;
+    g.fillStyle='#9fb6dc'; g.fillRect(gx+3,by-2,10,2);           // l'embase, au sol
+    return;
+  }
+  if(o===O.OBELISQUE){                           // obélisque : un repère de très loin
+    const gx=x*TS, t=by-34;
+    g.fillStyle='#3b4463'; g.fillRect(gx+4,t+4,8,30);
+    g.fillStyle='#4e5980'; g.fillRect(gx+4,t+4,4,30);
+    g.fillStyle='#2a3149'; g.fillRect(gx+3,by-3,10,3);           // le socle
+    g.fillStyle='#5f6c96'; g.fillRect(gx+6,t,4,5);               // la pointe
+    const v=Math.sin(tick*.04+x)*.5+.5;
+    g.globalAlpha=.35+v*.35; g.fillStyle='#c8a8ff';
+    g.fillRect(gx+7,t+10,2,8); g.fillRect(gx+6,t+13,4,2);        // la marque gravée
+    g.globalAlpha=1;
+    return;
+  }
+  /* ---- la Faille ---- deux tuiles qui ne dessinaient rien elles non plus :
+     le sceau qu'on vient briser, et les éclats qui ferment la salle finale.
+     Un mur invisible devant la dernière porte du jeu. */
+  if(o===O.SCEAU){
+    const gx=x*TS, t=by-24, v=Math.sin(tick*.05+x*1.1)*.5+.5;
+    g.fillStyle='#2a2140'; g.fillRect(gx+2,t+2,12,20);
+    g.fillStyle='#463a68'; g.fillRect(gx+2,t+2,12,2); g.fillRect(gx+2,t+20,12,2);
+    g.globalAlpha=.5+v*.5; g.fillStyle='#e08aff';
+    g.fillRect(gx+7,t+6,2,12); g.fillRect(gx+5,t+9,6,2); g.fillRect(gx+5,t+14,6,2);
+    g.globalAlpha=1;
+    g.fillStyle='#f4e8ff'; g.fillRect(gx+7,t+11,2,2);
+    return;
+  }
+  if(o===O.ECLATNOIR){
+    const gx=x*TS, t=by-18, v=Math.sin(tick*.07+x*2.1+y)*.5+.5;
+    g.fillStyle='#120c1c'; g.fillRect(gx+1,t+2,14,16);
+    g.fillStyle='#1e1430'; g.fillRect(gx+2,t,4,18); g.fillRect(gx+9,t+3,5,15);
+    g.globalAlpha=.35+v*.35; g.fillStyle='#7a3ea8';
+    g.fillRect(gx+3,t+4,2,10); g.fillRect(gx+10,t+6,2,9);
+    g.globalAlpha=1;
     return;
   }
   if(o===O.CLOCHE){                              // cloche de givre : le boomerang la fait sonner
@@ -9039,6 +9292,17 @@ function ath(){
     const r=J.pv-i*2;
     coeurATH(X,6+(i%COEURS_RANGEE)*9,5+Math.floor(i/COEURS_RANGEE)*9,r>=2?2:(r===1?1:0));
   }
+  /* La jauge de magie : sous les cœurs, et seulement une fois la baguette
+     obtenue — une barre vide dès la première minute annoncerait un objet qu'on
+     n'a pas encore, comme les trois étoiles autrefois (§ 45). */
+  if(J.magiemax>0){
+    const yM=5+rangeesCoeurs()*9;
+    for(let i=0;i<J.magiemax;i++){
+      X.fillStyle=i<J.magie?'#c8a8ff':'#2b2436';
+      X.fillRect(6+i*4,yM,3,5);
+    }
+    X.fillStyle='#4a3d6b'; X.fillRect(6,yM+5,J.magiemax*4-1,1);
+  }
   // rubis
   X.drawImage(SPR.rubis0,W-92,4);
   texte(X,String(J.rubis).padStart(3,'0'),W-80,7,'#e8f0ff');
@@ -9982,7 +10246,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.7';
+const VERSION='V3.8';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10089,7 +10353,8 @@ function construireSauve(){
   return {
     v:VERSION_SAUVE, date:Date.now(), temps:tempsJeu, nom:nomPartie,
     Q:Object.assign({},Q),
-    J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,rubis:J.rubis,
+    J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,
+       magie:J.magie,magiemax:J.magiemax,rubis:J.rubis,
        bombes:J.bombes,fleches:J.fleches,fragments:J.fragments,
        objets:J.objets.slice(),equipe:{Y:J.equipe.Y,X:J.equipe.X}},
     coffres:coffres.map(c=>[c.ouvert?1:0,c.verrou?1:0]),
@@ -10265,8 +10530,14 @@ async function chargerInterne(slot){
   const rgJ=regionIdx(Math.floor(J.y/TS));
   for(let i=1;i<=rgJ;i++) if(!verrouOuvert(i)) Q.sceauForce[i]=1;
   // et les outils du sac doivent redonner leurs drapeaux, et l'inverse
+  /* La baguette ouvre la jauge : une partie d'avant la magie, ou un champ
+     manquant, ne doit pas la laisser à zéro avec l'outil dans le sac. */
+  if(Q.baguette&&!(J.magiemax>0)) J.magiemax=12;
+  if(!(J.magie>=0)) J.magie=0;
+  J.magie=Math.min(J.magie,J.magiemax);
   for(const [id,drap] of [['cape','cape'],['fanal','fanal'],['bracelet','bracelet'],
-                          ['grappin','grappin'],['boomerang','boomerang']]){
+                          ['grappin','grappin'],['boomerang','boomerang'],
+                          ['baguette','baguette']]){
     if(J.objets.includes(id)) Q[drap]=true;
     else if(Q[drap]) J.objets.push(id);
   }
