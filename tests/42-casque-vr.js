@@ -302,15 +302,37 @@ module.exports = {
       out.epeeQuandOnNeVisePas = BTN.B === 1;
       razBoutons();
 
-      // ÉCRAN TITRE : on appuie sur le second bouton, puis on relâche
-      const b1 = boiteVR(1), d1 = versToile(...centreDe(b1));
-      etat = 'jeu'; vrGachettePrec = false;
-      gachette(viseur(0, 1.6, 0, d1), true);  majViseurVR(fauxFrame);
+      /* ---- LA PASTILLE EST DISCRÈTE ----
+         Elle ne doit pas manger le jeu : le viseur ne se montre que dans la
+         bande basse, là où il a quelque chose à désigner. On compte les traits
+         que l'interface pose, selon l'endroit visé. */
+      const traitsInterface = () => {
+        let n = 0; const vrai = X.fillRect.bind(X);
+        X.fillRect = (...a) => { n++; return vrai(...a); };
+        dessinerInterfaceVR();
+        X.fillRect = vrai; return n;
+      };
+      out.unSeulBouton = VR_BOUTONS.length;
+      gachette(viseur(0, 1.6, 0, versToile(CV.width / 2, CV.height / 2)), false);
+      majViseurVR(fauxFrame);
+      out.traitsLoin = traitsInterface();            // au repos : la pastille seule
+      gachette(viseur(0, 1.6, 0, versToile(...centreDe(bo))), false);
+      majViseurVR(fauxFrame);
+      out.traitsPres = traitsInterface();            // + le viseur, en approche
+      out.pastilleADroite = { x: bo.x, w: bo.w, W: CV.width, y: bo.y, H: CV.height };
+
+      /* ---- ON QUITTE LA VR EN VISANT LA PASTILLE, AU RELÂCHEMENT ---- */
+      vrGachettePrec = false;
+      gachette(viseur(0, 1.6, 0, versToile(...centreDe(bo))), true);
+      majViseurVR(fauxFrame);
       out.boutonVise = vrViseur.bouton;
-      out.pasEncore = etat;                          // rien tant qu'on n'a pas relâché
-      gachette(viseur(0, 1.6, 0, d1), false); majViseurVR(fauxFrame);
-      out.apresRelacheTitre = etat;
+      out.pasEncore = xrSession !== null;            // rien tant qu'on n'a pas relâché
+      gachette(viseur(0, 1.6, 0, versToile(...centreDe(bo))), false);
+      majViseurVR(fauxFrame);
+      out.sortieParLaPastille = xrSession === null;
       fausseSession.inputSources = [];
+      // on y retourne pour la suite des mesures
+      out.retourEnVR = await entrerVR();
 
       /* ---- SORTIR DU CASQUE SANS LE MENU SYSTÈME ----
          La barre d'outils est en HTML : une fois le casque sur les yeux, le
@@ -431,9 +453,17 @@ module.exports = {
     v('LA GÂCHETTE NE FRAPPE PAS QUAND ELLE VISE UN BOUTON',
       r.epeeNeutralisee === true && r.epeeQuandOnNeVisePas === true,
       `sur bouton=${r.epeeNeutralisee} ailleurs=${r.epeeQuandOnNeVisePas}`);
-    v('LE BOUTON AGIT AU RELÂCHEMENT, PAS À L\'APPUI',
-      r.boutonVise === 1 && r.pasEncore === 'jeu' && r.apresRelacheTitre === 'titre',
-      `visé=${r.boutonVise} avant=${r.pasEncore} après=${r.apresRelacheTitre}`);
+    v('UNE SEULE PASTILLE, EN BAS À DROITE, HORS DU CHAMP DE JEU',
+      r.unSeulBouton === 1
+      && r.pastilleADroite.x + r.pastilleADroite.w >= r.pastilleADroite.W - 6
+      && r.pastilleADroite.y > r.pastilleADroite.H * 0.85,
+      JSON.stringify(r.pastilleADroite));
+    v('LE VISEUR NE SE MONTRE QU\'EN APPROCHANT DE LA PASTILLE',
+      r.traitsPres > r.traitsLoin,
+      `loin ${r.traitsLoin} traits, près ${r.traitsPres}`);
+    v('ON QUITTE LA VR EN LA VISANT, ET AU RELÂCHEMENT',
+      r.boutonVise === 0 && r.pasEncore === true && r.sortieParLaPastille === true,
+      `visé=${r.boutonVise} tenu=${r.pasEncore} sortie=${r.sortieParLaPastille}`);
 
     v('UNE SEULE POIGNÉE NE FAIT PAS QUITTER LE CASQUE',
       r.uneSeulePoignee === true, 'sortie sur une poignée');

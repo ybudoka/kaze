@@ -150,6 +150,7 @@ body.sanspad #pad{display:none}
 
 <div id="outils">
   <button id="btPlein">PLEIN ÉCRAN</button>
+  <button id="btTitre">ÉCRAN TITRE</button>
   <button id="btPad">MANETTE</button>
   <button id="btSauve">SAUVEGARDES</button>
   <button id="btMus">MUSIQUE</button>
@@ -10246,7 +10247,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.8';
+const VERSION='V3.9';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -11145,7 +11146,11 @@ function dessinerVR(frame){
    étant un arc de cylindre centré sur la tête, c'est une intersection
    rayon/cylindre en deux dimensions dans le plan horizontal : bien plus simple
    qu'un plan, et surtout JUSTE — un plan aurait dévié sur les bords. */
-const VR_BOUTONS=[{id:'quitter',txt:'QUITTER VR'},{id:'titre',txt:'ÉCRAN TITRE'}];
+/* Une seule pastille, dans un coin, et à peine visible tant qu'on ne la vise
+   pas : elle ne doit pas manger le jeu. L'écran-titre, lui, est retourné dans
+   la barre d'outils, à côté du plein écran — c'est là qu'on le cherche. */
+const VR_BOUTONS=[{id:'quitter',txt:'QUITTER VR'}];
+const VR_ZONE=26;                      // la bande basse où le viseur se montre
 const vrViseur={actif:false,x:0,y:0,bouton:-1};
 let vrGachettePrec=false;
 
@@ -11171,19 +11176,25 @@ function viserEcran(pos,dir){
 /* Les deux boutons, en bas de la toile : au-dessus, le jeu ; en dessous, rien
    d'utile. Rendus par la police pixel, comme tout le reste du jeu. */
 function boiteVR(i){
-  const l=62, h=13, e=6, tot=VR_BOUTONS.length*l+(VR_BOUTONS.length-1)*e;
-  return {x:Math.round(W/2-tot/2)+i*(l+e),y:H-h-3,w:l,h};
+  const l=62, h=11;
+  return {x:W-l-3,y:H-h-3,w:l,h};          // en bas à droite, hors du champ de jeu
 }
 function dessinerInterfaceVR(){
+  /* Discrète au repos, franche quand on la vise. Le viseur, lui, ne se montre
+     que dans la bande basse : ailleurs il n'aurait rien à désigner, et une
+     croix qui suit la manette en plein combat gêne plus qu'elle n'aide. */
+  const prox=vrViseur.actif&&vrViseur.y>H-VR_ZONE;
   for(let i=0;i<VR_BOUTONS.length;i++){
     const b=boiteVR(i), vise=vrViseur.bouton===i;
-    X.fillStyle=vise?'#2b3a66':'#141a2c'; X.fillRect(b.x,b.y,b.w,b.h);
-    X.fillStyle=vise?'#8fd0ff':'#59628a';
+    X.globalAlpha=vise?1:(prox?.7:.28);
+    X.fillStyle=vise?'#2b3a66':'#0e1322'; X.fillRect(b.x,b.y,b.w,b.h);
+    X.fillStyle=vise?'#8fd0ff':'#3a4468';
     X.fillRect(b.x,b.y,b.w,1); X.fillRect(b.x,b.y+b.h-1,b.w,1);
     X.fillRect(b.x,b.y,1,b.h); X.fillRect(b.x+b.w-1,b.y,1,b.h);
-    texteCentre(X,VR_BOUTONS[i].txt,b.x+b.w/2,b.y+4,vise?'#eaf0ff':'#aab6dc','#050810');
+    texteCentre(X,VR_BOUTONS[i].txt,b.x+b.w/2,b.y+3,vise?'#eaf0ff':'#8792b8','#050810');
+    X.globalAlpha=1;
   }
-  if(vrViseur.actif){                        // le viseur : une croix, pas un curseur
+  if(prox){                                  // le viseur : une croix, pas un curseur
     const x=Math.round(vrViseur.x), y=Math.round(vrViseur.y);
     X.fillStyle='#8fd0ff'; X.fillRect(x-3,y,7,1); X.fillRect(x,y-3,1,7);
     X.fillStyle='#eaf0ff'; X.fillRect(x,y,1,1);
@@ -11218,8 +11229,6 @@ function majViseurVR(frame){
     const id=VR_BOUTONS[vrViseur.bouton].id;
     SFX.menu();
     if(id==='quitter') basculerVR();
-    else if(id==='titre'){ viderTampon(); dial=null; boutique=null; journal=false;
-      etat='titre'; menuSel=0; }
   }
   vrGachettePrec=gachette;
 }
@@ -11279,6 +11288,16 @@ function finVR(){
   majBoutonVR();
 }
 function basculerVR(){ if(xrSession){ try{ xrSession.end(); }catch(_){ finVR(); } } else entrerVR(); }
+/* Retour à l'écran-titre. Le bouton est voisin du PLEIN ÉCRAN, donc facile à
+   heurter : on SAUVEGARDE d'abord si une partie est en cours, sinon un doigt
+   qui glisse coûterait tout ce qui s'est passé depuis la dernière auto-sauve. */
+function retourTitre(){
+  if(etat==='titre') return;
+  if(etat==='jeu'||etat==='carte') sauver(true);
+  if(xrSession){ try{ xrSession.end(); }catch(_){ finVR(); } }
+  viderTampon(); dial=null; boutique=null; journal=false; msgT=0; bandeauT=0;
+  etat='titre'; menuSel=0; modeEffacer=false; SFX.menu();
+}
 function majBoutonVR(){
   const b=document.getElementById('btVR');
   if(b) b.textContent=xrSession?'QUITTER LA VR':'CASQUE VR';
@@ -11492,6 +11511,7 @@ outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,
 outil('btMus',()=>{ reveillerSon(); basculerMusique(); majMusique(); });
 outil('btDbg',basculerDebug);
 outil('btVR',basculerVR);
+outil('btTitre',retourTitre);
 detecterVR();
 if(debugOn) document.getElementById('btDbg').textContent='DÉBUG ✕';
 if(!musiqueOn) document.getElementById('btMus').textContent='MUSIQUE ✕';

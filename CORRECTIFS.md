@@ -3983,3 +3983,37 @@ figure, emprise des maisons, qui sont dessinées comme structures.
 
 > Une tuile ajoutée demain sans son dessin tombera ici. C'est ce qui manquait :
 > aucun contrôle ne regardait le décor.
+
+---
+
+## 59. La pastille du casque, et l'écran-titre remis là où on le cherche
+
+| | |
+|---|---|
+| **Demande** | « Mets les boutons pour quitter la VR plus discrets et intégrés, et mets le bouton pour retourner à l'écran-titre à côté du bouton plein écran. » |
+
+Les deux commandes du casque étaient une barre de **deux boîtes pleines**,
+centrées au bas de la toile, dessinées à pleine opacité en permanence — au
+milieu du champ de jeu.
+
+### Dans le casque : une pastille, et rien d'autre
+
+Il ne reste **qu'un bouton**, `QUITTER VR`, réduit à une pastille en bas à
+droite, hors du champ de jeu. À peine visible au repos (28 % d'opacité), plus
+franche à l'approche, pleine quand on la vise.
+
+Le **viseur** ne se montre plus que dans la bande basse : ailleurs il n'a rien
+à désigner, et une croix qui suit la manette en plein combat gêne plus qu'elle
+n'aide. Mesuré sur les traits que l'interface pose selon l'endroit visé.
+
+### Hors du casque : l'écran-titre dans la barre d'outils
+
+`ÉCRAN TITRE` est en HTML, **juste après `PLEIN ÉCRAN`** — c'est là qu'on le
+cherche, et il fonctionne partout, pas seulement sous le casque.
+
+> Il est voisin d'un bouton qu'on presse souvent. Un doigt qui glisse ne doit
+> pas coûter la partie : **il sauvegarde d'abord**, puis revient au titre. Et il
+> ferme la session VR au passage, sinon on quitterait vers un écran invisible.
+
+> **Réinjection**, quatre fois : viseur redevenu permanent ; pastille ramenée au
+> centre ; sauvegarde retirée ; bouton déplacé loin du plein écran.

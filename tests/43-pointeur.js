@@ -155,6 +155,35 @@ module.exports = {
     });
     v('AILLEURS, LE VERROUILLAGE TACTILE TIENT TOUJOURS', bloque,
       'la page peut défiler sous le doigt');
+    /* ---------- § 59 : le bouton ÉCRAN TITRE, à côté du PLEIN ÉCRAN ----------
+       Il est voisin d'un bouton qu'on presse souvent : un doigt qui glisse ne
+       doit pas coûter la partie. Il SAUVEGARDE avant de revenir au titre. */
+    const ordre = await tel.evaluate(() => {
+      const o = document.getElementById('outils');
+      return [...o.querySelectorAll('button')].map(b => b.id);
+    });
+    v('LE BOUTON ÉCRAN TITRE EST BIEN DANS LA BARRE, À CÔTÉ DU PLEIN ÉCRAN',
+      ordre.indexOf('btTitre') === ordre.indexOf('btPlein') + 1,
+      ordre.join(' '));
+
+    const av = await tel.evaluate(async () => {
+      etat = 'jeu'; J.rubis = 777;
+      localStorage.removeItem('kaze-partie-' + (emplacement + 1));
+      return { etat, sauve: !!localStorage.getItem('kaze-partie-' + (emplacement + 1)) };
+    });
+    v('la partie est en cours et rien n\'est encore enregistré',
+      av.etat === 'jeu' && !av.sauve, JSON.stringify(av));
+
+    const bt = await tel.evaluate(() => { const r = document.getElementById('btTitre').getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    await tel.touchscreen.tap(bt.x, bt.y);
+    await tel.waitForTimeout(400);
+    const ap = await tel.evaluate(() => ({
+      etat, sauve: !!localStorage.getItem('kaze-partie-' + (emplacement + 1)) }));
+    v('IL RAMÈNE À L\'ÉCRAN-TITRE, AU DOIGT', ap.etat === 'titre', `état : ${ap.etat}`);
+    v('ET IL SAUVEGARDE AVANT : UN DOIGT QUI GLISSE NE COÛTE PAS LA PARTIE',
+      ap.sauve, 'rien n\'a été enregistré');
+
     v('aucune erreur JS (téléphone)', tel.erreursJS.length === 0, tel.erreursJS[0]);
     await tel.context().close();
   },
