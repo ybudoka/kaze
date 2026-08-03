@@ -3827,3 +3827,69 @@ poignées pour sortir.
 > La première version de la bannière disait « CASQUE : GÂCHETTE = ÉPÉE ».
 > `13-police.js` l'a refusée : **la police pixel ne connaît pas le signe « = »**
 > et l'aurait remplacé en silence par « ? ». Le piège du § 8, pris sur le fait.
+
+---
+
+## 56. Le casque : un décor, un écran courbe, et deux boutons qu'on vise
+
+| | |
+|---|---|
+| **Demande** | « Améliore graphiquement la VR. Ajoute un bouton pour quitter la VR et un pour retourner à l'écran principal. Mets aussi un fond immersif. » |
+
+### Ce que la géométrie a révélé
+
+En passant l'écran d'un rectangle à un arc, il a fallu calculer sa taille — et
+le chiffre était mauvais. La toile du jeu est en **portrait** sur un téléphone
+(200 × 280) : trois mètres de large y donnaient **4,20 m de haut**. Un mur, pas
+un écran. L'écran tient désormais dans une **boîte** de 3 m × 2 m, format
+conservé.
+
+### L'écran est un arc, pas un plan
+
+Sur trois mètres, les bords d'un plan sont plus loin que le centre : l'œil doit
+accommoder autrement en regardant sur le côté. L'arc de cylindre garde **toute
+la surface à distance constante**.
+
+```
+arc  : tous les sommets à 2,600 m
+plan : le coin serait à 2,696 m
+```
+
+Vingt-neuf colonnes suffisent à ne plus voir l'angle. Un **cadre** encadre
+l'écran — même ruban, un peu plus large, trois centimètres en retrait.
+
+### Un fond, plutôt qu'un vide noir
+
+Un aplat sombre prive l'œil de tout repère. Il y a maintenant :
+
+- une **voûte étoilée** — un cube retourné de quarante mètres, dont le dégradé
+  et les étoiles sont calculés depuis la **direction** du point. Douze triangles
+  suffisent à faire un ciel : inutile de trianguler une sphère ;
+- un **sol quadrillé** qui s'efface au loin et donne l'échelle et l'horizon.
+
+La voûte **suit la tête mais pas son cap** : un ciel qui tournerait avec l'écran
+donnerait le tournis.
+
+### Deux boutons, visés à la manette
+
+`QUITTER VR` et `ÉCRAN TITRE`, dessinés **dans la toile** — le seul endroit que
+le casque affiche. On les vise avec la manette droite : l'écran étant un arc
+centré sur la tête, c'est une intersection **rayon/cylindre** en deux dimensions,
+plus simple qu'un plan et surtout juste sur les bords, où un plan aurait dévié.
+
+Deux règles apprises des boutons d'écran :
+
+- **la gâchette ne frappe pas** quand elle vise un bouton — sinon on donnait un
+  coup d'épée à chaque clic sur `QUITTER VR` ;
+- **l'action part au relâchement**, pas à l'appui : on peut se raviser en
+  glissant hors du bouton.
+
+> **Réinjection**, cinq fois : courbure retirée (l'arc devient un plan, coins à
+> 2,696 m) ; boîte retirée (4,20 m de haut) ; voûte solidaire du cap ; gâchette
+> non neutralisée ; action à l'appui.
+>
+> La dernière a d'abord **planté le contrôle** au lieu de le faire rougir : un
+> bouton qui met fin à la session laissait le reste de l'image tourner sur une
+> session déjà close. `majViseurVR`, `majManetteXR` et `boucleVR` s'abstiennent
+> désormais dès que la session a disparu — un vrai défaut, trouvé parce que la
+> réinjection a mal tourné.

@@ -109,9 +109,16 @@ module.exports = {
       out.ignorePetitMouvement = Math.abs(xrAncre.yaw - yaw0) < 0.02;
       for (let i = 0; i < 240; i++) suivreTete(pose(1.6));      // on pivote franchement
       out.rattrapeGrandMouvement = Math.abs(xrAncre.yaw - 1.6) < 0.15;
-      // l'écran est bien DEVANT, à la bonne distance
+      /* L'arc est CENTRÉ sur la tête : la matrice ne fait plus que le tourner et
+         le poser à hauteur des yeux, la distance est portée par les sommets. */
       xrAncre.pose = false; suivreTete(pose(0, 0, 1.5, 0));
-      out.ecranDevant = { x: +_mod[12].toFixed(2), y: +_mod[13].toFixed(2), z: +_mod[14].toFixed(2) };
+      out.ancreEcran = { x: +_mod[12].toFixed(2), y: +_mod[13].toFixed(2), z: +_mod[14].toFixed(2) };
+      // le point central de l'arc, passé par la matrice : droit devant, à XR_DIST
+      const parMod = (x, y, z) => ({
+        x: +(_mod[0] * x + _mod[4] * y + _mod[8] * z + _mod[12]).toFixed(2),
+        y: +(_mod[1] * x + _mod[5] * y + _mod[9] * z + _mod[13]).toFixed(2),
+        z: +(_mod[2] * x + _mod[6] * y + _mod[10] * z + _mod[14]).toFixed(2) });
+      out.centreEcran = parMod(0, 0, -XR_DIST);
 
       /* ---------- le produit de matrices, contrôlé à blanc ---------- */
       const I = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
@@ -133,7 +140,29 @@ module.exports = {
           { transform: { inverse: { matrix: M } }, projectionMatrix: M }
         ]
       };
-      const fauxFrame = { getViewerPose: () => faussePose };
+      /* Une manette qui VISE : la maquette porte sa pose sur son propre
+         `targetRaySpace`, et `getPose` la rend — comme le fait un vrai casque. */
+      /* On vise une DIRECTION, et l'on en déduit le quaternion en inversant la
+         formule que le jeu applique (`dx=-sin(cap)cos(incl)`, `dy=sin(incl)`).
+         Le contrôle ne recopie donc pas l'intersection qu'il mesure — seulement
+         la façon de tenir la manette. */
+      const versQuat = (dx, dy, dz) => {
+        const L = Math.hypot(dx, dy, dz); dx /= L; dy /= L; dz /= L;
+        const inc = Math.asin(dy), cap = Math.atan2(-dx, -dz);
+        const sy = Math.sin(cap / 2), cy = Math.cos(cap / 2);
+        const sp = Math.sin(inc / 2), cp = Math.cos(inc / 2);
+        return { x: cy * sp, y: sy * cp, z: -sy * sp, w: cy * cp };
+      };
+      const viseur = (x, y, z, dir) => ({
+        __pose: { transform: { position: { x, y, z },
+                               orientation: versQuat(dir[0], dir[1], dir[2]) } } });
+      // la direction, depuis l'ancre, vers un point (px,py) de la toile
+      const versToile = (px, py) => {
+        const ang = (px / CV.width - 0.5) * xrArc(), hh = xrDemiHaut();
+        return [Math.sin(ang) * XR_DIST, (0.5 - py / CV.height) * 2 * hh, -Math.cos(ang) * XR_DIST];
+      };
+      const fauxFrame = { getViewerPose: () => faussePose,
+                          getPose: (espace) => (espace && espace.__pose) || null };
       const fins = [];
       const fausseSession = {
         renderState: { baseLayer: null },
@@ -182,6 +211,106 @@ module.exports = {
       out.manetteEnSession = BTN.B === 1;
       fausseSession.inputSources = [];
       { const cb = rafCb; rafCb = null; cb(0, fauxFrame); }
+
+      /* ---- LA GÉOMÉTRIE : un ARC, pas un rectangle ----
+         Sur un plan de trois mètres, les bords sont plus loin que le centre et
+         l'œil doit accommoder autrement. On mesure la distance de CHAQUE sommet
+         de l'écran au centre de l'arc : elle doit être constante. */
+      {
+        const som = xrSommets, n = xrNbEcran, R = XR_DIST;
+        let mini = 1e9, maxi = -1e9;
+        for (let i = 0; i < n; i++) {
+          const x = som[i * 5], z = som[i * 5 + 2];
+          const d = Math.hypot(x, z);
+          if (d < mini) mini = d; if (d > maxi) maxi = d;
+        }
+        out.arcMini = +mini.toFixed(4); out.arcMaxi = +maxi.toFixed(4); out.arcR = R;
+        out.arcColonnes = n / 2;
+        // ce que donnerait un écran PLAT de même largeur : le coin est plus loin
+        const t = xrTaille();
+        out.platCoin = +Math.hypot(R, t.w / 2).toFixed(4);
+        out.taille = { l: +t.w.toFixed(2), h: +t.h.toFixed(2) };
+        // le cadre : plus grand et légèrement en retrait
+        let hEcran = 0, hCadre = 0, zEcran = 0, zCadre = 0;
+        for (let i = 0; i < n; i++) hEcran = Math.max(hEcran, Math.abs(som[i * 5 + 1]));
+        for (let i = xrDebCadre; i < xrDebCadre + n; i++) {
+          hCadre = Math.max(hCadre, Math.abs(som[i * 5 + 1]));
+          zCadre = Math.min(zCadre, som[i * 5 + 2]);
+        }
+        for (let i = 0; i < n; i++) zEcran = Math.min(zEcran, som[i * 5 + 2]);
+        out.cadre = { hEcran: +hEcran.toFixed(3), hCadre: +hCadre.toFixed(3),
+                      zEcran: +zEcran.toFixed(3), zCadre: +zCadre.toFixed(3) };
+      }
+
+      /* ---- LA VOÛTE : elle doit ENVELOPPER le joueur ----
+         Un ciel qui ne l'entoure pas laisse voir le vide par-dessous ; un ciel
+         qui suit le cap de l'écran donne le tournis. On vérifie les deux. */
+      {
+        const som = xrSommets;
+        let mini = 1e9, maxi = -1e9, bas = 1e9, haut = -1e9;
+        for (let i = xrDebCiel; i < xrDebCiel + xrNbCiel; i++) {
+          const x = som[i * 5], y = som[i * 5 + 1], z = som[i * 5 + 2];
+          const d = Math.hypot(x, y, z);
+          if (d < mini) mini = d; if (d > maxi) maxi = d;
+          if (y < bas) bas = y; if (y > haut) haut = y;
+        }
+        out.ciel = { mini: +mini.toFixed(1), maxi: +maxi.toFixed(1), bas, haut,
+                     faces: xrNbCiel / 6, ecran: XR_DIST };
+        /* L'ancre suit la tête en douceur (6 % par image) : une seule passe ne
+           la déplace que de 6 cm. On laisse converger. */
+        for (let i = 0; i < 200; i++) suivreTete(pose(1.2, 0.3, 1.6, -0.4));
+        out.cielSuitLaTete = { x: +_cielM[12].toFixed(2), y: +_cielM[13].toFixed(2),
+                               z: +_cielM[14].toFixed(2),
+                               tourne: +_cielM[0].toFixed(3) };   // 1 = aucune rotation
+      }
+
+      /* ---- VISER, ET APPUYER SUR UN BOUTON ---- */
+      xrAncre.pose = false; suivreTete(pose(0, 0, 1.6, 0));
+      const gachette = (p, presse) => { const src = { handedness: 'right', targetRaySpace: p,
+        gamepad: { mapping: 'xr-standard',
+          buttons: Array.from({ length: 6 }, (_, i) => ({ pressed: i === 0 && presse, value: 0 })),
+          axes: [0, 0, 0, 0] } };
+        fausseSession.inputSources = [src]; };
+
+      const centreDe = b => [b.x + b.w / 2, b.y + b.h / 2];
+      const razBoutons = () => { for (const k in BTN) BTN[k] = 0;
+        for (const k in padAvant) { padAvant[k] = 0; padMaint[k] = 0; } };
+
+      // droit devant : le viseur tombe au centre de la toile, sur aucun bouton
+      gachette(viseur(0, 1.6, 0, versToile(CV.width / 2, CV.height / 2)), false);
+      majViseurVR(fauxFrame);
+      out.viseCentre = { actif: vrViseur.actif, x: Math.round(vrViseur.x), y: Math.round(vrViseur.y),
+                         bouton: vrViseur.bouton, milieuX: Math.round(CV.width / 2) };
+
+      // sur le premier bouton
+      const bo = boiteVR(0);
+      gachette(viseur(0, 1.6, 0, versToile(...centreDe(bo))), false);
+      majViseurVR(fauxFrame);
+      out.viseBas = { actif: vrViseur.actif, bouton: vrViseur.bouton,
+                      x: Math.round(vrViseur.x), y: Math.round(vrViseur.y),
+                      boite: bo };
+
+      // la gâchette, en visant un bouton, ne doit PAS donner de coup d'épée
+      razBoutons();
+      gachette(viseur(0, 1.6, 0, versToile(...centreDe(bo))), true);
+      majViseurVR(fauxFrame); majManetteXR();
+      out.epeeNeutralisee = BTN.B === 0;
+      // ... alors qu'elle frappe bien quand on ne vise aucun bouton
+      razBoutons();
+      gachette(viseur(0, 1.6, 0, versToile(CV.width / 2, CV.height / 2)), true);
+      majViseurVR(fauxFrame); majManetteXR();
+      out.epeeQuandOnNeVisePas = BTN.B === 1;
+      razBoutons();
+
+      // ÉCRAN TITRE : on appuie sur le second bouton, puis on relâche
+      const b1 = boiteVR(1), d1 = versToile(...centreDe(b1));
+      etat = 'jeu'; vrGachettePrec = false;
+      gachette(viseur(0, 1.6, 0, d1), true);  majViseurVR(fauxFrame);
+      out.boutonVise = vrViseur.bouton;
+      out.pasEncore = etat;                          // rien tant qu'on n'a pas relâché
+      gachette(viseur(0, 1.6, 0, d1), false); majViseurVR(fauxFrame);
+      out.apresRelacheTitre = etat;
+      fausseSession.inputSources = [];
 
       /* ---- SORTIR DU CASQUE SANS LE MENU SYSTÈME ----
          La barre d'outils est en HTML : une fois le casque sur les yeux, le
@@ -253,8 +382,8 @@ module.exports = {
       r.ignorePetitMouvement && r.rattrapeGrandMouvement,
       `petit=${r.ignorePetitMouvement} grand=${r.rattrapeGrandMouvement}`);
     v('il se pose devant le joueur, à hauteur des yeux',
-      Math.abs(r.ecranDevant.x) < 0.01 && Math.abs(r.ecranDevant.z + 2.6) < 0.01
-      && Math.abs(r.ecranDevant.y - 1.5) < 0.01, JSON.stringify(r.ecranDevant));
+      Math.abs(r.centreEcran.x) < 0.01 && Math.abs(r.centreEcran.z + 2.6) < 0.01
+      && Math.abs(r.centreEcran.y - 1.5) < 0.01, JSON.stringify(r.centreEcran));
     v('CONTRÔLE À BLANC : le produit de matrices sait rendre l\'identité',
       r.matIdentite && r.matTranslations.join(',') === '2,4,6',
       `identité=${r.matIdentite} translations=${r.matTranslations.join(',')}`);
@@ -265,11 +394,47 @@ module.exports = {
     v('le bouton propose alors de quitter', /QUITTER/.test(r.libelleBouton), r.libelleBouton);
     v('EN CASQUE, LA BOUCLE DE PAGE NE FAIT PLUS TOURNER LE JEU',
       r.pageNeJouePlus, 'le jeu tourne deux fois par image');
+    /* Quatre couches par œil : la voûte, le sol, le cadre, puis l'écran. */
     v('C\'EST LA SESSION QUI CADENCE, ET ELLE DESSINE LES DEUX YEUX',
-      r.sessionJoue === 3 && r.yeuxDessines === 6 && r.replanifie,
+      r.sessionJoue === 3 && r.yeuxDessines === 3 * 2 * 4 && r.replanifie,
       `images=${r.sessionJoue} dessins=${r.yeuxDessines} replanifiée=${r.replanifie}`);
     v('LES MANETTES DE LA SESSION ARRIVENT DANS LE JEU',
       r.manetteEnSession, 'la gâchette ne frappe pas');
+    v('L\'ÉCRAN EST UN ARC : TOUS SES POINTS SONT À LA MÊME DISTANCE',
+      Math.abs(r.arcMini - r.arcR) < 0.002 && Math.abs(r.arcMaxi - r.arcR) < 0.002,
+      `de ${r.arcMini} à ${r.arcMaxi} m pour un rayon de ${r.arcR}`);
+    v('CONTRÔLE À BLANC : un écran PLAT aurait des coins plus loin',
+      r.platCoin > r.arcR + 0.05, `coin plat à ${r.platCoin} m contre ${r.arcR}`);
+    v('l\'arc est assez découpé pour ne pas se voir', r.arcColonnes >= 20,
+      `${r.arcColonnes} colonnes`);
+    v('L\'ÉCRAN TIENT DANS SA BOÎTE, MÊME AVEC UNE TOILE EN PORTRAIT',
+      r.taille.l <= 3.01 && r.taille.h <= 2.01 && r.taille.h > 0.5,
+      `${r.taille.l} m x ${r.taille.h} m`);
+    v('le cadre entoure l\'écran et se tient derrière',
+      r.cadre.hCadre > r.cadre.hEcran && r.cadre.zCadre < r.cadre.zEcran,
+      JSON.stringify(r.cadre));
+
+    v('LA VOÛTE ENVELOPPE LE JOUEUR, ÉCRAN ET SOL COMPRIS',
+      r.ciel.mini > r.ciel.ecran + 5 && r.ciel.bas < 0 && r.ciel.haut > 0 && r.ciel.faces === 6,
+      JSON.stringify(r.ciel));
+    v('LES ÉTOILES SUIVENT LA TÊTE MAIS NE TOURNENT PAS AVEC L\'ÉCRAN',
+      // pose(cap, x, y, z) : la tête est en (0.3, 1.6, -0.4), cap 1.2 rad
+      Math.abs(r.cielSuitLaTete.x - 0.3) < 0.02 && Math.abs(r.cielSuitLaTete.y - 1.6) < 0.02
+      && Math.abs(r.cielSuitLaTete.z + 0.4) < 0.02 && r.cielSuitLaTete.tourne === 1,
+      JSON.stringify(r.cielSuitLaTete));
+
+    v('VISER DROIT DEVANT TOMBE AU CENTRE DE LA TOILE',
+      r.viseCentre.actif && Math.abs(r.viseCentre.x - r.viseCentre.milieuX) <= 1
+      && r.viseCentre.bouton === -1, JSON.stringify(r.viseCentre));
+    v('VISER EN BAS ATTEINT LE PREMIER BOUTON',
+      r.viseBas.actif && r.viseBas.bouton === 0, JSON.stringify(r.viseBas));
+    v('LA GÂCHETTE NE FRAPPE PAS QUAND ELLE VISE UN BOUTON',
+      r.epeeNeutralisee === true && r.epeeQuandOnNeVisePas === true,
+      `sur bouton=${r.epeeNeutralisee} ailleurs=${r.epeeQuandOnNeVisePas}`);
+    v('LE BOUTON AGIT AU RELÂCHEMENT, PAS À L\'APPUI',
+      r.boutonVise === 1 && r.pasEncore === 'jeu' && r.apresRelacheTitre === 'titre',
+      `visé=${r.boutonVise} avant=${r.pasEncore} après=${r.apresRelacheTitre}`);
+
     v('UNE SEULE POIGNÉE NE FAIT PAS QUITTER LE CASQUE',
       r.uneSeulePoignee === true, 'sortie sur une poignée');
     v('LES DEUX POIGNÉES TENUES ENSEMBLE FONT SORTIR DU CASQUE',
