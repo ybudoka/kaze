@@ -1448,6 +1448,16 @@ function genererMonde(){
 function planterPanneaux(){
   const libre=(x,y)=>dansCarte(x,y)&&!solide(x*TS+8,y*TS+8,Etg(x,y)*EH);
   const surPNJ=(x,y)=>pnjs.some(p=>Math.floor(p.x/TS)===x&&Math.floor(p.y/TS)===y);
+  /* UN MUR AU SUD RECOUVRE LE POTEAU. Les tuiles ci-dessous passent toutes par
+     `murTuile`, qui peint la case ENTIÈRE en bloc surélevé ; dessinée après le
+     poteau (rangée plus basse = tracée plus tard), elle l'efface presque
+     complètement. Mesuré à la loupe sur le panneau de la Cité des Nues : il
+     n'en restait qu'UNE ligne sombre d'un pixel.
+     Ce n'est pas une affaire de HAUTEUR : le sapin des Cimes fait 26 px contre
+     20 au mur, et ne masque rien du tout — il pousse au pied du poteau, il ne
+     le recouvre pas. Seule la classe « mur » compte. */
+  const MURS=[O.MUR,O.PORTE,O.GRILLE,O.OEIL,O.FISSURE];
+  const murAuSud=(x,y)=>MURS.includes(Obj(x,y+1));
   const contournable=(cx,cy)=>{
     const bord=[];
     for(const [dx,dy] of [[0,-1],[0,1],[-1,0],[1,0]]) if(libre(cx+dx,cy+dy)) bord.push([cx+dx,cy+dy]);
@@ -1498,11 +1508,19 @@ function planterPanneaux(){
       let mieux=9;
       for(const [dx,dy] of anneau(r)){
         const x=tx+dx, y=ty+dy;
-        if(!libre(x,y)||surPNJ(x,y)||!contournable(x,y)) continue;
+        if(!libre(x,y)||surPNJ(x,y)||!contournable(x,y)||murAuSud(x,y)) continue;
         const d=degre(x,y);
         if(d<mieux){ mieux=d; choix=[x,y]; }
       }
     }
+    /* Dernier recours : plutôt un poteau adossé à un mur que pas de poteau du
+       tout — invisible pour invisible, autant garder la zone de lecture là où
+       elle a un sens. Aucun des 34 panneaux n'en arrive là. */
+    if(!choix) for(let r=1;r<=4&&!choix;r++)
+      for(const [dx,dy] of anneau(r)){
+        const x=tx+dx, y=ty+dy;
+        if(libre(x,y)&&!surPNJ(x,y)&&contournable(x,y)){ choix=[x,y]; break; }
+      }
     if(choix){ putO(choix[0],choix[1],O.PANNEAU);
                s.x=choix[0]*TS+8; s.y=choix[1]*TS+8; }   // la zone de lecture suit le poteau
   }
@@ -9751,7 +9769,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.8';
+const VERSION='V2.9';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

@@ -3277,3 +3277,72 @@ panneau, on rejoue la plantation. Avant correctif, il restait orphelin
   rendus « identiques » diffèrent de 54 650 px.
 - **Un `if(trouvé)` sans branche `sinon`** dans un placement de décor. Le jour
   où il ne trouve pas, il ne le dit à personne.
+
+---
+
+## 46. Le § 45 avait tort : un panneau ÉTAIT bien caché par un mur
+
+Le § 45 conclut « les 34 panneaux sont sains, rien à déplacer », et range
+l'alerte d'occlusion parmi les faux positifs. **C'est faux, et une capture
+d'écran du joueur l'a montré** : dans la Cité des Nues, on ne voyait du poteau
+qu'une ligne sombre d'un pixel.
+
+### La faute de méthode
+
+Le relevé avait signalé **trois** poteaux suspects. On en a vérifié **un** —
+celui des Cimes — constaté qu'il allait bien, et **généralisé aux trois**. Le
+troisième était le vrai. Vérifier un échantillon et conclure sur la population,
+c'est exactement ce que ce dépôt s'interdit ailleurs.
+
+### La cause réelle : la classe « mur », pas la hauteur
+
+Le critère de départ — « un objet PLUS HAUT sur la case du sud » — était mal
+formulé, ce qui explique qu'on ait pu le croire faux :
+
+| voisin du sud | hauteur | le poteau est… |
+|---|---|---|
+| SAPIN (Cimes) | **26 px** | **entièrement visible** — il pousse à son pied |
+| MUR (Nues) | 20 px | **effacé**, une ligne d'un pixel |
+
+Le sapin est plus HAUT que le mur et ne masque rien. Ce qui compte est que
+`O.MUR`, `O.PORTE`, `O.GRILLE`, `O.OEIL` et `O.FISSURE` passent tous par
+`murTuile()`, qui peint la case **entière** en bloc surélevé ; tracée après le
+poteau (rangée plus basse = plus tard), elle le recouvre.
+
+### Ce qu'a coûté l'instrument
+
+On a voulu trancher en comptant les pixels que le poteau ajoute à l'image. Le
+contrôle à blanc a rougi **trois fois**, et chaque échec disait quelque chose :
+
+1. **54 650 px** — `rendreMonde()` décrémente `secousse` et décale l'image ;
+2. encore un écart — le sol est bâti par **tranches budgétées** : deux rendus
+   consécutifs diffèrent tant que la bande n'est pas finie. Il faut rendre
+   **jusqu'à convergence** avant toute comparaison ;
+3. **médiane à 0 px** — le héros posé à sept tuiles mettait le poteau **hors
+   du champ** (demi-largeur ~100 px) ; rapproché, c'est son sprite animé qui
+   polluait la mesure, d'où une fenêtre de 56 px autour du seul poteau.
+
+Le contrôle à blanc a fini par passer à 0. Mais la réponse est venue d'une
+**capture agrandie ×6** : trois images ont réglé ce que trois instruments
+n'avaient pas su dire. On mesure ensuite l'invariant de TUILES ainsi validé,
+qui lui est déterministe et gratuit.
+
+### Le correctif
+
+`planterPanneaux` refuse une case dont la voisine du sud est de la classe
+« mur ». Le panneau des Nues passe de (40,485) à (39,485) : **entièrement
+visible**, vérifié à la loupe. Aucun des 33 autres ne bouge.
+
+Un dernier recours accepte un poteau adossé à un mur plutôt que pas de poteau
+du tout — invisible pour invisible, autant garder la zone de lecture là où elle
+a un sens. Aucun panneau n'en arrive là.
+
+### À ne pas réintroduire
+
+- **Vérifier un cas et conclure sur trois.** C'est la faute qui a produit le
+  § 45. Le relevé listait les trois : il fallait les regarder tous les trois.
+- **Déduire l'occlusion d'une hauteur.** `HAUT_O` dit ce qu'on enjambe, pas ce
+  qui se peint devant quoi. Un sapin de 26 px masque moins qu'un mur de 20.
+- **Écrire « rien à corriger » sur la foi d'un instrument dont le contrôle à
+  blanc n'a jamais été vert.** Le § 45 le dit lui-même, puis conclut quand
+  même.

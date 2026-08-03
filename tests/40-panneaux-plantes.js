@@ -71,7 +71,15 @@ module.exports = {
           if (!libre(x, y) || !vus[y * MW + x]) continue;
           if (Math.hypot(x * TS + 8 - s.x, y * TS + 8 - s.y) < RAYON) cases++;
         }
+        /* Un mur au SUD recouvre le poteau : dessiné après lui, `murTuile`
+           peint la case entière en bloc surélevé. Vérifié à la loupe sur le
+           panneau de la Cité des Nues — il n'en restait qu'une ligne d'un
+           pixel — et vérifié à l'inverse sur celui des Cimes, dont le sapin
+           (plus HAUT qu'un mur) ne masque rien : c'est la classe « mur » qui
+           compte, pas la hauteur. */
+        const MURS = [O.MUR, O.PORTE, O.GRILLE, O.OEIL, O.FISSURE];
         return { tx, ty, poteau: Obj(tx, ty) === O.PANNEAU, cases,
+                 murAuSud: MURS.includes(Obj(tx, ty + 1)),
                  region: NOMS_REGION[regionIdx(ty)], txt: s.txt.slice(0, 38) };
       };
 
@@ -104,6 +112,10 @@ module.exports = {
       sansPoteau.map(p => `(${p.tx},${p.ty}) ${p.region} « ${p.txt} »`).join(' · '));
     v('CHAQUE PANNEAU SE LIT DEPUIS UNE CASE ATTEIGNABLE À PIED', illisibles.length === 0,
       illisibles.map(p => `(${p.tx},${p.ty}) ${p.region} « ${p.txt} »`).join(' · '));
+
+    const masques = r.etats.filter(p => p.murAuSud);
+    v('AUCUN POTEAU N\'EST RECOUVERT PAR UN MUR', masques.length === 0,
+      masques.map(p => `(${p.tx},${p.ty}) ${p.region} « ${p.txt} »`).join(' · '));
 
     /* Un panneau qu'on ne peut lire que d'une seule case se rate facilement :
        on le signale sans en faire un échec, tant qu'il en existe une. */
