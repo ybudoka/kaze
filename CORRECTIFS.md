@@ -4391,3 +4391,81 @@ plus à payer dans la table.
 > partout ; l'onde sans brèche ; le moteur privé de poursuite ; deux gardiens
 > ramenés au même répertoire ; et les cinq dessins — corps, poing, rayon,
 > essaim, onde — supprimés un à un.
+
+## 66. L'arène était bâtie au milieu du village
+
+> *« Tu as mis l'arène infinie au milieu du village. Déplace-la dans un endroit
+> où il n'y a vraiment personne, une nouvelle zone — et la zone pourrait changer
+> pour faire passer les huit mondes. Corrige en haut à droite. »*
+
+Capture à l'appui, et deux défauts sur la même image.
+
+### L'enclos enfermait le village
+
+Le § 64 posait l'arène en `{x0:30, y0:38}` — soit **Val-des-Saules**. Mesuré
+dans le monde généré : **10 occupants** dans l'emprise, deux maisons et une
+villageoise comprises. On se battait contre vingt-six espèces dans la place du
+village, portes closes.
+
+Huit emplacements ont été **mesurés** dans le monde réellement généré, un par
+région, en cherchant le rectangle 26×20 qui n'écrase rien. Chacun est vérifié à
+chaque livraison sur quatre points : aucun PNJ, maison ou coffre à moins de deux
+tuiles ; le rectangle tient **tout entier dans sa région** (à cheval sur une
+frontière, le sol changerait de monde au milieu de l'enclos) ; il ne mord sur
+aucune salle close du jeu ; et il reste dans la carte.
+
+`batirEnclosArene` retire en plus ce qu'il recouvre — PNJ, maisons, lucioles, et
+tout **refuge** qui le chevauche, sans quoi un coin de la fosse arrêterait les
+tirs ennemis. Sans danger : l'arène joue sur un monde jetable, jamais sauvegardé.
+
+### La zone traverse les huit mondes
+
+Trois vagues par monde, les huit mondes en vingt-quatre vagues, **dans l'ordre**.
+À chaque changement l'enclos est rebâti ailleurs, le héros suit, et la bande de
+sol est reconstruite — les bandes étant gardées une fois bâties, le décor serait
+resté celui du monde précédent.
+
+Le **sol** de l'enclos porte désormais sa région, comme ses murs le faisaient
+déjà : basalte, neige, corail, désert, marais, pierre du ciel, fracture. Une
+dalle grise partout rendait les huit mondes indiscernables **une fois dans la
+fosse** — on changeait de décor autour, et de rien sous les pieds.
+
+Aucun de ces sols ne change la marche du héros, et c'est **mesuré par une marche
+réelle** de trente images sur chacun des huit : 46,5 px partout. Les deux
+premiers choix ne passaient pas — la **vase** du Marais colle (27,9 px) et la
+**glace** des Cimes fait déraper (31,0 px) ; ils ont été remplacés par le marais
+et la neige, qui n'ont aucun effet.
+
+La ligne d'objectif, elle, annonçait `BATS LE ROI YÉTI` à quelqu'un qui n'a rien
+à battre qu'une vague. Elle dit maintenant **où l'on est** et combien de vagues
+restent avant le monde suivant.
+
+### En haut à droite : deux tracés l'un sur l'autre
+
+Le § 64 écrivait, en commentaire : « sa ligne remplace les rubis et les pierres,
+qui n'y servent à rien ». **Rien ne le faisait.** Les deux se dessinaient dans le
+même coin, au pixel près : `VAGUE n` en `W-92,4` et la gemme en `W-92,4`.
+
+Mesuré en interceptant les tracés d'une image d'ATH : **472 px² de recouvrement**,
+et quatre compteurs dessinés par-dessus la ligne de score.
+
+Le contrôle à blanc — le même relevé **hors** de l'arène, qui doit trouver les
+quatre compteurs et zéro recouvrement — en a sorti un second, plus petit : la
+gemme fait 14 px de large et commençait en `W-92`, la première décimale en
+`W-80`. **21 px²** de chiffre dessiné sous une image, depuis toujours.
+
+### Ce que le contrôle a trouvé
+
+Un contrôle du § 64 rougissait : *« l'enchaînement vaut plus cher que le premier »*,
+**10 puis 6**. Il abattait `ennemis[0]` — or un gluant abattu se **scinde** en
+petits gluants, et `ennemis[0]` désignait alors un rejeton à 5 points au lieu du
+gluant à 10 : il comparait deux espèces différentes. Il repart maintenant d'une
+arène vide et abat la créature qu'il vient de pondre, après avoir vérifié son
+espèce. Le déplacement de l'arène n'a fait que changer le tirage qui le cachait.
+
+> **Réinjection**, onze fois, toutes rouges : l'arène remise au village ; une
+> zone débordant sur la région voisine ; l'enclos qui n'écrase plus ce qu'il
+> recouvre ; la zone qui ne tourne plus, puis qui tourne dans le désordre ; le
+> héros laissé dans le monde précédent ; les huit arènes remises en dalle grise ;
+> un sol qui colle, un sol qui glisse ; les compteurs redessinés sur la ligne de
+> score ; la gemme remise sur la première décimale.

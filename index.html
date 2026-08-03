@@ -5670,6 +5670,16 @@ function ecranJournal(){
 
 /* -------------------- OBJECTIF COURANT -------------------- */
 function objectifCourant(){
+  /* Dans l'arène il n'y a pas de quête : la ligne d'objectif annonçait « BATS
+     LE ROI YÉTI » à quelqu'un qui n'a rien à battre qu'une vague. Elle sert
+     donc à dire OÙ l'on est — le monde change toutes les trois vagues, et
+     c'est la seule chose qui le nomme. */
+  if(areneEtat.actif){
+    const z=ARENE_ZONES[ARENE.zone]||ARENE_ZONES[0];
+    const reste=ARENE_VAGUES_PAR_ZONE-((areneEtat.vague-1)%ARENE_VAGUES_PAR_ZONE);
+    return z.nom+' - '+(reste<=1?'LE MONDE CHANGE APRÈS CETTE VAGUE'
+                                :reste+' VAGUES AVANT LE MONDE SUIVANT');
+  }
   /* Dans les régions du sud, l'objectif suit le lieu où l'on se trouve. */
   if(enFaille(J.y)){
     if(Q.rongeurTue) return "LES TROIS ÉTOILES SONT LIBRES";
@@ -9938,17 +9948,25 @@ function ath(){
     }
     X.fillStyle='#4a3d6b'; X.fillRect(6,yM+5,J.magiemax*4-1,1);
   }
-  // rubis
-  X.drawImage(SPR.rubis0,W-92,4);
-  texte(X,String(J.rubis).padStart(3,'0'),W-80,7,'#e8f0ff');
-  /* les trois PIERRES DE GARDE. C'étaient trois étoiles : elles annonçaient
-     dès la première minute qu'on les avait, alors que le Rongeur les a
-     dévorées et qu'on ne les reprend qu'à la toute fin. */
-  for(let i=0;i<3;i++){
-    X.globalAlpha=i<J.fragments?1:.22;
-    X.drawImage(SPR.pierreGarde,W-56+i*17,3,14,14);
+  /* Les rubis et les pierres de garde, SAUF dans l'arène : elles n'y servent
+     à rien, et la ligne de score occupe le même coin. Le commentaire ci-dessus
+     l'annonçait déjà — mais rien ne le faisait : les deux se dessinaient l'un
+     sur l'autre, 472 px² de recouvrement mesurés au pixel près. */
+  if(!areneEtat.actif){
+    /* La gemme fait 14 px de large : posée en W-92, elle couvrait la première
+       décimale, qui commençait en W-80. Sept px² — invisible à l'œil, mais
+       c'est bien un chiffre dessiné sous une image. */
+    X.drawImage(SPR.rubis0,W-92,4);
+    texte(X,String(J.rubis).padStart(3,'0'),W-77,7,'#e8f0ff');
+    /* les trois PIERRES DE GARDE. C'étaient trois étoiles : elles annonçaient
+       dès la première minute qu'on les avait, alors que le Rongeur les a
+       dévorées et qu'on ne les reprend qu'à la toute fin. */
+    for(let i=0;i<3;i++){
+      X.globalAlpha=i<J.fragments?1:.22;
+      X.drawImage(SPR.pierreGarde,W-56+i*17,3,14,14);
+    }
+    X.globalAlpha=1;
   }
-  X.globalAlpha=1;
 
   /* Les DEUX boîtes d'objet, marquées de leur touche. La boîte affichait
      autrefois EN DUR la flèche dès que l'objet n'était pas une bombe : le
@@ -10737,7 +10755,32 @@ function ouvrirPartiePlus(){
    aucune sauvegarde, ne déverrouille rien, et le meilleur score est gardé à
    part. On y entre avec tout l'outillage, sinon la moitié du bestiaire serait
    intouchable (le crabe cuirassé, le golem, l'ombre…). */
-const ARENE={x0:30,y0:38,w:26,h:20};
+/* ---- LES HUIT TERRAINS ----
+   La première version bâtissait l'enclos AU MILIEU DU VILLAGE : deux maisons
+   et une villageoise se retrouvaient enfermées dans la fosse avec le
+   bestiaire. Chaque emplacement a donc été MESURÉ dans le monde généré —
+   aucun PNJ, aucune maison, aucun coffre, aucune salle close à moins de deux
+   tuiles — et chacun tient TOUT ENTIER dans sa région : à cheval sur une
+   frontière, le sol changerait de monde au milieu de l'enclos.
+
+   Et la zone TOURNE : trois vagues par monde, les huit mondes en vingt-quatre
+   vagues. La pierre, le sol, le ciel et la musique changent avec elle — c'est
+   la seule chose qui distingue la vague 20 de la vague 2 autrement que par le
+   nombre de bêtes. */
+const ARENE_LARGE=26, ARENE_HAUT=20, ARENE_VAGUES_PAR_ZONE=3;
+const ARENE_ZONES=[
+  {nom:'LA VALLÉE',             x0:12, y0:3,   sol:'DALLE'},
+  {nom:'LES TERRES DE CENDRE',  x0:15, y0:107, sol:'BASALTE'},
+  {nom:'LES CIMES GELÉES',      x0:39, y0:163, sol:'NEIGE'},
+  {nom:"LE LAGON D'AZUR",       x0:36, y0:252, sol:'CORAIL'},
+  {nom:'LES SABLES DU MIRAGE',  x0:40, y0:323, sol:'DESERT'},
+  {nom:'LE MARAIS DES MURMURES',x0:28, y0:423, sol:'MARAIS'},
+  {nom:'LA CITÉ DES NUES',      x0:55, y0:483, sol:'PIERRECIEL'},
+  {nom:'LA FAILLE',             x0:60, y0:590, sol:'FRACTURE'}
+];
+/* `ARENE` est la zone COURANTE : tout le reste du jeu ne connaît qu'elle. */
+const ARENE={x0:ARENE_ZONES[0].x0,y0:ARENE_ZONES[0].y0,w:ARENE_LARGE,h:ARENE_HAUT,zone:-1};
+const zoneDeVague=n=>Math.floor(Math.max(0,n-1)/ARENE_VAGUES_PAR_ZONE)%ARENE_ZONES.length;
 /* Le bestiaire, par ordre d'apparition : on ouvre sur ce qu'on connaît, on
    finit sur ce qui exige un outil. C'est la même idée que l'escalade des
    gardiens — une chose de plus à comprendre, pas seulement plus de vie. */
@@ -10780,6 +10823,11 @@ function compositionVague(n){
 }
 function lancerVague(){
   areneEtat.vague++;
+  /* Le monde change sous les pieds toutes les trois vagues. On ne le fait
+     qu'ENTRE deux vagues, l'enclos vide : déplacer le sol pendant qu'une bête
+     y court la laisserait dehors, dans un monde où plus rien ne la contient. */
+  const z=zoneDeVague(areneEtat.vague);
+  if(z!==ARENE.zone) deplacerArene(z);
   const c=ARENE, liste=compositionVague(areneEtat.vague);
   for(const t of liste){
     let tx=0,ty=0,essais=0;
@@ -10789,6 +10837,21 @@ function lancerVague(){
   }
   SFX.menu(); secousse=8;
   annonce('VAGUE '+areneEtat.vague);
+}
+/* Poser l'arène dans un des huit mondes : on bâtit l'enclos, on y remet le
+   héros, et l'on rebâtit la bande de sol — sans quoi le décor resterait celui
+   de l'ancienne zone, les bandes étant gardées une fois construites. */
+function deplacerArene(i){
+  const z=ARENE_ZONES[i];
+  ARENE.zone=i; ARENE.x0=z.x0; ARENE.y0=z.y0; ARENE.w=ARENE_LARGE; ARENE.h=ARENE_HAUT;
+  batirEnclosArene();
+  J.x=(ARENE.x0+(ARENE.w>>1))*TS+8; J.y=(ARENE.y0+ARENE.h-4)*TS+8;
+  J.z=baseSol(J.x,J.y); J.vz=0; J.kx=0; J.ky=0; J.plane=0; J.invuln=120;
+  J.solX=J.x; J.solY=J.y; J.solZ=J.z;
+  tirs.length=0; ondes.length=0; butins.length=0; bombes.length=0; parts.length=0;
+  prerendreSol();
+  cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
+  if(areneEtat.vague>1){ annonce(z.nom); son(300,.5,'triangle',.06,120); secousse=10; }
 }
 function marquerArene(type){
   if(!areneEtat.actif) return;
@@ -10810,7 +10873,7 @@ function ouvrirArene(){
   razQuetes();
   genererMonde(); prerendreSol(); construireMini(); poserCoffres();
   ennemis=[];tirs=[];butins=[];bombes=[];parts=[];ondes=[];boss=null;
-  batirEnclosArene();
+  ARENE.zone=-1;                     // on repart toujours du premier monde
   /* Tout l'outillage : sans lui la moitié du bestiaire est intouchable. */
   Q.portailOuvert=true; Q.bottes=true; Q.palmes=true; Q.boomerang=true;
   Q.bracelet=true; Q.grappin=true; Q.fanal=true; Q.cape=true; Q.filet=true;
@@ -10819,22 +10882,42 @@ function ouvrirArene(){
   J.equipe={Y:'boomerang',X:'baguette'};
   J.pvmax=20; J.dores=0; J.pv=pvTotal(); J.magiemax=12; J.magie=12;
   J.fleches=99; J.bombes=40; J.rubis=0; J.fragments=0;
-  J.x=(ARENE.x0+(ARENE.w>>1))*TS+8; J.y=(ARENE.y0+ARENE.h-4)*TS+8; J.z=0;
-  J.invuln=120; J.plane=0; J.solX=J.x; J.solY=J.y; J.solZ=J.z;
   areneEtat.actif=true; areneEtat.vague=0; areneEtat.score=0;
   areneEtat.tues=0; areneEtat.combo=0; areneEtat.comboT=0; areneEtat.repos=0;
   chargerRecordArene();
-  cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
+  deplacerArene(0);                  // l'enclos, le héros dedans, et la caméra
   etat='jeu'; viderTampon(); msgT=0; bandeauT=0;
   annonce("L'ARÈNE"); dire('TIENS AUSSI LONGTEMPS QUE TU PEUX.',240);
   lancerVague();
 }
-/* Un enclos fermé, au milieu de la vallée : on ne s'en échappe pas, et rien
-   n'en sort. On le bâtit dans le monde déjà généré plutôt que d'inventer une
-   carte : le rendu, les collisions et la caméra marchent alors sans un mot. */
+/* Un enclos fermé, à l'écart de tout : on ne s'en échappe pas, et rien n'en
+   sort. On le bâtit dans le monde déjà généré plutôt que d'inventer une carte :
+   le rendu, les collisions et la caméra marchent alors sans un mot. */
 function batirEnclosArene(){
   const c=ARENE;
-  rectS(c.x0,c.y0,c.w,c.h,S.DALLE); rectE(c.x0,c.y0,c.w,c.h,0);
+  /* Ceinture et bretelles. Les huit emplacements sont mesurés vides, et un
+     contrôle le revérifie à chaque livraison — mais déplacer une maison d'une
+     tuile ne doit pas remettre une villageoise dans la fosse aux monstres.
+     Sans danger : l'arène joue sur un monde jetable, qui n'est jamais
+     sauvegardé. */
+  const dedans=(px,py)=>px>=(c.x0-1)*TS&&px<(c.x0+c.w+1)*TS
+                      &&py>=(c.y0-1)*TS&&py<(c.y0+c.h+1)*TS;
+  pnjs=pnjs.filter(p=>!dedans(p.x,p.y));
+  structures=structures.filter(s=>!dedans(s.x,s.y));
+  lucioles=lucioles.filter(l=>!dedans(l.x,l.y));
+  /* Les refuges sont des RECTANGLES en pixels, et ils arrêtent les tirs
+     ennemis : un refuge qui déborde sur l'enclos en ferait un coin où rien ne
+     vous atteint. On retire donc tout refuge qui le CHEVAUCHE, pas seulement
+     ceux dont le coin y tombe. */
+  const ax0=(c.x0-1)*TS, ay0=(c.y0-1)*TS, ax1=(c.x0+c.w+1)*TS, ay1=(c.y0+c.h+1)*TS;
+  refuges=refuges.filter(r=>r.x1<=ax0||r.x0>=ax1||r.y1<=ay0||r.y0>=ay1);
+  /* Le SOL de l'enclos porte le monde où l'on se bat, comme ses murs le font
+     déjà (`murTuile` prend la pierre de la région). Une dalle grise partout
+     rendait les huit mondes indiscernables une fois DANS la fosse : le décor
+     changeait autour, et rien sous les pieds. Aucun sol qui noie, brûle ou
+     ralentit n'est retenu — on se bat dessus. */
+  const zs=ARENE_ZONES[ARENE.zone];
+  rectS(c.x0,c.y0,c.w,c.h,S[(zs&&zs.sol)||'DALLE']); rectE(c.x0,c.y0,c.w,c.h,0);
   rectO(c.x0,c.y0,c.w,c.h,O.RIEN);
   cadreO(c.x0,c.y0,c.w,c.h,O.MUR);
   for(const [dx,dy] of [[2,2],[c.w-3,2],[2,c.h-3],[c.w-3,c.h-3]])
@@ -11067,7 +11150,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.5';
+const VERSION='V4.6';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
