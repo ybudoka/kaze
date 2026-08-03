@@ -32,6 +32,7 @@ PLAYWRIGHT_MODULE=/chemin/vers/playwright CHROMIUM_PATH=/chemin/vers/chrome node
 
 | Fichier | Correctifs vérifiés |
 |---|---|
+| `42-casque-vr.js` | § 49 le **casque VR** : les manettes Touch d'une session WebXR (le joystick est sur les axes 2/3, pas 0/1), le bouton qui n'apparaît que si un casque le propose, le suivi de tête à hystérésis, les shaders réellement compilés sur un vrai contexte WebGL, et le produit de matrices contrôlé à blanc. La session est jouée contre une **maquette fidèle de WebXR** — session, repère, couche, poses, manettes : elle s'ouvre, la boucle de page rend la main, les deux yeux sont dessinés, les manettes alimentent le jeu, tout se défait à la sortie. Plus § 49 le défaut trouvé dans la couche manette existante : **relâcher un bouton n'éteint plus la touche du clavier tenue en même temps**. |
 | `01-affichage.js` | § 2.1 la manette tient dans l'écran (320 → 414 px) · § 2.3 les boutons ne couvrent plus le HUD |
 | `02-sauvegardes.js` | § 3.1 trois emplacements nommés et isolés · § 3.2 l'ancienne partie n'est effacée qu'après relecture de sa copie · § 3.3 export → purge totale → restauration |
 | `03-mort.js` | § 3.4 mourir ne coûte aucune progression · § 4.1 B et A ne relancent pas la partie, START seul valide · § 4.2 l'écran de fin n'écrase pas la sauvegarde |

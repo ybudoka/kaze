@@ -3438,3 +3438,113 @@ précisément pourquoi elle ne suffisait pas.
   fait partie, et elle ment.
 - **Un nouvel objet du sac n'est pas forcément un objet qu'on brandit.** Le seul
   chemin d'affichage était la main : c'est une hypothèse, pas une règle.
+
+---
+
+## 48. Deux gardiens annonçaient une règle que le code n'appliquait pas
+
+| | |
+|---|---|
+| **Symptôme** | « Assure-toi que globalement les défis sont logiques et complets. » |
+| **Cause réelle** | Deux gardiens **annoncent une mécanique à l'écran** que rien n'applique. La Sentinelle crie *« RAFALE : ELLE SE CLÔT »* et pose `B.close=104` — `close` n'était **lu nulle part**. La Reine annonce *« LA REINE ÉTEINT TON FANAL »* et pose `B.voile=130` — qui ne servait qu'à **cesser de dessiner le halo**. Le joueur voyait une règle, le jeu n'en tenait aucun compte. |
+
+### La mesure
+
+Combien de coups d'**épée nue** pour venir à bout de chaque gardien, sans aucun
+outil et sans respecter aucune mécanique ?
+
+| Gardien | Tombe à l'épée seule | Coups |
+|---|---|---|
+| Cœur de Cendre | oui | 17 |
+| Roi Yéti | oui | 15 |
+| Léviathan | oui | 19 |
+| **Colosse de Grès** | **non** | — |
+| Reine des Lucioles | oui | 16 |
+| Sentinelle du Ciel | oui | 18 |
+| Rongeur d'Étoiles | oui | 30 |
+
+**Un seul sur sept** exige autre chose que de marteler. Le Colosse est le
+modèle : `frapper()` refuse tout ce qui n'est pas `'lourd'` ou `'explosion'`,
+donc l'outil de la région sert **dans** le combat, pas seulement à en atteindre
+la porte.
+
+### Le correctif
+
+`frapper()` applique enfin les deux règles déjà annoncées :
+
+- **La Sentinelle close ne s'entame pas.** Sa rafale devient un rythme : on
+  frappe dans le répit. Une bombe force quand même la coque.
+- **La Reine ne se touche que dans la lumière.** Son voile éteint pour de vrai
+  le fanal, et `fanalActif()` — à ne pas confondre avec `Q.fanal`, qui dit
+  seulement qu'on *possède* l'objet — remplace le drapeau partout où la lumière
+  compte : le halo, et la matérialisation des **ombres**, qui restaient
+  touchables pendant que la nuit tombait. Conséquence heureuse : une
+  **veilleuse** de la quête annexe, rallumée près d'elle, la rend de chair.
+
+> **Réinjection**, trois fois, chacune rouge.
+
+### Ce qui reste ouvert (mesuré, non corrigé)
+
+Les salles d'énigme (plaques, caisses, interrupteurs, ancres de grappin)
+n'existent que dans la **Vallée** (3) et les **Cendres** (1) ; la Faille les
+rejoue, mais aucune région du sud n'en pose. Ce n'est pas un défaut de logique,
+c'est un manque de contenu.
+
+---
+
+## 49. Le jeu dans un casque Quest
+
+| | |
+|---|---|
+| **Symptôme** | « Essaye de rendre le jeu compatible sur Quest VR avec les manettes. » |
+| **Cause réelle** | La manette physique était déjà lue (§ 26) et les boutons à l'écran répondent au laser du casque — tout passe par des événements `pointer`. Mais **hors session immersive, un casque ne livre pas ses manettes à la page** : il s'en sert pour pointer. Les **joysticks** n'atteignaient donc rien. |
+
+### Les manettes du casque
+
+Dans une session, les manettes viennent de `session.inputSources`, pas de
+`navigator.getGamepads()`. `majManette()` bascule de source dès qu'une session
+est ouverte et débouche dans le **même tampon**.
+
+Profil « xr-standard » d'une Touch : 0 = gâchette, 1 = poignée, 3 = clic du
+joystick, 4 et 5 = boutons de pouce. Le bouton Menu de gauche est **réservé par
+le système du casque** et n'arrive jamais jusqu'à la page : START est donc au
+clic du joystick droit, SELECT au gauche. Les **deux fentes d'outils** (§ 37)
+tombent sous les deux pouces.
+
+> Le joystick d'une Touch est sur les **axes 2/3** : 0/1 sont le pavé tactile,
+> resté à zéro. Les lire naïvement donne un héros parfaitement immobile.
+
+### L'écran, et rien d'autre
+
+`entrerVR()` ouvre une session `immersive-vr` et **le rendu du jeu ne change pas
+d'une ligne** : on téléverse sa toile de 256 px comme texture `NEAREST` — du
+pixel art ne se lisse pas — sur un écran de 3 m à 2,60 m. La session prend la
+cadence (`boucle()` rend la main), les deux yeux sont dessinés depuis ses
+matrices.
+
+L'écran **suit la tête à hystérésis** : il s'amorce à 45° d'écart puis suit
+**jusqu'à être revenu devant**. Un simple seuil l'arrêtait pile au bord de la
+zone morte — donc toujours de travers.
+
+### Ce que le contrôle a trouvé, dans le code déjà en place
+
+`42-casque-vr.js` remplace l'API WebXR par une **maquette fidèle** — session,
+repère, couche, poses, manettes — et laisse le vrai code la piloter. Il a
+révélé un défaut de la couche manette **existante** :
+
+> **Relâcher un bouton de manette éteignait la touche du clavier tenue au même
+> instant.** Le cas du doigt sur l'écran était gardé, le cas identique du
+> clavier ne l'était pas. `tenuAilleurs(b)` interroge maintenant les deux.
+
+> **Réinjection**, six fois, chacune rouge : coque de la Sentinelle rendue
+> décorative ; voile de la Reine idem ; `fanalActif()` ramené à `Q.fanal` ;
+> `tenuAilleurs()` retiré ; joystick Touch lu sur les axes 0/1 ; boucle de page
+> qui continue de jouer en casque.
+
+### Ce que ce contrôle ne dit PAS
+
+Il n'y a **pas de casque** au bout de ce test. Sont vérifiés : le pilotage de
+l'API, la correspondance des boutons, le suivi de tête, la compilation des
+shaders, le cycle de vie de la session. **Ne sont pas vérifiés** : le confort,
+la lisibilité réelle à 2,60 m, la latence, la taille de l'écran. Ces quatre-là
+se règlent en casque — `XR_DIST` et `XR_LARGE` sont les deux molettes.

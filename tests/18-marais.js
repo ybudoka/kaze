@@ -120,6 +120,29 @@ module.exports = {
       await dort(250);
       out.reineReveil = !!(boss && boss.type === 'reine');
       out.reinePhases = boss ? boss.phase : null;
+
+      /* ---- son voile éteint VRAIMENT le fanal ----
+         Elle annonce « LA REINE ÉTEINT TON FANAL » ; il ne suffit pas que le
+         halo cesse d'être dessiné. Deux conséquences se mesurent : l'outil du
+         Marais ne fait plus de lumière, et elle-même n'est plus de chair. */
+      if (boss) {
+        const B = boss, tor = torches.slice();
+        Q.fanal = true; torches.length = 0;              // aucune autre source
+        B.voile = 0;
+        out.fanalBrule = fanalActif();
+        const pvA = B.pv; B.flash = 0;
+        out.reineTouchableHorsVoile = frapper(B, 3, B.x - 20, B.y, 'epee') && B.pv < pvA;
+        B.voile = 130;                                   // elle souffle sur ta flamme
+        out.fanalEteint = !fanalActif();
+        const pvB = B.pv; B.flash = 0;
+        out.reineIntouchableVoilee = !frapper(B, 3, B.x - 20, B.y, 'epee') && B.pv === pvB;
+        // une veilleuse rallumée à ses pieds la rend de nouveau touchable
+        torches.push({ x: B.x, y: B.y, r: 64 });
+        B.flash = 0;
+        out.reineCedeSousLaVeilleuse = frapper(B, 3, B.x - 20, B.y, 'epee') && B.pv < pvB;
+        B.voile = 0; torches.length = 0; for (const t of tor) torches.push(t);
+      }
+
       if (boss) boss.pv = 0; await dort(300);
       out.reineTombe = !boss && !!Q.reineTue;
       out.reineRecompense = butins.some(b => b.type === 'coeurmax');
@@ -177,6 +200,14 @@ module.exports = {
       r.ombreImmuniteNuit && r.ombreCedeLumiere, `nuit=${r.ombreImmuniteNuit} lumière=${r.ombreCedeLumiere}`);
     v('la nuit du Marais a son voile d\'ombre', r.voileExiste, 'pas de voile');
     v('entrer dans l\'arène réveille la Reine', r.reineReveil, 'pas de boss');
+    v('SON VOILE ÉTEINT VRAIMENT LE FANAL',
+      r.fanalBrule === true && r.fanalEteint === true,
+      `brûle=${r.fanalBrule} éteint=${r.fanalEteint}`);
+    v('DANS LE NOIR, LA REINE NE SE TOUCHE PAS',
+      r.reineTouchableHorsVoile === true && r.reineIntouchableVoilee === true,
+      `hors voile=${r.reineTouchableHorsVoile} voilée=${r.reineIntouchableVoilee}`);
+    v('UNE VEILLEUSE ALLUMÉE LA REND DE NOUVEAU DE CHAIR',
+      r.reineCedeSousLaVeilleuse === true, 'la lumière n\'y change rien');
     v('vaincre la Reine donne son cœur', r.reineTombe && r.reineRecompense, 'pas de récompense');
     v('la région et sa gardienne ont leur morceau',
       r.themes.includes('marais') && r.themes.includes('reineBoss')

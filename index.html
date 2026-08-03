@@ -154,6 +154,7 @@ body.sanspad #pad{display:none}
   <button id="btSauve">SAUVEGARDES</button>
   <button id="btMus">MUSIQUE</button>
   <button id="btDbg">DÉBUG</button>
+  <button id="btVR" hidden>CASQUE VR</button>
 </div>
 
 <!-- Copie de secours des parties : le stockage du navigateur peut être effacé
@@ -559,6 +560,9 @@ addEventListener('pointercancel',stickFin,true);
    On la lit comme une SNES — B en bas (épée), A à droite (saut) — et les
    gâchettes 6/7 doublent les tranches 4/5. */
 const BTN_MANETTE=['B','A','Y','X','L','R','L','R','Select','Start'];
+/* Déclarée ici, remplie tout en bas : `majManette()` doit savoir si l'on est en
+   casque pour choisir sa source, et le rendu VR vient après. */
+let xrSession=null;
 const MORT_MANETTE=.22;                  // un stick usé dérive : marge large
 let manetteVue=false, padRange=false;
 const padAvant={}, padMaint={};
@@ -568,6 +572,15 @@ const padAxe={x:0,y:0,actif:false};
 /* Les entrées de `buttons` sont des objets ; d'anciennes implémentations
    rendent un simple nombre. */
 const presseMan=b=>b==null?false:(typeof b==='number'?b>.5:!!(b.pressed||b.value>.5));
+
+/* Le bouton est-il tenu par une AUTRE source que la manette ? Un doigt sur la
+   manette à l'écran, ou une touche du clavier. Sans cette question, relâcher la
+   gâchette éteignait la touche que l'autre main tenait au même instant. */
+function tenuAilleurs(b){
+  if(compte[b]) return true;
+  for(const code in MAP_CLAVIER) if(MAP_CLAVIER[code]===b&&clavier[code]) return true;
+  return false;
+}
 
 /* Manette débranchée ou fenêtre perdue : rien ne doit rester enfoncé. */
 function relacherManette(){
@@ -588,6 +601,7 @@ addEventListener('gamepadconnected',()=>{
 addEventListener('gamepaddisconnected',relacherManette);
 
 function majManette(){
+  if(xrSession) return majManetteXR();          // en casque, la session est la source
   if(!manetteVue) return;
   const pads=navigator.getGamepads?navigator.getGamepads():null;
   if(!pads){ manetteVue=false; relacherManette(); return; }
@@ -645,7 +659,7 @@ function majManette(){
   let nouvelAppui=false;
   for(const b in padMaint){
     if(padMaint[b]&&!padAvant[b]){ enfoncer(b); nouvelAppui=true; }
-    else if(!padMaint[b]&&padAvant[b]) BTN[b]=0;
+    else if(!padMaint[b]&&padAvant[b]&&!tenuAilleurs(b)) BTN[b]=0;
     padAvant[b]=padMaint[b];
   }
   if(nouvelAppui) reveillerSon();
@@ -5936,8 +5950,30 @@ function scarabeeBoom(e){
     frapper(o,3,e.x,e.y,'explosion');
   if(boss&&Math.hypot(boss.x-e.x,boss.y-e.y)<30) frapper(boss,3,e.x,e.y,'explosion');
 }
+/* Le fanal brûle-t-il VRAIMENT ? La Reine l'éteint le temps de son voile.
+   `Q.fanal` dit qu'on POSSÈDE l'objet, pas qu'il éclaire — les confondre, c'est
+   ce qui rendait son « LA REINE ÉTEINT TON FANAL » purement décoratif : le halo
+   cessait d'être dessiné, mais tout continuait comme avant. */
+function fanalActif(){
+  return !!Q.fanal && !(boss&&boss.type==='reine'&&boss.voile>0);
+}
+
 function frapper(e,deg,sx,sy,type){
   if(e.flash>6) return false;
+  /* La Sentinelle se clôt pendant sa rafale : sa coque est alors impénétrable.
+     Elle l'annonçait déjà (« RAFALE : ELLE SE CLÔT ») — mais rien, dans le
+     code, ne lisait `close`. On pouvait la marteler pendant qu'elle se
+     protégeait. Une bombe force quand même la coque. */
+  if(e.type==='sentinelle'&&e.close>0&&type!=='explosion'){
+    SFX.bouclier(); eclat(sx,sy-8,e.z+12,'#dfe6ff'); return false;
+  }
+  /* La Reine ne se touche que dans la lumière : c'est tout le sens de son
+     voile, et l'outil du Marais est le fanal. Voile levé — ou une veilleuse
+     rallumée à portée — et elle redevient de chair. */
+  if(e.type==='reine'&&e.voile>0&&type!=='explosion'
+     &&!torches.some(t=>Math.hypot(t.x-e.x,t.y-e.y)<70)){
+    SFX.bouclier(); eclat(sx,sy-8,e.z+10,'#3a2b52'); return false;
+  }
   // le colosse de basalte n'est entamé que par le marteau, ou pendant qu'il
   // vacille sous un coup de marteau
   if((e.type==='golem'||e.type==='golemnuage')&&e.stun<=0&&type!=='marteau'&&type!=='explosion'){
@@ -7001,7 +7037,7 @@ function majEnnemis(){
     else if(e.type==='ombre'){
       // l'ombre : matérielle (et vulnérable) seulement dans la lumière
       e.z=baseSol(e.x,e.y);
-      const enLum=(Q.fanal&&d<82)||torches.some(t=>Math.hypot(t.x-e.x,t.y-e.y)<70);
+      const enLum=(fanalActif()&&d<82)||torches.some(t=>Math.hypot(t.x-e.x,t.y-e.y)<70);
       e.fondu=lerp(e.fondu===undefined?1:e.fondu, enLum?0:1, .15);
       const a=Math.atan2(J.y-e.y,J.x-e.x);
       e.x=clamp(e.x+Math.cos(a)*.72+e.kx,TS*3,(MW-3)*TS);
@@ -8675,7 +8711,7 @@ function voileMarais(ox,oy){
     g.addColorStop(0,'rgba(0,0,0,1)'); g.addColorStop(.55,'rgba(0,0,0,.82)'); g.addColorStop(1,'rgba(0,0,0,0)');
     dg.fillStyle=g; dg.fillRect(sx-r,sy-r,r*2,r*2); };
   // le fanal éclaire, sauf quand la Reine l'a éteint
-  if(Q.fanal&&!(boss&&boss.type==='reine'&&boss.voile>0)){ const fl=Math.sin(tick*.2)*4;
+  if(fanalActif()){ const fl=Math.sin(tick*.2)*4;
     trou(J.x-cam.x+ox, J.y-J.z-cam.y+oy-6, 78+fl); }
   for(const t of torches) trou(t.x-cam.x+ox, t.y-cam.y+oy, (t.r||46)+16);
   for(const e of ennemis) if(e.type==='follet') trou(e.x-cam.x+ox, e.y-e.z-cam.y+oy, 34);
@@ -9887,7 +9923,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.0';
+const VERSION='V3.1';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10479,10 +10515,215 @@ function panneauDebug(){
   for(let i=0;i<L.length;i++)
     texte(X,L[i],6,y0+3+i*9, b.pire>32&&i===0?'#ff9a8a':'#8fe0b0','#050810');
 }
+
+/* ======================= LES MANETTES D'UN CASQUE =======================
+   Hors session immersive, un casque ne livre PAS ses manettes à la page : il
+   s'en sert pour pointer, et seuls les clics du laser arrivent. Les joysticks
+   n'atteignaient donc rien. Dans une session, les manettes viennent de
+   `session.inputSources` — pas de `navigator.getGamepads()`.
+
+   Profil « xr-standard » d'une Touch : 0 = gâchette, 1 = poignée, 3 = clic du
+   joystick, 4 et 5 = les deux boutons de pouce. Le bouton Menu de gauche est
+   réservé par le système du casque et n'arrive jamais jusqu'ici : START est
+   donc au clic du joystick droit, SELECT au gauche.
+
+   Les deux fentes d'outils du héros (Y et X) tombent sous les deux pouces :
+   gâchette gauche et bouton de pouce droit. */
+const MAP_XR_D={0:'B',1:'A',3:'Start',4:'A',5:'X'};
+const MAP_XR_G={0:'Y',1:'L',3:'Select',4:'L',5:'R'};
+
+function majManetteXR(){
+  const src=xrSession.inputSources;
+  for(const b in padMaint) padMaint[b]=0;
+  let ax=0, ay=0, amp=0;
+  for(let i=0;i<src.length;i++){
+    const s=src[i], gp=s&&s.gamepad; if(!gp) continue;
+    const gauche=s.handedness==='left', table=gauche?MAP_XR_G:MAP_XR_D, bs=gp.buttons||[];
+    for(const k in table) if(presseMan(bs[k])) padMaint[table[k]]=1;
+    /* Le joystick d'une Touch est sur les axes 2/3 : 0/1 sont le pavé tactile,
+       resté à zéro. Les lire naïvement donnait un héros immobile. On prend le
+       plus franc des deux couples — le même code sert aux deux profils. */
+    const a=gp.axes||[];
+    let sx=a.length>0?a[0]:0, sy=a.length>1?a[1]:0;
+    if(a.length>3&&Math.hypot(a[2],a[3])>Math.hypot(sx,sy)){ sx=a[2]; sy=a[3]; }
+    const m=Math.hypot(sx,sy);
+    if(m>MORT_MANETTE){ const g=Math.min(1,(m-MORT_MANETTE)/(1-MORT_MANETTE)); sx=sx/m*g; sy=sy/m*g; }
+    else { sx=0; sy=0; }
+    const ms=Math.hypot(sx,sy);
+    if(ms>amp){ amp=ms; ax=sx; ay=sy; }
+  }
+  padAxe.x=ax; padAxe.y=ay; padAxe.actif=amp>0;
+  for(const b in padMaint){
+    if(padMaint[b]&&!padAvant[b]) enfoncer(b);
+    else if(!padMaint[b]&&padAvant[b]&&!tenuAilleurs(b)) BTN[b]=0;
+    padAvant[b]=padMaint[b];
+  }
+}
+
+/* ============================ CASQUE VR ============================
+   On ne refait pas le jeu en 3D : on accroche SA TOILE — 256 px de large, du
+   pixel art — sur un écran devant le joueur. Le rendu du jeu ne change pas
+   d'une ligne ; seule la présentation change.
+
+   L'écran SUIT LA TÊTE avec une hystérésis : il s'amorce à 45° d'écart puis
+   suit JUSQU'À être revenu devant. Un simple seuil l'arrête pile au bord de la
+   zone morte — donc toujours de travers. Un écran rigoureusement fixe, lui, se
+   perd dès qu'on bouge dans son fauteuil. */
+let xrGL=null, xrRef=null, xrTex=null, xrProg=null, xrUmvp=null;
+const XR_DIST=2.6, XR_LARGE=3.0;            // mètres : distance, largeur d'écran
+const xrAncre={x:0,y:1.5,z:0,yaw:0,pose:false,suit:false};
+const _mod=new Float32Array(16), _mv=new Float32Array(16), _mvp=new Float32Array(16);
+
+/* Produit de deux matrices 4x4 en colonnes (l'ordre de WebGL et de WebXR).
+   Écrit dans `out` : rien n'est alloué par image, ici non plus. */
+function mat4Mul(out,a,b){
+  for(let i=0;i<4;i++)for(let j=0;j<4;j++){
+    let s=0; for(let k=0;k<4;k++) s+=a[k*4+j]*b[i*4+k];
+    out[i*4+j]=s;
+  }
+}
+/* Le cap de la tête, tiré du quaternion : l'axe Z local tourné dans le monde.
+   Nul quand on regarde droit devant (-Z). */
+function capDe(q){ return Math.atan2(2*(q.x*q.z+q.w*q.y),1-2*(q.x*q.x+q.y*q.y)); }
+const _pi2=a=>{ while(a>Math.PI)a-=6.283185307; while(a<-Math.PI)a+=6.283185307; return a; };
+
+function suivreTete(pose){
+  const p=pose.transform.position, cap=capDe(pose.transform.orientation);
+  if(!xrAncre.pose){ xrAncre.x=p.x; xrAncre.y=p.y; xrAncre.z=p.z; xrAncre.yaw=cap; xrAncre.pose=true; }
+  xrAncre.x=lerp(xrAncre.x,p.x,.06); xrAncre.y=lerp(xrAncre.y,p.y,.06);
+  xrAncre.z=lerp(xrAncre.z,p.z,.06);
+  const ec=_pi2(cap-xrAncre.yaw);
+  if(Math.abs(ec)>.45) xrAncre.suit=true;      // amorçage
+  if(Math.abs(ec)<.02) xrAncre.suit=false;     // vraiment revenu devant
+  if(xrAncre.suit) xrAncre.yaw=_pi2(xrAncre.yaw+ec*.08);
+
+  const c=Math.cos(xrAncre.yaw), s=Math.sin(xrAncre.yaw);
+  const hw=XR_LARGE/2, hh=hw*(CV.height/CV.width);
+  // T(centre) . Ry(cap) . S(demi-largeur, demi-hauteur, 1), écrite d'un trait
+  _mod[0]=c*hw; _mod[1]=0;  _mod[2]=-s*hw; _mod[3]=0;
+  _mod[4]=0;    _mod[5]=hh; _mod[6]=0;     _mod[7]=0;
+  _mod[8]=s;    _mod[9]=0;  _mod[10]=c;    _mod[11]=0;
+  _mod[12]=xrAncre.x-s*XR_DIST; _mod[13]=xrAncre.y; _mod[14]=xrAncre.z-c*XR_DIST; _mod[15]=1;
+}
+
+const XR_VS='attribute vec2 p;varying vec2 uv;uniform mat4 mvp;'
+  +'void main(){uv=vec2(p.x*.5+.5,.5-p.y*.5);gl_Position=mvp*vec4(p,0.,1.);}';
+const XR_FS='precision mediump float;varying vec2 uv;uniform sampler2D tex;'
+  +'void main(){gl_FragColor=texture2D(tex,uv);}';
+
+/* Bâtit le programme, le quadrilatère et la texture. À part, pour être
+   vérifiable seul : un shader qui ne compile pas ne se voit pas à l'oeil, il
+   donne juste un écran noir dans le casque. */
+function batirRenduVR(gl){
+  const comp=(t,src)=>{ const sh=gl.createShader(t); gl.shaderSource(sh,src); gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh; };
+  const pr=gl.createProgram();
+  gl.attachShader(pr,comp(gl.VERTEX_SHADER,XR_VS));
+  gl.attachShader(pr,comp(gl.FRAGMENT_SHADER,XR_FS));
+  gl.linkProgram(pr);
+  if(!gl.getProgramParameter(pr,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(pr));
+  gl.useProgram(pr);
+  const bu=gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER,bu);
+  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, -1,1, 1,1]),gl.STATIC_DRAW);
+  const ap=gl.getAttribLocation(pr,'p');
+  gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap,2,gl.FLOAT,false,0,0);
+  const tx=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,tx);
+  // du pixel art : au plus proche, jamais lissé, et sans mipmap (toile non carrée)
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.uniform1i(gl.getUniformLocation(pr,'tex'),0);
+  return {prog:pr,tex:tx,umvp:gl.getUniformLocation(pr,'mvp')};
+}
+
+function dessinerVR(frame){
+  const pose=frame.getViewerPose(xrRef); if(!pose) return;
+  const gl=xrGL, couche=xrSession.renderState.baseLayer;
+  gl.bindFramebuffer(gl.FRAMEBUFFER,couche.framebuffer);
+  gl.clearColor(.02,.03,.06,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.bindTexture(gl.TEXTURE_2D,xrTex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,CV);
+  suivreTete(pose);
+  const vues=pose.views;
+  for(let i=0;i<vues.length;i++){          // index, pas `for...of` : pas d'itérateur par image
+    const v=vues[i], vp=couche.getViewport(v);
+    if(!vp) continue;
+    gl.viewport(vp.x,vp.y,vp.width,vp.height);
+    mat4Mul(_mv,v.transform.inverse.matrix,_mod);
+    mat4Mul(_mvp,v.projectionMatrix,_mv);
+    gl.uniformMatrix4fv(xrUmvp,false,_mvp);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  }
+}
+
+function boucleVR(t,frame){
+  if(!xrSession) return;
+  xrSession.requestAnimationFrame(boucleVR);
+  boucleMesuree();                          // le jeu, inchangé, dans sa toile
+  try{ dessinerVR(frame); }catch(e){}       // un rendu qui trébuche ne fige pas la partie
+}
+
+async function entrerVR(){
+  if(xrSession||!navigator.xr) return false;
+  reveillerSon();                           // le clic du bouton est le geste attendu
+  let s;
+  try{ s=await navigator.xr.requestSession('immersive-vr',{optionalFeatures:['local-floor']}); }
+  catch(e){ return false; }
+  try{
+    const cvGL=document.createElement('canvas');
+    const gl=cvGL.getContext('webgl',{xrCompatible:true,alpha:false,antialias:false});
+    if(!gl) throw new Error('pas de WebGL');
+    if(gl.makeXRCompatible) await gl.makeXRCompatible();
+    s.updateRenderState({baseLayer:new XRWebGLLayer(s,gl)});
+    let ref=null;
+    for(const type of ['local-floor','local','viewer']){
+      try{ ref=await s.requestReferenceSpace(type); break; }catch(e){}
+    }
+    if(!ref) throw new Error('aucun repère');
+    const r=batirRenduVR(gl);
+    xrGL=gl; xrRef=ref; xrProg=r.prog; xrTex=r.tex; xrUmvp=r.umvp;
+    xrAncre.pose=false; xrAncre.suit=false;
+    s.addEventListener('end',finVR);
+    xrSession=s;
+    relacherEntrees();                       // aucun bouton ne doit rester collé
+    s.requestAnimationFrame(boucleVR);
+    majBoutonVR();
+    return true;
+  }catch(e){ try{ s.end(); }catch(_){} finVR(); return false; }
+}
+function finVR(){
+  xrSession=null; xrGL=null; xrRef=null; xrTex=null; xrProg=null; xrUmvp=null;
+  xrAncre.pose=false; xrAncre.suit=false;
+  relacherManette(); relacherEntrees();
+  majBoutonVR();
+}
+function basculerVR(){ if(xrSession){ try{ xrSession.end(); }catch(_){ finVR(); } } else entrerVR(); }
+function majBoutonVR(){
+  const b=document.getElementById('btVR');
+  if(b) b.textContent=xrSession?'QUITTER LA VR':'CASQUE VR';
+}
+/* Le bouton n'apparaît que si le casque le propose : sur un téléphone ou un
+   ordinateur sans casque, il n'aurait aucun sens. */
+function detecterVR(){
+  const b=document.getElementById('btVR');
+  if(!b||!navigator.xr||!navigator.xr.isSessionSupported||!window.XRWebGLLayer) return Promise.resolve(false);
+  return navigator.xr.isSessionSupported('immersive-vr')
+    .then(ok=>{ if(ok) b.hidden=false; return !!ok; })
+    .catch(()=>false);
+}
+
 /* La boucle a beaucoup de sorties (titre, carte, dialogue, boutique…). On
    l'enveloppe donc plutôt que de semer des mesures à chaque `return`. */
 function boucle(){
   requestAnimationFrame(boucle);
+  if(xrSession) return;            // en casque, c'est la session qui cadence
+  boucleMesuree();
+}
+function boucleMesuree(){
   if(debugOn){
     const t=performance.now();
     if(dbgPrec) dbgIntervalles[dbgI]=t-dbgPrec;
@@ -10673,6 +10914,8 @@ outil('btPlein',basculerPlein);
 outil('btPad',()=>{ document.body.classList.toggle('sanspad'); setTimeout(redim,30); });
 outil('btMus',()=>{ reveillerSon(); basculerMusique(); majMusique(); });
 outil('btDbg',basculerDebug);
+outil('btVR',basculerVR);
+detecterVR();
 if(debugOn) document.getElementById('btDbg').textContent='DÉBUG ✕';
 if(!musiqueOn) document.getElementById('btMus').textContent='MUSIQUE ✕';
 
