@@ -111,7 +111,78 @@ module.exports = {
       ramasserButin({ x: J.x, y: J.y, z: 0, type: 'eclatMagie' });
       out.eclatNeDeborde = J.magie === J.magiemax;
 
-      /* ---- 8) rien ne se perd au rechargement ---- */
+      /* ---- 8) LE JOUEUR PEUT-IL SEULEMENT APPRENDRE QUE ÇA EXISTE ? ----
+         La jauge n'apparaît qu'une fois la baguette prise : tant qu'on ne l'a
+         pas, rien à l'écran ne la laisse deviner. Il faut donc que le jeu le
+         DISE — journal, objectif, repère de carte. Sans quoi l'outil est là et
+         personne ne le trouve, comme les fleurs de givre au § 45. */
+      const lignes = () => { journal = true; const l = (lignesJournal ? lignesJournal() : [])
+        .map(x => Array.isArray(x) ? x[0] : String(x)).join(' | '); journal = false; return l; };
+      /* L'objectif ne montre qu'UNE ligne : celle de la quête principale tant
+         qu'elle a une étape en cours. On se place donc là où le joueur en est
+         réellement quand la fée a forgé sa lame — les trois pierres prises. */
+      const avanceQuetePrincipale = () => { Q.parleDoyenne = true; Q.porteOuverte = true;
+        for (let i = 0; i < 3; i++) if (coffres[i]) { coffres[i].ouvert = true; coffres[i].verrou = false; }
+        Q.chefTue = true; Q.grilleOuverte = true; Q.fissureOuverte = true; };
+      const etatSignal = () => {
+        J.x = 40 * TS; J.y = 44 * TS;                 // au village
+        return { journal: lignes(), objectif: objectifCourant() };
+      };
+      avanceQuetePrincipale();
+      Q.baguette = false; J.magiemax = 0; Q.epeeLongue = false;
+      out.avantEpee = etatSignal();
+      Q.epeeLongue = true;
+      out.apresEpee = etatSignal();
+      Q.baguette = true; J.magiemax = 12; Q.runes = 1; Q.cryptOuverte = false;
+      out.apresBaguette = etatSignal();
+      // au Lagon, une fois la région faite : l'objectif mène à la crypte
+      Q.palmes = true; Q.leviathanTue = true; Q.perlesRendues = true;
+      J.x = (CRYPTE.x0 + 4) * TS; J.y = (CRYPTE.y0 + 4) * TS;
+      out.objectifLagon = objectifCourant();
+
+      /* Le repère de carte des runes doit traverser le brouillard une fois la
+         baguette en main — sinon une crypte de dix-sept cases se cherche à
+         tâtons dans une région entière. On compte les repères de RUNE eux-mêmes,
+         pas les traits de la carte : une première version comptait tous les
+         `fillRect` de l'écran, noyant quatre repères dans huit mille traits. */
+      const ctx = CV.getContext('2d');
+      const pixelsDe = (hex) => {
+        const R = parseInt(hex.slice(1, 3), 16), G = parseInt(hex.slice(3, 5), 16),
+              B = parseInt(hex.slice(5, 7), 16);
+        const d = ctx.getImageData(0, 0, CV.width, CV.height).data;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4)
+          if (Math.abs(d[i] - R) < 6 && Math.abs(d[i + 1] - G) < 6 && Math.abs(d[i + 2] - B) < 6) n++;
+        return n;
+      };
+      const reperes = (baguette, sansRunes) => {
+        /* La JAUGE DE MAGIE est de la même teinte que le repère, et l'ATH se
+           dessine par-dessus la carte : elle noyait la mesure de 105 pixels et
+           le contrôle restait vert même sans aucun repère. On l'éteint le temps
+           de mesurer. */
+        const mm = J.magiemax; J.magiemax = 0;
+        Q.baguette = baguette; carteRegion = 3;
+        for (const [rx, ry] of RUNES_POS) {
+          putO(rx, ry, sansRunes ? O.RIEN : O.RUNE); vu[ry * MW + rx] = 0; }
+        const av = etat; etat = 'carte';
+        /* Les repères clignotent : on rend PLUSIEURS images et l'on garde le
+           maximum, sinon on mesure une phase éteinte et l'on conclut à tort. */
+        let n = 0;
+        for (let k = 0; k < 40; k++) { tick++; ecranCarte();
+          n = Math.max(n, pixelsDe(REPS.rune.a) + pixelsDe(REPS.rune.b)); }
+        etat = av; J.magiemax = mm; return n;
+      };
+      /* La LÉGENDE affiche elle aussi une pastille de la teinte des runes dès
+         qu'on a la baguette : elle se comptait avec les repères, si bien que
+         retirer le passe-brouillard laissait le contrôle vert. On mesure donc
+         la carte SANS runes posées comme référence — la différence, ce sont
+         les repères, et rien d'autre. */
+      out.reperesSansBaguette = reperes(false);
+      out.legendeSeule = reperes(true, true);      // baguette, mais aucune rune sur la carte
+      out.reperesAvecBaguette = reperes(true);
+      Q.baguette = true;
+
+      /* ---- 9) rien ne se perd au rechargement ---- */
       Q.runes = 2; J.magie = 5;
       await sauver(true); await dort(250);
       Q.baguette = false; J.magiemax = 0; J.magie = 0; Q.runes = 0;
@@ -158,6 +229,22 @@ module.exports = {
 
     v('un éclat de magie rend deux points, sans déborder',
       r.eclatDonne === 2 && r.eclatNeDeborde, `+${r.eclatDonne}`);
+    v('AVANT L\'ÉPÉE, ON NE PROMET PAS LA BAGUETTE',
+      !/BAGUETTE/.test(r.avantEpee.journal) && !/FÉE/.test(r.avantEpee.objectif),
+      `${r.avantEpee.objectif} | ${r.avantEpee.journal.slice(0, 90)}`);
+    v('L\'ÉPÉE FORGÉE, LE JEU DIT DE RETOURNER VOIR LA FÉE',
+      /BAGUETTE/.test(r.apresEpee.journal) && /FÉE/.test(r.apresEpee.objectif),
+      `${r.apresEpee.objectif} | ${r.apresEpee.journal.slice(0, 90)}`);
+    v('LA BAGUETTE PRISE, LE JOURNAL SUIT LES RUNES',
+      /RUNES DE LA CRYPTE : 1\/4/.test(r.apresBaguette.journal),
+      r.apresBaguette.journal.slice(0, 140));
+    v('et l\'objectif, au Lagon, mène à la crypte',
+      /CRYPTE DES RUNES/.test(r.objectifLagon), r.objectifLagon);
+    v('LE REPÈRE DES RUNES TRAVERSE LE BROUILLARD, BAGUETTE EN MAIN',
+      r.reperesSansBaguette === 0 && r.reperesAvecBaguette > r.legendeSeule,
+      `sans baguette ${r.reperesSansBaguette} px · légende seule ${r.legendeSeule}`
+      + ` · légende + repères ${r.reperesAvecBaguette}`);
+
     v('RIEN NE SE PERD AU RECHARGEMENT',
       r.recharge.baguette && r.recharge.magiemax === 12 && r.recharge.runes === 2
       && r.recharge.dansLeSac, JSON.stringify(r.recharge));

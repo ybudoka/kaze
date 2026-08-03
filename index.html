@@ -4721,7 +4721,9 @@ function articlesItinerants(){
     /* « COEUR » et non « CŒUR » : la police pixel du jeu n'a pas de Œ et
        afficherait un point d'interrogation. */
     {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:prixItinerant(120,'coeur'),spr:'coeurMaxItem',
-     ok:()=>J.pvmax<PVMAX, effet:()=>{J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;}},
+     ok:()=>J.pvmax<PVMAX||(J.dores|0)<doresMax(),
+     effet:()=>{ if(J.pvmax<PVMAX){ J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=pvTotal(); }
+                 else dorerUnCoeur(); }},
     {id:'potion',nom:'POTION ROUGE',prix:prixItinerant(40,'potion'),spr:'potion',
      ok:()=>Q.potions<4, effet:()=>{Q.potions++;}}
   ];
@@ -4811,7 +4813,7 @@ function dialoguePNJ(p){
       "SUIS LA BÊTE VERS LE SUD, KAZE. ELLE A NOS ÉTOILES."]);
     if(Q.perle&&!Q.coeurCristal) return parler(p.nom,
       ["UNE PERLE DU LAC ! JE N'EN AVAIS PAS VU DEPUIS QUARANTE ANS.","TIENS, PRENDS CE COEUR DE CRISTAL."],
-      ()=>{ Q.perle=false; Q.coeurCristal=true; autoSauver(); J.pvmax=Math.min(PVMAX,J.pvmax+4); J.pv=J.pvmax;
+      ()=>{ Q.perle=false; Q.coeurCristal=true; autoSauver(); J.pvmax=Math.min(PVMAX,J.pvmax+4); J.pv=pvTotal();
             SFX.coffre(); dire("COEUR DE CRISTAL : +2 COEURS !"); });
     if(!Q.parleDoyenne) return parler(p.nom,
       ["TROIS ÉTOILES GARDAIENT LA VALLÉE. UNE BÊTE LES A DÉVORÉES.",
@@ -4888,7 +4890,8 @@ function dialoguePNJ(p){
     if(Q.lucioles>=8) return parler(p.nom,
       ["HUIT LUCIOLES D'OR. MA LUMIÈRE EST COMPLÈTE.","TENDS TON ÉPÉE. JE L'ALLONGE ET JE L'AIGUISE."],
       ()=>{ Q.epeeLongue=true; autoSauver(); SFX.coffre(); secousse=8;
-            particules(J.x,J.y,J.z+12,30,'#a8e0ff',3,40); dire("ÉPÉE LONGUE ! PORTÉE ET DÉGÂTS DOUBLÉS."); });
+            particules(J.x,J.y,J.z+12,30,'#a8e0ff',3,40);
+            dire("ÉPÉE LONGUE ! PORTÉE ET DÉGÂTS DOUBLÉS. REVIENS ME VOIR, J'AI AUTRE CHOSE.",320); });
     return parler(p.nom,
       ["MES HUIT LUCIOLES D'OR SE SONT ENVOLÉES AUX QUATRE COINS DE LA VALLÉE.",
        "RAPPORTE-LES ET JE FORGERAI TON ÉPÉE.","TU EN AS "+Q.lucioles+" SUR HUIT."]);
@@ -4946,7 +4949,7 @@ function dialoguePNJ(p){
        "PLUS PERSONNE N'AVAIT RÉUNI CE CABINET DEPUIS LES ANCIENS.",
        "PRENDS CE CŒUR DE CRISTAL. ET DE QUOI TE REFAIRE UNE SANTÉ."],
       ()=>{ Q.papillonsRendus=true; autoSauver();
-            J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;
+            J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=pvTotal();
             J.rubis=Math.min(999,J.rubis+300);
             Q.potions=Math.min(9,Q.potions+2);
             SFX.coffre(); secousse=10;
@@ -5468,6 +5471,14 @@ function lignesJournal(){
   L.push(['','#000']);
   L.push(['QUÊTES ANNEXES','#8fe0b0']);
   L.push([f(Q.epeeLongue)+'LUCIOLES D OR : '+Q.lucioles+'/8','#c8d0e8']);
+  /* La baguette ne s'annonçait NULLE PART : la jauge de magie n'apparaît qu'une
+     fois qu'on l'a, et rien ne disait qu'il fallait retourner voir la fée après
+     l'épée. On l'écrit dès que la lame est forgée — pas avant, sinon on promet
+     un objet dont on n'a pas encore la première moitié. */
+  if(Q.epeeLongue) L.push([f(Q.baguette)+'BAGUETTE DE LA FÉE : '+
+    (Q.baguette?'PRISE':'RETOURNE LA VOIR AU BOSQUET'),'#c8a8ff']);
+  if(Q.baguette) L.push([f(Q.cryptOuverte)+'RUNES DE LA CRYPTE : '+(Q.runes|0)+'/4'+
+    (Q.cryptOuverte?'':' - LAGON, À L OUEST'),'#c8a8ff']);
   L.push([f(Q.coeurCristal)+'TARTE DE MIRA : '+
     (Q.coeurCristal?'TERMINÉ':Q.perle?'PERLE A LA DOYENNE':Q.tarte?'VOIR LE PÊCHEUR':'CHAMPIGNONS '+Q.champignons+'/4'),'#c8d0e8']);
   L.push([f(Q.primeRendue)+'PRIME DE LA GARDE : '+Math.min(Q.prime,15)+'/15','#c8d0e8']);
@@ -5656,6 +5667,7 @@ function objectifCourant(){
     if(!Q.palmes) return 'GRÈVE AUX PALMES : CHAUSSE LES PALMES';
     if(!Q.leviathanTue) return 'LE LARGE : TERRASSE LE LÉVIATHAN, À LA NAGE';
     if(!Q.perlesRendues&&Q.naufrageParle) return 'PERLES DU LAGON : '+Q.perles+'/5 AU NAUFRAGÉ';
+    if(Q.baguette&&!Q.cryptOuverte) return 'CRYPTE DES RUNES : '+(Q.runes|0)+'/4 À LA BAGUETTE';
     return 'AU SUD : L OUED VERS LES SABLES DU MIRAGE';
   }
   if(enCimes(J.y)){
@@ -5678,6 +5690,9 @@ function objectifCourant(){
   if(coffres[2].verrou) return 'BATS LE GARDIEN DE PIERRE';
   if(!coffres[2].ouvert) return 'PRENDS LA TROISIÈME ÉTOILE';
   /* --- Terres de Cendre --- */
+  /* La fée a un SECOND présent, et rien ne le disait : on ne retourne pas voir
+     un personnage qui vous a déjà donné quelque chose. */
+  if(Q.epeeLongue&&!Q.baguette) return 'RETOURNE VOIR LA FÉE : ELLE A AUTRE CHOSE';
   if(!Q.portailOuvert) return 'LE PORTAIL DE CENDRE, AU SUD DE LA VALLÉE';
   if(!coffres[3].ouvert) return 'FRANCHIS LE PORTAIL : LA FORGE EST DROIT DEVANT';
   if(!coffres[4].ouvert) return "À L'EST : BRISE LA ROCHE NOIRE AU MARTEAU";
@@ -5734,7 +5749,7 @@ function equiper(id,fente){
 
 const J={
   x:35*TS, y:45*TS, z:0, vz:0, dir:2, r:5,
-  pv:6, pvmax:6, magie:0, magiemax:0, rubis:0, bombes:0, fleches:0, fragments:0,
+  pv:6, pvmax:6, dores:0, magie:0, magiemax:0, rubis:0, bombes:0, fleches:0, fragments:0,
   objets:[], equipe:{Y:null,X:null},
   atk:0, charge:0, spin:0, invuln:0, bouclier:false, parRecup:0, kx:0, ky:0, nage:false,
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
@@ -6204,7 +6219,7 @@ function mourir(){
      désormais la seule source de magie qui se refait seule (voir majMagie), et
      ne se consomme donc pas ici. */
   if(Q.potions>0){
-    Q.potions--; J.pv=J.pvmax; J.invuln=120;
+    Q.potions--; J.pv=pvTotal(); J.invuln=120;
     SFX.coeur(); annonce('POTION ROUGE !');
     particules(J.x,J.y,J.z+10,26,'#ff8fa4',3,40);
     return;
@@ -6649,6 +6664,22 @@ function majJoueur(){
    et le plafond vaut exactement ce que le monde contient — pas un conteneur
    n'est gaspillé. Voir `38-equilibre.js`, qui compare l'offre au plafond. */
 const PVMAX=40;                  // 20 cœurs : deux rangées pleines
+/* Passé le plafond, un conteneur de plus DORE un cœur au lieu d'être perdu :
+   un cœur doré tient QUATRE points au lieu de deux, et redevient rouge quand
+   il a encaissé les deux premiers — on voit donc venir sa perte. Les dorés
+   sont les cœurs de GAUCHE, donc les derniers touchés. */
+const pvTotal=()=>J.pvmax+2*(J.dores|0);
+const doresMax=()=>J.pvmax/2;
+/* Le premier point d'un cœur dans la jauge, et sa contenance. */
+function coeurBorne(i){
+  const d=J.dores|0;
+  return {debut:(i<d)?i*4:d*4+(i-d)*2, cap:(i<d)?4:2};
+}
+function dorerUnCoeur(){
+  if((J.dores|0)>=doresMax()) return false;
+  J.dores=(J.dores|0)+1; J.pv=pvTotal();
+  return true;
+}
 const COEURS_RANGEE=10;          // dix par rangée — mesuré : onze tiennent
                                  // encore à W=200, douze touchent les rubis
 const rangeesCoeurs=()=>Math.ceil((J.pvmax/2)/COEURS_RANGEE);
@@ -6659,7 +6690,7 @@ function ouvrirCoffre(c){
   c.ouvert=true; SFX.coffre(); secousse=4; setTimeout(autoSauver,900);
   particules(c.x,c.y,c.e*EH+14,26,'#ffe86a',3,44);
   J.fragments++;
-  J.pv=J.pvmax;                   // il soigne, mais n'agrandit plus la jauge
+  J.pv=pvTotal();                   // il soigne, mais n'agrandit plus la jauge
   /* On équipe aussitôt l'objet trouvé, dans la première fente libre : sans
      cela on repartait d'un coffre en croyant n'avoir rien reçu. */
 
@@ -6785,8 +6816,14 @@ function ramasserButin(o){
   if(o.type==='fleurgivre'){ Q.fleurs=Math.min(6,Q.fleurs+1); SFX.rubis();
     son(980,.1,'triangle',.05,240,.05); particules(o.x,o.y,o.z+8,8,'#dff0ff',1.8,22);
     dire('FLEUR DE GIVRE : '+Q.fleurs+'/6',120); autoSauver(); }
-  if(o.type==='coeurmax'){ J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;
-    SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
+  if(o.type==='coeurmax'){
+    if(J.pvmax<PVMAX){ J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=pvTotal();
+      SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
+    else if(dorerUnCoeur()){
+      SFX.rare(); annonce('UN CŒUR SE DORE'); dire('CŒUR DORÉ : IL TIENT DEUX FOIS.',200);
+      particules(o.x,o.y,o.z+10,24,'#ffd84a',2.8,38); }
+    else { SFX.coeur(); J.pv=pvTotal(); }
+  }
   if(o.type==='eclatMagie'){ if(gagnerMagie(2)) SFX.rubis();
     particules(o.x,o.y,o.z+8,8,'#c8a8ff',1.8,22); }
   if(o.type==='baguette'){ Q.baguette=true; J.magiemax=Math.max(12,J.magiemax); magiePleine();
@@ -9269,6 +9306,15 @@ function coeurATH(g,x,y,v){
     if(w>6){ g.fillRect(x+6,y+2,2,2); }
   };
   g.fillStyle=bg; g.fillRect(x,y,8,7); g.fillRect(x+1,y+7,6,1);
+  /* v===3 : le cœur DORÉ. Même silhouette que le rouge plein — c'est la teinte
+     seule qui change, sinon la jauge cesse de se lire d'un coup d'œil. */
+  if(v===3){
+    g.fillStyle='#e8a81c'; g.fillRect(x,y+1,8,6);
+    g.fillRect(x+1,y,3,1); g.fillRect(x+5,y,2,1); g.fillRect(x+2,y+7,4,1);
+    g.fillStyle='#ffd84a'; g.fillRect(x+1,y+1,3,3); g.fillRect(x+5,y+1,2,2);
+    g.fillStyle='#fff3b0'; g.fillRect(x+1,y+1,2,2);
+    return;
+  }
   if(v>0){
     g.fillStyle='#d02a4a';
     const w=v===2?8:4;
@@ -9290,8 +9336,14 @@ function ath(){
      rubis. Le cadre grandit d'autant, sinon la seconde rangée déborde dessous. */
   const n=J.pvmax/2;
   for(let i=0;i<n;i++){
-    const r=J.pv-i*2;
-    coeurATH(X,6+(i%COEURS_RANGEE)*9,5+Math.floor(i/COEURS_RANGEE)*9,r>=2?2:(r===1?1:0));
+    const b=coeurBorne(i), r=J.pv-b.debut;
+    /* Un cœur doré (cap 4) montre l'or tant qu'il est plein, REDEVIENT ROUGE
+       une fois entamé de moitié, puis se vide comme les autres : on voit venir
+       sa perte au lieu de la découvrir. */
+    let v;
+    if(b.cap===4) v=(r>=4)?3:(r>=2?2:(r===1?1:0));
+    else          v=(r>=2)?2:(r===1?1:0);
+    coeurATH(X,6+(i%COEURS_RANGEE)*9,5+Math.floor(i/COEURS_RANGEE)*9,v);
   }
   /* La jauge de magie : sous les cœurs, et seulement une fois la baguette
      obtenue — une barre vide dès la première minute annoncerait un objet qu'on
@@ -9798,6 +9850,7 @@ const REPS={
   carillon: {a:'#dfe6ff',b:'#6f7ba0',r:'braise'},
   sceau:    {a:'#e08aff',b:'#6a3a90',r:'braise'},
   veilleuse:{a:'#d8e060',b:'#6f7430',r:'braise'},
+  rune:     {a:'#c8a8ff',b:'#5a3a90',r:'braise'},
   /* La fleur de givre et le papillon sont posés à la volée par `perchoirLibre` :
      faute de table de positions, ils étaient les SEULS ramassages de quête sans
      repère. Six fleurs blanches sur la neige d'une région de 6 400 cases ne se
@@ -9830,6 +9883,7 @@ function ecranCarte(){
   if(Q.guideParle&&!Q.fleursRendues&&butins.some(o=>o.type==='fleurgivre'))
     leg.push([REPS.fleur,'FLEUR']);
   if(Q.filet&&butins.some(o=>o.type==='papillon')) leg.push([REPS.papillon,'PAPILLON']);
+  if(Q.baguette&&!Q.cryptOuverte) leg.push([REPS.rune,'RUNE']);
 
   /* Le pied de page est mesuré et posé À PARTIR DU BAS de l'écran ; la carte
      prend ce qui reste. Dans l'autre sens — carte d'abord, textes calés sous
@@ -9916,6 +9970,10 @@ function ecranCarte(){
   for(const [cx,cy] of CARILLONS_POS) if(Obj(cx,cy)===O.CARILLON) rep2(cx,cy,REPS.carillon);
   for(const [sx,sy] of SCEAUX_POS) if(Obj(sx,sy)===O.SCEAU) rep2(sx,sy,REPS.sceau);
   for(const [vx,vy] of VEILLEUSES_POS) if(Obj(vx,vy)===O.VEILLEUSE) rep2(vx,vy,REPS.veilleuse);
+  /* Les runes : hors brouillard une fois la baguette en main. Sans repère, une
+     crypte de dix-sept cases se cherche à tâtons dans une région entière —
+     c'est le défaut des fleurs de givre, déjà corrigé au § 45. */
+  for(const [rx,ry] of RUNES_POS) if(Obj(rx,ry)===O.RUNE) rep2(rx,ry,REPS.rune,Q.baguette);
   /* Fleurs de givre et papillons : pas de table de positions — `perchoirLibre`
      les pose où il trouve de la place. On lit donc les butins eux-mêmes, ce qui
      a l'avantage de suivre le papillon, qui volette.
@@ -10247,7 +10305,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.9';
+const VERSION='V4.0';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10354,7 +10412,7 @@ function construireSauve(){
   return {
     v:VERSION_SAUVE, date:Date.now(), temps:tempsJeu, nom:nomPartie,
     Q:Object.assign({},Q),
-    J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,
+    J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,dores:J.dores,
        magie:J.magie,magiemax:J.magiemax,rubis:J.rubis,
        bombes:J.bombes,fleches:J.fleches,fragments:J.fragments,
        objets:J.objets.slice(),equipe:{Y:J.equipe.Y,X:J.equipe.X}},
@@ -10417,7 +10475,7 @@ function caseDeReprise([tx,ty]){
    contente de replacer le héros vivant à l'entrée de sa région. */
 async function sauverPointDeReprise(){
   const d=construireSauve();
-  d.J.pv=J.pvmax; d.J.z=0;                  // on revient debout et soigné
+  d.J.pv=pvTotal(); d.J.z=0;                  // on revient debout et soigné
   const [rx,ry]=caseDeReprise(REPRISE_POS[regionIdx(Math.floor(J.y/TS))]);
   d.J.x=rx*TS+8; d.J.y=ry*TS+8;
   const ou=await stockEcrire(d,emplacement);
@@ -10533,6 +10591,7 @@ async function chargerInterne(slot){
   // et les outils du sac doivent redonner leurs drapeaux, et l'inverse
   /* La baguette ouvre la jauge : une partie d'avant la magie, ou un champ
      manquant, ne doit pas la laisser à zéro avec l'outil dans le sac. */
+  J.dores=Math.max(0,Math.min(doresMax(),J.dores|0));  // partie d'avant les dorés
   if(Q.baguette&&!(J.magiemax>0)) J.magiemax=12;
   if(!(J.magie>=0)) J.magie=0;
   J.magie=Math.min(J.magie,J.magiemax);

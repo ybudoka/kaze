@@ -104,11 +104,41 @@ module.exports = {
         out.rachatRefuse = art2 ? !art2.ok() : false;
       }
 
-      /* ---- rien ne dépasse le plafond, quelle que soit la source ---- */
-      J.pvmax = PVMAX;
+      /* ---- rien ne dépasse le plafond : au-delà, le cœur SE DORE ----
+         Un conteneur de plus n'est plus perdu — il gagne un cœur doré, qui
+         tient deux fois et redevient rouge avant de tomber. */
+      J.pvmax = PVMAX; J.dores = 0; J.pv = pvTotal();
       ramasserButin({ x: J.x, y: J.y, z: 0, type: 'coeurmax' });
-      out.debordeButin = J.pvmax;
-      out.plafondUnique = J.pvmax === PVMAX;
+      out.debordeButin = J.pvmax;                 // le plafond ne bouge pas
+      out.premierDore = J.dores;                  // mais un cœur s'est doré
+      out.viePlusGrande = J.pv === PVMAX + 2 && pvTotal() === PVMAX + 2;
+
+      /* Un cœur doré encaisse DEUX FOIS, et repasse au rouge entre les deux :
+         c'est tout l'objet — on voit venir sa perte. On lit ce que l'ATH
+         dessine réellement pour le premier cœur, doré, au fil des dégâts. */
+      J.dores = 1; J.pv = pvTotal();
+      /* On lit l'état que l'ATH DONNE réellement au premier cœur, en
+         interceptant `coeurATH`. Une première version recalculait la règle
+         dans le contrôle : casser la règle dans `ath()` laissait donc le
+         contrôle vert — il mesurait sa propre copie. */
+      const etatCoeur = (i) => {
+        let vu = null; const vrai = window.coeurATH; let k = 0;
+        window.coeurATH = function (g, x, y, val) { if (k++ === i) vu = val; return vrai(g, x, y, val); };
+        ath();
+        window.coeurATH = vrai; return vu;
+      };
+      /* Le cœur doré est le plus À GAUCHE, donc le DERNIER touché : il ne change
+         d'aspect qu'une fois toute la jauge vidée jusqu'à lui. Une première
+         version retirait un point à une jauge pleine de 42 et lisait le cœur 0 :
+         il restait doré, forcément, et le contrôle ne mesurait rien. */
+      const suite = [];
+      for (const pv of [4, 3, 2, 1, 0]) { J.pv = pv; suite.push(etatCoeur(0)); }
+      out.suiteDore = suite;                      // or, rouge, rouge, demi, vide
+
+      // et l'on ne dore pas au-delà du nombre de cœurs
+      J.dores = doresMax();
+      out.doreMaxRefuse = dorerUnCoeur() === false && J.dores === doresMax();
+      J.dores = 0; J.pv = pvTotal();
       return out;
     });
 
@@ -133,10 +163,18 @@ module.exports = {
       `${r.total} points pour un plafond de ${r.PVMAX} (${r.contenants} conteneurs ramassés)`);
     v('AUCUN CONTENEUR N\'EST GASPILLÉ', r.total <= r.PVMAX,
       `${r.total} > ${r.PVMAX} : ${(r.total - r.PVMAX) / 2} cœurs perdus`);
-    v('LE CŒUR DE LA COLPORTEUSE COMPLÈTE LA JAUGE, ET NE SE REVEND PAS',
-      r.articleExiste && r.achatPossible && r.apresAchat === r.PVMAX && r.rachatRefuse,
-      `possible=${r.achatPossible} après=${r.apresAchat} rachat refusé=${r.rachatRefuse}`);
+    v('LE CŒUR DE LA COLPORTEUSE COMPLÈTE LA JAUGE',
+      r.articleExiste && r.achatPossible && r.apresAchat === r.PVMAX,
+      `possible=${r.achatPossible} après=${r.apresAchat}`);
     v('rien ne dépasse le plafond', r.debordeButin === r.PVMAX, r.debordeButin);
+    v('AU-DELÀ DU PLAFOND, LE CONTENEUR DORE UN CŒUR AU LIEU D\'ÊTRE PERDU',
+      r.premierDore === 1 && r.viePlusGrande,
+      `dorés=${r.premierDore} vie plus grande=${r.viePlusGrande}`);
+    v('UN CŒUR DORÉ REDEVIENT ROUGE AVANT D\'ÊTRE PERDU',
+      r.suiteDore.join(',') === '3,2,2,1,0',
+      `de 4 à 0 points restants : ${r.suiteDore.join(',')} (3=or, 2=rouge plein)`);
+    v('on ne dore pas plus de cœurs qu\'il n\'y en a', r.doreMaxRefuse,
+      'la dorure déborde');
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
 

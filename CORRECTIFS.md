@@ -4017,3 +4017,62 @@ cherche, et il fonctionne partout, pas seulement sous le casque.
 
 > **Réinjection**, quatre fois : viseur redevenu permanent ; pastille ramenée au
 > centre ; sauvegarde retirée ; bouton déplacé loin du plein écran.
+
+---
+
+## 60. « Je ne vois pas de jauge de magie » — et les cœurs dorés
+
+### La jauge se dessinait ; personne ne pouvait le savoir
+
+Mesuré d'abord, avant de toucher à quoi que ce soit : avec `magiemax = 12` et
+sept points, l'ATH pose **105 pixels** de la teinte de la jauge — exactement
+7 pips de 3 × 5 — et **zéro** sans la baguette. Le dessin n'avait rien.
+
+Le défaut était en amont : **rien n'annonçait la baguette**. La jauge n'apparaît
+qu'une fois l'objet pris, et la chaîne pour l'obtenir est longue — huit lucioles,
+l'épée longue, puis **revenir voir la fée**. Or on ne retourne pas voir un
+personnage qui vous a déjà donné quelque chose, et aucune ligne du journal, aucun
+objectif, aucun repère n'en parlait. Exactement le défaut des fleurs de givre
+(§ 45), refait à l'identique.
+
+Désormais : la fée le **dit** en forgeant la lame, le **journal** porte la
+baguette dès l'épée obtenue puis les runes une fois la baguette prise,
+l'**objectif** renvoie au bosquet puis à la crypte, et les runes ont un **repère
+de carte qui traverse le brouillard**.
+
+> **Réinjection**, trois fois. La deuxième est restée verte **deux fois de
+> suite**, pour deux raisons différentes et instructives :
+> - la mesure comptait les pixels de la teinte des runes sur tout l'écran — or
+>   la **jauge de magie** est de la même teinte et l'ATH se dessine par-dessus
+>   la carte : 105 pixels noyaient quatre repères ;
+> - une fois la jauge éteinte, restait la **légende**, qui affiche une pastille
+>   de cette même teinte. On mesure maintenant la carte **sans runes posées**
+>   comme référence : la différence, ce sont les repères, et rien d'autre.
+>
+> Deux contaminations pour une seule mesure. La leçon du § 53 revient : ce qui
+> entoure la mesure peut la rendre aveugle.
+
+### Les cœurs dorés
+
+> « À défaut de pouvoir ajouter plus de cœurs, les cœurs en extra deviennent
+> dorés et comptent pour 2. Ils reviennent rouges avant d'être perdus. »
+
+Le § 53 avait calé l'offre pile sur le plafond, mais la colporteuse vend des
+cœurs sans fin : au-delà de vingt, le conteneur était **perdu**. Il **dore**
+maintenant un cœur.
+
+- un cœur doré tient **quatre points** au lieu de deux ;
+- les dorés sont les cœurs **de gauche**, donc les **derniers** touchés ;
+- entamé de moitié, un doré **redevient rouge** — on voit venir sa perte au lieu
+  de la découvrir.
+
+Relevé sur ce que l'ATH dessine réellement pour le premier cœur, de 4 points
+restants à 0 : **or, rouge, rouge, demi, vide**.
+
+> **Réinjection**, trois fois. La troisième — le doré qui tombe sans repasser au
+> rouge — est restée **verte** : le contrôle **recalculait la règle** au lieu de
+> lire ce que `ath()` donne à `coeurATH`. Il l'intercepte maintenant, et la
+> réinjection donne `3,0,0,1,0` au lieu de `3,2,2,1,0`.
+>
+> *Tester une copie de la règle, ce n'est pas tester la règle.* Troisième fois
+> dans ce dépôt (§ 19, § 20, § 53).
