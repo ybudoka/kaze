@@ -126,6 +126,25 @@ module.exports = {
       J.x = (ar.x0 + (ar.w >> 1)) * TS + 8; J.y = (ar.y0 + 4) * TS + 8; J.z = 0; J.invuln = 99999;
       await dort(280);
       out.sentinelleReveil = !!(boss && boss.type === 'sentinelle');
+
+      /* Sa coque : elle ANNONCE « RAFALE : ELLE SE CLÔT ». Tant que rien ne
+         lisait `close`, on pouvait la marteler pendant qu'elle se protégeait —
+         l'annonce était un décor. Le combat est un rythme : on frappe dans le
+         répit, pas pendant la rafale. */
+      if (boss) {
+        const B = boss;
+        B.close = 0; B.flash = 0;
+        const pvA = B.pv;
+        out.sentinelleTouchableOuverte = frapper(B, 3, B.x - 20, B.y, 'epee') && B.pv < pvA;
+        B.close = 100; B.flash = 0;
+        const pvB = B.pv;
+        out.sentinelleIntouchableClose = !frapper(B, 3, B.x - 20, B.y, 'epee') && B.pv === pvB;
+        // une bombe, elle, force la coque : l'explosion ne se pare pas
+        B.flash = 0;
+        out.sentinelleCedeALaBombe = frapper(B, 3, B.x - 20, B.y, 'explosion') && B.pv < pvB;
+        B.close = 0;
+      }
+
       if (boss) boss.pv = 0;
       await dort(280);
       out.sentinelleTombe = !boss && !!Q.sentinelleTue;
@@ -190,6 +209,10 @@ module.exports = {
       `ouverte=${r.epreuveOuverte} éclats restants=${r.eclatsRestants}`);
 
     v('entrer au Belvédère réveille la Sentinelle', r.sentinelleReveil, 'pas de gardien');
+    v('PENDANT SA RAFALE, LA SENTINELLE EST CLOSE : ON NE L\'ENTAME PAS',
+      r.sentinelleTouchableOuverte === true && r.sentinelleIntouchableClose === true,
+      `ouverte=${r.sentinelleTouchableOuverte} close=${r.sentinelleIntouchableClose}`);
+    v('une bombe force sa coque', r.sentinelleCedeALaBombe === true, 'l\'explosion ne passe pas');
     v('la vaincre ouvre la Faille',
       r.sentinelleTombe && r.failleOuverteParLaSentinelle,
       `tombée=${r.sentinelleTombe} faille=${r.failleOuverteParLaSentinelle}`);
