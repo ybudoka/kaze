@@ -36,6 +36,8 @@ module.exports = {
         if ((s === S.EAU || s === S.EAUPROF) && !Q.palmes) return false;
         const o = Obj(x, y);
         if (o === O.PORTAIL) return !!Q.portailOuvert;
+        // le sceau d'une région : il ne cède qu'à la chute de son gardien
+        if (o === O.SCEAUMONDE) return verrouOuvert(regionIdx(y));
         if (o === O.RONCE) return !!burn;
         if (o === O.ROCNOIR || o === O.GLACON || o === O.CAISSE || o === O.ANCRE || o === O.PORTEP || o === O.BLOCLOURD) return false;
         if (o && DUR_O[o] && !FRANCH_O[o]) return false;
@@ -52,7 +54,11 @@ module.exports = {
         return vus;
       };
       const near = (v, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => dansCarte(x + dx, y + dy) && v[(y + dy) * MW + x + dx]);
+      /* Les gardiens du nord sont abattus : depuis les verrous de région
+         (31-verrous.js), ce sont eux qui descellent la route jusqu'au
+         marécage. Sans cela on mesurerait les sceaux au lieu de la tourbière. */
       Q.portailOuvert = true; Q.palmes = true;
+      Q.coeurTue = true; Q.yetiTue = true; Q.leviathanTue = true; Q.colosseTue = true;
       const wx = (MARAIS.laisse.x0 + MARAIS.laisse.x1) >> 1, wy = Y_MARAIS + 3;
       const areneCentre = [MARAIS.arene.x0 + (MARAIS.arene.w >> 1), MARAIS.arene.y0 + 3];
       let vv = flood(wx, wy, false);

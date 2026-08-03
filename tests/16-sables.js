@@ -35,6 +35,8 @@ module.exports = {
         if ((s === S.EAU || s === S.EAUPROF) && !Q.palmes) return false;
         const o = Obj(x, y);
         if (o === O.PORTAIL) return !!Q.portailOuvert;
+        // le sceau d'une région : il ne cède qu'à la chute de son gardien
+        if (o === O.SCEAUMONDE) return verrouOuvert(regionIdx(y));
         if (o === O.BLOCLOURD || o === O.ROCNOIR || o === O.GLACON || o === O.CAISSE || o === O.ANCRE || o === O.PORTEP) return false;
         if (o && DUR_O[o] && !FRANCH_O[o]) return false;
         return true;
@@ -50,7 +52,11 @@ module.exports = {
         return vus;
       };
       const near = (v, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => dansCarte(x + dx, y + dy) && v[(y + dy) * MW + x + dx]);
+      /* Les gardiens du nord sont abattus : depuis les verrous de région
+         (31-verrous.js), ce sont eux qui descellent la route jusqu'à l'oued.
+         Sans cela on mesurerait les sceaux au lieu de mesurer le désert. */
       Q.portailOuvert = true; Q.palmes = true;
+      Q.coeurTue = true; Q.yetiTue = true; Q.leviathanTue = true;
       const wx = (SABLES.wadi.x0 + SABLES.wadi.x1) >> 1, wy = Y_SABLES + 3;
       const areneCentre = [SABLES.arene.x0 + (SABLES.arene.w >> 1), SABLES.arene.y0 + 3];
       let vv = flood(wx, wy, false);

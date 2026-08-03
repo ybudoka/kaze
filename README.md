@@ -66,6 +66,12 @@ Murmures, la **Cité des Nues** et la **Faille**. Chacun enseigne une mécanique
 que les suivants combinent, et donne un outil : arc, bombes, grappin, marteau,
 boomerang, palmes, bracelet de force, fanal, **cape des courants**.
 
+**On ne descend pas d'un monde au suivant sans avoir abattu son gardien.** Un
+**sceau** barre l'entrée de chaque région et ne cède qu'à sa chute — il dit
+d'ailleurs ce qui tient encore debout quand on bute dessus. C'est ce qui
+garantit qu'on arrive dans chaque monde avec l'outil du précédent : le
+boomerang avant les Cimes, les palmes avant le Lagon, la cape avant la Faille.
+
 À la **Cité des Nues**, rien ne se traverse à pied : le vide sépare les îles.
 La cape fait planer, les colonnes d'air rallongent le vol. À la **Faille**, on
 arrive avec tout : trois paliers rejouent les épreuves des mondes traversés,
@@ -192,7 +198,7 @@ depuis `main` : tout push met le jeu à jour en une à deux minutes.
 
 ```bash
 npm install && npx playwright install chromium
-npm test                          # 282 contrôles, ~22 s
+npm test                          # 837 contrôles, ~36 s
 node tests/lancer.js sauvegardes  # un sous-ensemble
 ```
 

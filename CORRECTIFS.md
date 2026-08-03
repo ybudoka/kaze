@@ -2777,3 +2777,282 @@ brouillard, et doivent rester à 0 dans ce même relevé.
   sinon il n'apparaît qu'une fois la chose trouvée.
 - **Toute collecte annexe a sa ligne dans `objectifCourant()`**, comme les
   perles et les fresques.
+
+## 42. L'écran de fin se recouvrait lui-même, comme l'écran-titre avant lui
+
+### Le symptôme
+
+« L'écran de game over n'est pas correct. » Sur un téléphone **couché**, le menu
+s'imprime par-dessus le bilan : on lit `REPRENDRE LA SAUVEGARDE` écrit dans la
+case `PARTIE : LEA`, `CHOISIR UN EMPLACEMENT` par-dessus la ligne des pierres,
+et `START POUR CHOISIR` par-dessus `PROGRESSION CONSERVÉE`. Illisible.
+
+### La cause réelle : deux blocs qui ne se connaissaient pas
+
+Exactement la maladie du § 39, jamais soignée ici. Le bilan descendait du
+**haut** :
+
+```js
+const yT=Math.round(H*.30)+…      // titre
+const yB=yT+7*sc+12;              // sous-titre
+… by=yB+14;                       // panneau
+```
+
+et le menu montait du **bas**, sans jamais consulter le premier :
+
+```js
+dessinerMenu(opts,W/2,H-32-opts.length*14,larg);
+texteCentre(X,'START POUR CHOISIR',W/2,H-16,…);
+```
+
+Le bloc du haut a une hauteur **fixe** (~125 px avec un titre à l'échelle 5) ;
+la place entre `H*.30` et `H-32-n*14` **fond avec H**. `redim()` borne la hauteur
+interne à 168 px : dès ~300 px, les deux se traversent.
+
+Relevé des rectangles réellement tracés, `PIERRES`/`LUCIOLES`/`TEMPS`/`RUBIS`
+contre les entrées du menu :
+
+| résolution interne | vient de | recouvrements | pire |
+|---|---|---|---|
+| 200×280 | téléphone portrait | 0 | — |
+| **620×180** | **téléphone paysage** | **4** | 441 px² |
+| **240×200** | petit écran bas | **3** | 500 px² |
+| **300×180** | paysage étroit | **5** | 177 px² |
+| **620×168** | le plancher de `redim()` | **1** | 71 px² |
+| 620×260 | écran large et bas | 0 | 4 px de marge |
+
+Trois défauts secondaires, tous du côté **victoire** — que le balayage a
+trouvés seuls, l'écran de fin n'ayant jusqu'ici jamais été mesuré :
+
+- `panneau(X,bx,by,larg,gagne?46:46)` — un ternaire **mort** : les deux
+  branches valent 46. `PROGRESSION CONSERVÉE`, tracée à `by+50`, tombait donc
+  4 px **sous** la boîte, orpheline.
+- La ronde d'étoiles de la victoire est posée à `yT-46` et déborde de 12 px :
+  il lui faut 58 px de ciel. Sur un écran bas elle sortait par le haut.
+- `LES TROIS ÉTOILES BRILLENT À NOUVEAU.` fait **221 px**. La largeur interne
+  d'un téléphone en portrait est de **200 px** : la dernière phrase du jeu
+  était rognée des deux côtés, de 10 px de chaque. Défaut **antérieur** à ce
+  correctif — personne ne l'avait mesuré.
+
+### Le correctif
+
+On empile de bas en haut, **une seule fois, avant de dessiner** : la légende, le
+menu, le bilan, le titre. Ce qui manque de place est pris au titre (échelle 5 →
+2), puis au sous-titre. Jamais au recouvrement.
+
+Les marges suivent la hauteur (`clamp(Math.round(H*.032),4,9)` et compagnie) au
+lieu d'être figées : elles retrouvent **exactement** leur valeur d'origine dès
+~280 px de haut — le portrait ne bouge pas d'un pixel — et se resserrent en
+dessous sans marche d'escalier à un seuil. `PROGRESSION CONSERVÉE` tient
+maintenant **dans** le panneau (62 px au lieu de 46).
+
+La ronde d'étoiles ne se dessine que si elle a ses 58 px de ciel. La faire
+tourner **autour** du titre a été essayé et rejeté par la mesure : une orbite
+passe forcément par le centre, donc derrière les lettres — 1 548 px² de
+recouvrement en 620×180. Quand le ciel manque, on s'en passe. Le sous-titre de
+la victoire a une version courte pour les écrans étroits, comme la légende de
+l'écran de carte : `LES TROIS ÉTOILES BRILLENT.` (161 px).
+
+### Le contrôle
+
+`tests/35-ecran-fin.js`. On ne teste pas la formule : on **relève** ce qui est
+réellement tracé pendant une image (`texte`, `panneau`, `fillRect`, `drawImage`
+détournés le temps d'un appel à `ecranFin`) et l'on mesure l'aire
+d'intersection. Balayage des **192** mises en page possibles — 6 largeurs × 8
+hauteurs × victoire/défaite × 1 ou 2 entrées de menu — puis cinq vraies fenêtres
+pour ancrer le balayage au réel.
+
+Contrôle à blanc : deux boîtes connues qui se chevauchent doivent donner 25 px²,
+deux boîtes disjointes 0. Sans lui, un `recouvrement()` aveugle rendrait les
+192 mises en page vertes.
+
+Les quatre défauts ont été réinjectés un à un ; **les quatre font rougir** :
+
+| réinjection | ce que le contrôle dit |
+|---|---|
+| titre figé à `Math.round(H*.30)`, sans regarder le menu — *le défaut d'origine* | 7 échecs, dès 200×168 : « le menu recouvre le bilan » |
+| `hPan = 46` pour les deux fins — *le ternaire mort* | 6 échecs : `PROGRESSION CONSERVÉE` hors du panneau |
+| `if(gagne)` sans exiger les 58 px de ciel | 3 échecs : « hors canevas : etoile » |
+| sous-titre de victoire sans repli court | 2 échecs : « hors canevas : LES TROIS ÉTOILES… » |
+
+### À ne pas réintroduire
+
+- **Deux blocs posés depuis des bords opposés d'un même écran.** Ils ne se
+  recouvrent pas sur la machine de développement, et se traversent sur le
+  téléphone. On empile depuis un seul bord, une fois, avant de dessiner.
+- **Un ternaire dont les deux branches sont égales** : c'est une intention
+  inachevée, pas une constante.
+- **La hauteur interne descend à 168 px** (`redim()`). Tout écran plein doit
+  être vérifié à ce plancher, pas seulement en portrait.
+- **Un écran a deux variantes** (ici victoire et défaite) : mesurer la seule
+  qu'on sait casser laisse l'autre pourrir. Les trois défauts secondaires
+  ci-dessus étaient tous du côté victoire, et tous antérieurs.
+
+---
+
+## 43. Six frontières sur sept étaient ouvertes : on traversait le monde sans rien vaincre
+
+### Le symptôme
+
+Rien ne barrait le passage d'une région à la suivante. Une fois les trois
+pierres réunies, on descendait de la vallée jusqu'au bout du monde sans abattre
+un seul gardien, en cueillant les outils dans n'importe quel ordre. La courbe
+promise par `PLAN.md` — « chaque monde enseigne une mécanique, les suivants la
+combinent » — ne tenait plus : rien ne garantissait qu'on eût le boomerang
+avant les Cimes, ni les palmes avant le Lagon.
+
+**Mesuré avant correctif** — remplissage par diffusion depuis le village, dont
+la seule règle de passage est le vrai `solide()` du jeu :
+
+| verrous ouverts | région la plus au sud atteinte |
+|---|---|
+| 0 | Vallée ✅ |
+| 1 (portail de Cendre) | **la Faille** ❌ *(attendu : Cendre)* |
+| 2 à 6 | **la Faille** ❌ |
+
+Autrement dit : **le portail de Cendre franchi, tout le reste du monde était
+accessible à pied.**
+
+### La cause réelle : un verrou écrit une fois, jamais généralisé
+
+`solide()` portait déjà exactement le motif qu'il fallait — une ligne :
+
+```js
+if(o===O.PORTAIL) return !Q.portailOuvert;   // franchissable une fois ouvert
+```
+
+Ce verrou n'existait qu'**une fois sur sept**. Les six autres corridors — le col
+des Cimes, la descente du Lagon, l'oued des Sables, le marécage du Marais, la
+tour des Nues, la bouche de la Faille — étaient percés et vides.
+
+Le plus parlant : **`Q.failleOuverte` était calculé, sauvegardé, et lu nulle
+part pour bloquer quoi que ce soit.** `ouvrirFaille()` le posait à la chute de
+la Sentinelle, puis il ne servait qu'à une ligne de journal. Le verrou avait été
+pensé, puis jamais posé. Le verrouillage *intérieur*, lui, était soigné — la
+vanne de sables mouvants est « L'UNIQUE passage vers l'Arène », le rideau de
+ronces « l'unique passage vers le Cœur du Marais ». La discipline existait
+**dans** les régions, pas **entre** elles.
+
+### Le correctif
+
+Une table plutôt que sept écritures. Le verrou est le **gardien** de la région,
+ce qui est transitivement correct : chaque gardien exige déjà l'outil de son
+monde (le Yéti le boomerang, le Colosse le bracelet, la Reine le fanal, la
+Sentinelle la cape). Une seule condition à maintenir.
+
+```js
+const VERROUS_REGION = [null,'portailOuvert','coeurTue','yetiTue','leviathanTue',
+                        'colosseTue','reineTue','failleOuverte'];
+const verrouOuvert = i => { const f=VERROUS_REGION[i];
+  return !f || !!Q[f] || !!(Q.sceauForce&&Q.sceauForce[i]); };
+```
+
+et dans `solide()`, sous la ligne du portail :
+
+```js
+if(o===O.SCEAUMONDE) return !verrouOuvert(regionIdx(ty));
+```
+
+Les **huit drapeaux existaient déjà** et étaient déjà posés correctement par la
+mort de chaque gardien. Il ne manquait que l'obstacle.
+
+### Trois choses que la mesure a corrigées en chemin
+
+**1. Le sceau doit être SUR la rangée-frontière, pas au-dessus.** Posé d'abord
+deux rangées plus haut — par symétrie avec le portail de Cendre —, il se
+contournait par le côté. Mesuré, plage par plage :
+
+| région | rangée-frontière | deux rangées plus haut |
+|---|---|---|
+| Cimes, Lagon, Sables, Marais | 1 plage ouverte | 1 plage |
+| **Cité des Nues** | **1 plage** (38-42) | **6 plages** (4-5, 12-17, 24-32, 34-42, 54-72, 74-77) |
+| **la Faille** | **1 plage** (38-42) | 1 plage, mais large (32-48) |
+
+La rangée-frontière est la seule où chaque région dresse son mur. Balayer toute
+sa largeur dispense en outre de connaître les corridors : un trou ajouté demain
+sera scellé sans qu'on y pense.
+
+**2. `verrouOuvert` prend un INDICE de région, pas une rangée.** Première
+version : `verrouOuvert(ty)`. Un sceau posé au-dessus de la frontière appartient
+à la région qu'on **quitte** — on lisait donc le drapeau du mauvais monde. Le
+défaut a survécu au déplacement du sceau ; l'argument est resté un indice, qui
+ne peut pas se tromper.
+
+**3. Ne pas monter `VERSION_SAUVE`.** Le plan le prévoyait. Mais
+`chargerInterne` **refuse** toute sauvegarde dont `v!==VERSION_SAUVE` : la monter
+aurait effacé toutes les parties en cours. Ce dépôt migre par **inférence** —
+c'est déjà ce que font `if(J.fragments>=3&&!Q.portailOuvert)` et
+`if(Q.sentinelleTue&&!Q.failleOuverte)`. On a suivi la règle du code, pas celle
+du plan.
+
+D'où `Q.sceauForce` : au chargement, tout verrou situé **au nord du héros**
+s'ouvre d'office, sinon la mise à jour murerait une partie déjà descendue.
+Et via un drapeau séparé, **jamais en cochant `coeurTue` & consorts** — cela
+aurait faussement marqué jusqu'à six gardiens comme abattus au journal et au
+bilan de complétion. On libère le chemin, on ne ment pas sur les exploits.
+
+### Comment c'est vérifié
+
+`tests/31-verrous.js` — 27 contrôles. Deux mesures indépendantes :
+
+1. **Ce qui est atteignable à pied.** Un remplissage par diffusion dont la seule
+   règle de passage est le **vrai `solide()`**, jamais un miroir qui dériverait.
+   En ouvrant les verrous un à un, la région la plus au sud atteinte doit
+   avancer d'**exactement un cran** à chaque fois.
+2. **Que le héros bute vraiment.** On le pose dans chaque corridor — trouvé par
+   le remplissage lui-même, verrou ouvert, plutôt que codé en dur — et on le
+   pousse plein sud 400 images.
+
+Plus : le sceau **nomme** ce qui tient debout, il ne se referme jamais, et une
+partie placée au sud d'un verrou clos est libérée au chargement **sans** cocher
+de gardien.
+
+**Contrôle à blanc** — le test écrit *avant* le correctif :
+
+```
+✓ LE SCEAU DE CENDRE ARRÊTE LE HÉROS          ← le seul verrou qui existait
+✗ LE SCEAU DE CIMES ARRÊTE LE HÉROS   → franchie (dépassement de 89px)
+✗ LE SCEAU DE LAGON ARRÊTE LE HÉROS   → franchie (504px)
+✗ LE SCEAU DE SABLES ARRÊTE LE HÉROS  → franchie (249px)
+✗ LE SCEAU DE MARAIS ARRÊTE LE HÉROS  → franchie (431px)
+✗ LE SCEAU DE NUES ARRÊTE LE HÉROS    → franchie (41px)
+✗ LE SCEAU DE FAILLE ARRÊTE LE HÉROS  → franchie (185px)
+```
+
+**6 sur 7 rouges, la septième verte** : la seule frontière qui avait déjà son
+portail. C'est ce contraste qui prouve que le contrôle mesure la bonne chose.
+
+### Les huit contrôles qu'il a fallu mettre à jour, et pourquoi
+
+`14-cimes-lagon`, `16-sables`, `18-marais` et `17-compat` tenaient pour acquis
+qu'on traverse le monde librement — la propriété même qu'on vient de supprimer.
+Ils ont chacun **leur propre miroir de `solide()`**, où le sceau tombait dans la
+branche générique « obstacle plein » et bloquait donc *même ouvert*. Deux
+corrections par fichier : apprendre `O.SCEAUMONDE` au miroir, et abattre les
+gardiens que le parcours traverse.
+
+Trois assertions ont été **ajoutées** plutôt que simplement ajustées, pour que
+la nouvelle règle soit affirmée là où l'ancienne l'était :
+
+- « LE LAGON RESTE SCELLÉ TANT QUE LE YÉTI TIENT » ;
+- « LES SABLES LUI RESTENT SCELLÉS : LE LÉVIATHAN TIENT ENCORE » ;
+- « UNE VIEILLE PARTIE N'EST PAS MURÉE : ELLE REMONTE AU NORD ».
+
+### À ne pas réintroduire
+
+- **Une règle de passage écrite une fois pour un cas particulier.** Le portail
+  de Cendre a vécu sept versions sans que personne remarque qu'il était seul.
+  Une table de huit lignes se relit ; sept `if` dispersés, non.
+- **Un drapeau calculé et sauvegardé que rien ne lit.** `Q.failleOuverte` était
+  le fantôme d'une intention. Un drapeau sans lecteur est un correctif oublié.
+- **Poser un obstacle de frontière ailleurs que sur la rangée-frontière.** Elle
+  seule est murée sur toute sa largeur ; deux rangées plus haut, la Cité des
+  Nues en compte six plages ouvertes.
+- **Passer une RANGÉE là où l'on veut une RÉGION.** Un sceau appartient à la
+  région d'un côté et garde celle de l'autre : l'ambiguïté ne se voit pas, elle
+  se mesure.
+- **Monter `VERSION_SAUVE` pour migrer.** Ici, cela efface les parties. On migre
+  par inférence, comme le fait déjà le chargement.
+- **Migrer en cochant un drapeau d'exploit** pour débloquer un chemin : le
+  journal et le bilan de complétion mentiraient. Un drapeau de circonstance
+  (`sceauForce`) coûte huit octets et dit la vérité.

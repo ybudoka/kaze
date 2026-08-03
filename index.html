@@ -264,6 +264,38 @@ const regionIdx = ty => ty>=Y_FAILLE?7:ty>=Y_NUES?6:ty>=Y_MARAIS?5:ty>=Y_SABLES?
    passages (le col, l'oued, le marécage) — il reste chez lui. */
 const BORNES_Y = [0, Y_CENDRE, Y_CIMES, Y_LAGON, Y_SABLES, Y_MARAIS, Y_NUES, Y_FAILLE, MH];
 
+/* ------------------------- LES VERROUS DE RÉGION -------------------------
+   On ne descend pas d'un monde au suivant sans avoir abattu son gardien.
+
+   Le jeu n'avait qu'UN verrou sur sept — le portail de Cendre — et l'on
+   traversait donc cinq régions d'affilée sans rien vaincre, en cueillant les
+   outils dans n'importe quel ordre. Mesuré : depuis les Cendres, la Faille
+   était atteignable À PIED.
+
+   Verrouiller sur le GARDIEN plutôt que sur l'outil est transitivement
+   correct : chaque gardien exige déjà l'outil de son monde (le Yéti le
+   boomerang, le Colosse le bracelet, la Reine le fanal, la Sentinelle la
+   cape). Une seule condition à maintenir, et changer un verrou ne demande
+   que de changer un identifiant ici. */
+const VERROUS_REGION = [null,             // la Vallée : on y commence
+  'portailOuvert',   // → Terres de Cendre : les trois pierres
+  'coeurTue',        // → Cimes Gelées     : le Cœur de Cendre
+  'yetiTue',         // → Lagon d'Azur     : le Roi Yéti
+  'leviathanTue',    // → Sables du Mirage : le Léviathan
+  'colosseTue',      // → Marais           : le Colosse de Grès
+  'reineTue',        // → Cité des Nues    : la Reine des Lucioles Noires
+  'failleOuverte'];  // → la Faille        : la Sentinelle du Ciel
+/* Ce qu'il faut abattre, dit au joueur quand il bute sur le sceau. */
+const GARDIEN_REGION = [null,
+  'LES TROIS PIERRES', 'LE CŒUR DE CENDRE', 'LE ROI YÉTI', 'LE LÉVIATHAN',
+  'LE COLOSSE DE GRÈS', 'LA REINE DES LUCIOLES', 'LA SENTINELLE DU CIEL'];
+/* Le verrou d'une RÉGION (son indice, pas une rangée : un sceau est posé JUSTE
+   AU-DESSUS de la frontière, donc dans la région précédente — prendre une
+   rangée aurait lu le drapeau du monde qu'on quitte au lieu de celui qu'on
+   veut atteindre). `sceauForce` ne sert qu'aux parties d'avant les verrous. */
+const verrouOuvert = i => { const f=VERROUS_REGION[i];
+  return !f || !!Q[f] || !!(Q.sceauForce&&Q.sceauForce[i]); };
+
 const clamp=(v,a,b)=>v<a?a:(v>b?b:v);
 const lerp=(a,b,t)=>a+(b-a)*t;
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -1134,14 +1166,16 @@ const O = {RIEN:0,ARBRE:1,ROC:2,BUISSON:3,MUR:4,PILIER:5,TORCHE:6,STATUE:7,PANNE
            /* Sables */ BLOCLOURD:34,CACTUS:35,
            /* Marais */ RONCE:36,VEILLEUSE:37,VEILLEUSEVIVE:38,SAULE:39,
            /* Cité des Nues */ COLONNE:40,CARILLON:41,CARILLONVIF:42,OBELISQUE:43,
-           /* la Faille */ SCEAU:44,ECLATNOIR:45};
+           /* la Faille */ SCEAU:44,ECLATNOIR:45,
+           /* le sceau qui ferme l'entrée d'une région (voir VERROUS_REGION) */
+           SCEAUMONDE:46};
 
 /*                index 0  1  2 3  4  5  6  7  8 9 10 11 12 13 14 15  16 17 18  19 20 21  22 23 24 25  26 27  28 29 30 31 32 33  34 35  36 37 38 39 */
 const HAUT_O = [0,30,11,9,20,22,14,20,12,7,0,34,20,20,20,20, 13,26,16, 22,22,16,  18,30,12,20, 34,16,  14,18,16,16,28,20,  16,26,  16,20,20,34,
-                /* Nues */ 26,22,22,34,  /* Faille */ 24,18];
+                /* Nues */ 26,22,22,34,  /* Faille */ 24,18,  /* sceau de région */ 30];
 /* La colonne d'air et le carillon se traversent : l'une porte, l'autre sonne. */
 const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  1,1,0,0,1,1,  1,1,  1,1,1,1,
-                0,0,0,1,  1,1];
+                0,0,0,1,  1,1,  1];
 /* Ce qu'un saut permet réellement d'enjamber. Tout le reste — murs, portes,
    grilles, murs fissurés, piliers, statues, arbres, maisons — reste infranchissable
    quelle que soit la hauteur atteinte, sinon le saut annulerait toute la progression. */
@@ -1151,7 +1185,7 @@ const DUR_O  = [0,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1, 1,1,1, 1,1,0,  1,1,1,1,  1,1,  
    lourd ne se pousse pas : il ne se soulève qu'au bracelet de force. La ronce
    ne s'enjambe pas : elle ne cède qu'au fanal. */
 const FRANCH_O = [0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,0, 0,0,0, 0,0,0,  0,0,0,1,  0,0,  0,0,0,0,0,0,  0,0,  0,0,0,0,
-                  0,0,0,0,  0,0];
+                  0,0,0,0,  0,0,  0];
 
 const sol   = new Uint8Array(MW*MH);
 const objs  = new Uint8Array(MW*MH);
@@ -1385,6 +1419,8 @@ function genererMonde(){
 
   /* --- les énigmes, semées dans les régions --- */
   poserEnigmes();
+  /* --- et les sceaux qui ferment l'entrée de chaque région --- */
+  poserSceaux();
 
   planterPanneaux();
   inventorierGues();
@@ -1527,6 +1563,9 @@ function solide(px,py,z){
   if((st===S.EAU||st===S.EAUPROF)&&!Q.palmes) return true;
   const o=Obj(tx,ty);
   if(o===O.PORTAIL) return !Q.portailOuvert;          // franchissable une fois ouvert
+  /* Le sceau d'une région cède quand SON gardien tombe — même motif que le
+     portail, mais lu dans une table plutôt qu'écrit sept fois. */
+  if(o===O.SCEAUMONDE) return !verrouOuvert(regionIdx(ty));
   // blocs à bascule : le bleu est plein quand l'interrupteur est éteint, l'orange l'inverse
   if(o===O.BLOCB) return etatInter(ty)===0;
   if(o===O.BLOCO) return etatInter(ty)===1;
@@ -3074,6 +3113,11 @@ function razQuetes(){
     /* Marais des Murmures */ fanal:false,veilleuses:0,reineTue:false,tresorMarais:false,
     /* Cité des Nues */ cape:false,carillons:0,sentinelleTue:false,tresorNues:false,
     /* la Faille */ failleOuverte:false,sceaux:0,rongeurTue:false,epreuveFinale:false,
+    /* Sceaux de région forcés — cf. VERROUS_REGION. Il ne sert QU'aux parties
+       commencées avant les verrous, qui se trouvaient déjà au sud d'un sceau
+       jamais mérité : on les libère sans mentir sur les gardiens abattus,
+       qu'un simple `coeurTue=true` aurait faussement cochés au journal. */
+    sceauForce:[0,0,0,0,0,0,0,0],
     /* les trois étoiles, reprises au Rongeur et à lui seul */ etoiles:0});
 }
 
@@ -3739,6 +3783,51 @@ const GRAPPIN_POS  =[ENIG.caisse.x0+3, ENIG.caisse.y0+1];   // alcôve de la sal
 const TRESOR_INTER =[ENIG.inter.x0+5,  ENIG.inter.y0+1];
 const TRESOR_GOUFFRE=[ENIG.gouffre.x0+7,ENIG.gouffre.y0+2];
 const TRESOR_CENDRE=[ENIG.cendre.x0+5, ENIG.cendre.y0+1];
+/* ---------------------- LES SCEAUX DE RÉGION ----------------------
+   Un sceau barre le corridor d'entrée de chaque région, et ne cède qu'à la
+   chute de son gardien (voir VERROUS_REGION). Les Terres de Cendre gardent
+   leur PORTAIL : il fait déjà ce travail depuis toujours.
+
+   Ils sont posés APRÈS tous les générateurs. Chaque générateur perce en effet
+   le corridor de la région SUIVANTE — genererCendres creuse le col des Cimes,
+   genererCimes la descente du Lagon — et poser les sceaux au fil de l'eau
+   aurait dépendu de l'ordre de génération. Ici, l'ordre ne compte plus. */
+let sceaux=[];     // {i, tuiles:[[x,y]…], ouvert} — pour l'ouverture en fanfare
+function poserSceaux(){
+  sceaux=[];
+  for(let i=2;i<=7;i++){
+    /* SUR la rangée-frontière, et nulle part ailleurs. Mesuré sur les six :
+       cette rangée-là n'a qu'UNE plage ouverte — le corridor —, encadrée par
+       le mur que chaque région dresse à son bord. Deux rangées plus haut, ce
+       n'est plus vrai : à l'entrée de la Cité des Nues, la rangée 479 compte
+       SIX plages ouvertes, et un sceau posé là se contournait par le côté.
+       C'est aussi ce qui dispense de connaître les corridors : on balaie toute
+       la largeur, et un trou ajouté demain sera scellé sans qu'on y pense. */
+    const ty=BORNES_Y[i], tuiles=[];
+    for(let x=0;x<MW;x++)
+      if(libre(x,ty)){ putO(x,ty,O.SCEAUMONDE); tuiles.push([x,ty]); }
+    if(tuiles.length) sceaux.push({i,tuiles,ouvert:false});
+  }
+}
+/* Le gardien est tombé : le sceau cède. On regarde le DÉCOR, pas un drapeau —
+   au rechargement d'une partie avancée, les tuiles ont déjà été retirées par
+   la différence de décor, et la fanfare ne doit pas retentir à chaque fois. */
+function majSceaux(){
+  for(const s of sceaux){
+    if(s.ouvert||!verrouOuvert(s.i)) continue;
+    s.ouvert=true;
+    let cede=false;
+    for(const [x,y] of s.tuiles) if(Obj(x,y)===O.SCEAUMONDE){
+      putO(x,y,O.RIEN); rafraichirTuile(x,y); cede=true;
+      particules(x*TS+8,y*TS+8,Etg(x,y)*EH+8,10,'#ffb46a',2.4,26);
+    }
+    if(cede){ SFX.coffre(); secousse=9;
+      /* « LE SCEAU CÈDE : X » et non « LE SCEAU DES X » : les huit noms de
+         région n'ont ni le même genre ni le même nombre, et l'un porte déjà
+         son article (« LA FAILLE »). */
+      annonce('LE SCEAU CÈDE : '+NOMS_REGION[s.i]); autoSauver(); }
+  }
+}
 function poserEnigmes(){
   const salle=s=>{
     rectS(s.x0,s.y0,s.w,s.h,S.DALLE); rectE(s.x0,s.y0,s.w,s.h,0); rectO(s.x0,s.y0,s.w,s.h,O.RIEN);
@@ -4890,6 +4979,17 @@ function verifierVerrous(){
       SFX.coffre(); secousse=8; annonce('LE SANCTUAIRE S OUVRE'); autoSauver();
       particules(J.x,J.y-20,J.z+16,24,'#f0d060',3,36);
     } else if(msgT<=0) dire("PORTE SCELLÉE. IL FAUT LA CLÉ DE PIERRE.");
+    return;
+  }
+  /* Le sceau d'une région. Un mur qui refuse sans rien dire se lit comme un
+     bug : il faut NOMMER ce qui tient encore debout — c'est ce qui sépare un
+     verrou d'un cul-de-sac. */
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(Obj(tx+dx,ty+dy)!==O.SCEAUMONDE) continue;
+    if(Math.hypot((tx+dx)*TS+8-J.x,(ty+dy)*TS+8-J.y)>26) continue;
+    const i=regionIdx(ty+dy);
+    if(msgT<=0){ SFX.erreur();
+      dire('SCEAU CLOS. '+GARDIEN_REGION[i]+' TIENT ENCORE DEBOUT.',150); }
     return;
   }
 }
@@ -7492,6 +7592,7 @@ function majBoomerang(p,i){
   }
 }
 function majDivers(){
+  majSceaux();
   majPapillons();
   for(let i=tirs.length-1;i>=0;i--){
     const p=tirs[i];
@@ -7685,6 +7786,20 @@ function decorTuile(g,x,y){
       g.fillStyle='#5c5470'; g.fillRect(gx+3,t+9,TS-6,3);
       g.fillStyle='#8d84a4'; g.fillRect(gx+6,t+12,4,6);   // serrure
     }
+    return;
+  }
+  /* Le sceau qui ferme l'entrée d'une région. Il n'est dessiné que fermé : une
+     fois cédé, la tuile est effacée pour de bon (voir majSceaux). On le veut
+     lisible de loin et clairement DIFFÉRENT d'un mur — d'où la rune qui bat. */
+  if(o===O.SCEAUMONDE){
+    const gx=x*TS, t=by-30, v=Math.sin(tick*.06+x*.7)*.5+.5;
+    g.fillStyle='#241c33'; g.fillRect(gx,t,TS,30);
+    g.fillStyle='#3d3155'; g.fillRect(gx,t,TS,3);
+    g.fillStyle='#15101f'; g.fillRect(gx+1,t+5,TS-2,22);
+    g.fillStyle='#5a4a7e'; g.fillRect(gx+2,t+7,TS-4,2); g.fillStyle='#5a4a7e'; g.fillRect(gx+2,t+22,TS-4,2);
+    g.globalAlpha=.45+v*.45;                    // la rune : elle respire
+    g.fillStyle='#c86ae0'; g.fillRect(gx+6,t+11,4,9); g.fillRect(gx+4,t+14,8,3);
+    g.globalAlpha=1;
     return;
   }
   if(o===O.PORTE||o===O.GRILLE||o===O.OEIL||o===O.FISSURE){
@@ -9034,6 +9149,9 @@ const COUL_SOL=[], COUL_OBJ=[];
     CLOCHE:'#aee0ff', CARILLON:'#3fd0d8', CARILLONVIF:'#a8f0f4',
     COLONNE:'#a878e8', OBELISQUE:'#5f6a96', CORAILO:'#17968f',
     SCEAU:'#d46ae8', ECLATNOIR:'#d46ae8',
+    /* le sceau de région : l'ambre des passages, mais violacé — c'est une
+       porte, pas un mur, et elle finira par s'ouvrir */
+    SCEAUMONDE:'#b06ae0',
   };
   for(const k in objets) COUL_OBJ[O[k]]=objets[k];
 }
@@ -9444,30 +9562,79 @@ function ecranFin(gagne){
                    :'rgba(20,6,10,'+(.88*e).toFixed(3)+')';
   X.fillRect(0,0,W,H);
 
-  const yT=Math.round(H*.30)+Math.round((1-e)*-14);     // le titre se pose
-  if(gagne){
+  /* ---------------------- LA MISE EN PAGE, D'ABORD ----------------------
+     Même maladie que l'écran-titre avant le § 39 : le bilan descendait du haut
+     (`H*.30` puis des décalages fixes) et le menu montait du bas
+     (`H-32-n*14`), sans que l'un connaisse jamais l'autre. Dès que la hauteur
+     interne tombe sous ~300 px, les deux blocs se traversaient. Un téléphone
+     COUCHÉ donne 620×180 : « REPRENDRE LA SAUVEGARDE » s'imprimait par-dessus
+     « PARTIE : … », « CHOISIR UN EMPLACEMENT » par-dessus la ligne des
+     pierres, et « START POUR CHOISIR » par-dessus « PROGRESSION CONSERVÉE ».
+     Mesuré : 441 px² de recouvrement en 200×168, 500 px² en 240×200,
+     5 recouvrements en 300×180.
+
+     On empile maintenant de bas en haut, une seule fois, avant de dessiner :
+     la légende, le menu, le bilan, le titre. Ce qui manque de place est pris
+     au titre, puis au sous-titre. Jamais au recouvrement.
+
+     Les marges suivent la hauteur au lieu d'être figées : elles gardent leur
+     valeur d'origine dès ~280 px de haut (le portrait ne bouge pas d'un pixel)
+     et se resserrent en dessous, sans marche d'escalier à un seuil. */
+  const opts=optionsFin(gagne);
+  const margeBas=clamp(Math.round(H*.032),4,9);   // sous la légende
+  const airM=clamp(Math.round(H*.057),9,16);      // menu -> légende
+  const airT=clamp(Math.round(H*.043),8,12);      // titre -> sous-titre
+  const airP=clamp(Math.round(H*.05),9,14);       // sous-titre -> panneau
+  const yLeg=H-margeBas-7;                        // « START POUR CHOISIR »
+  const yMenu=yLeg-airM-opts.length*14;
+  const hPan=gagne?46:62;   // « PROGRESSION CONSERVÉE » tient DANS le panneau
+  const hHaut=(s,sous)=>7*s+(sous?airT+7:0)+airP+hPan;
+  /* `dessinerMenu` remonte de 3 px pour la surbrillance, et le bloc du haut
+     garde 4 px de ciel : d'où les 8 et le 4. */
+  const dispo=yMenu-8-4;
+  let sc=Math.max(2,Math.min(5,Math.floor(W/70))), sous=true;
+  while(sc>2&&hHaut(sc,sous)>dispo) sc--;
+  if(hHaut(sc,sous)>dispo) sous=false;            // le sous-titre part avant le titre
+  const yT=Math.max(4,Math.min(Math.round(H*.30),yMenu-8-hHaut(sc,sous)));
+  const yB=yT+7*sc+airT;                          // sous-titre
+  const by=yT+7*sc+(sous?airT+7:0)+airP;          // haut du panneau du bilan
+
+  // le titre se pose — la glissade ne doit pas le sortir par le haut
+  const yTit=yT-Math.round((1-e)*Math.min(14,yT-4));
+  const t=gagne?'VICTOIRE':'GAME OVER';
+  const lw=t.length*6*sc-sc;
+  /* La ronde d'étoiles tourne 46 px au-dessus du titre, et déborde de 12 px
+     de part et d'autre : il lui faut 58 px de ciel. Sur un écran bas le titre
+     est déjà collé en haut — elle sortait alors par le haut. La faire tourner
+     AUTOUR du titre ne sauve rien : une orbite passe forcément par le centre,
+     donc DERRIÈRE les lettres (mesuré : 1 548 px² en 620×180). Quand le ciel
+     manque, on s'en passe. */
+  if(gagne&&yT>=58){
     for(let i=0;i<3;i++){
       const a=tick*.03+i*2.1;
-      X.drawImage(SPR.etoile,W/2-10+Math.cos(a)*46,yT-46+Math.sin(a)*12,20,20);
+      X.drawImage(SPR.etoile,W/2-10+Math.cos(a)*46,yTit-46+Math.sin(a)*12,20,20);
     }
   }
-  const t=gagne?'VICTOIRE':'GAME OVER';
-  const sc=Math.max(2,Math.min(5,Math.floor(W/70)));
-  const lw=t.length*6*sc-sc; let cx=Math.round(W/2-lw/2);
+  let cx=Math.round(W/2-lw/2);
   for(const ch of t){
-    X.drawImage(glyphe(ch,'#100c18'),cx+2,yT+2,5*sc,7*sc);
-    X.drawImage(glyphe(ch,gagne?'#ffe06a':'#e0506a'),cx,yT,5*sc,7*sc);
+    X.drawImage(glyphe(ch,'#100c18'),cx+2,yTit+2,5*sc,7*sc);
+    X.drawImage(glyphe(ch,gagne?'#ffe06a':'#e0506a'),cx,yTit,5*sc,7*sc);
     cx+=6*sc;
   }
 
   // bilan de la partie, une fois le titre en place
   if(finT>16){
-    const yB=yT+7*sc+12;
-    texteCentre(X,gagne?'LES TROIS ÉTOILES BRILLENT À NOUVEAU.'
-                       :'LA VALLÉE ATTEND SON GARDIEN.',
-                W/2,yB,gagne?'#d8e0ff':'#d8c0c8','#0a0c18');
-    const larg=Math.min(W-12,208), bx=Math.round(W/2-larg/2), by=yB+14;
-    panneau(X,bx,by,larg,gagne?46:46);
+    /* « LES TROIS ÉTOILES BRILLENT À NOUVEAU. » fait 221 px : sur un téléphone
+       en portrait (200 px de large en interne) elle débordait de 21 px, rognée
+       des deux côtés — et c'est la dernière phrase du jeu. Comme la légende de
+       la carte, on garde une version courte pour les écrans étroits. */
+    if(sous) texteCentre(X,gagne
+        ?(largeurTexte('LES TROIS ÉTOILES BRILLENT À NOUVEAU.')<=W-8
+           ?'LES TROIS ÉTOILES BRILLENT À NOUVEAU.':'LES TROIS ÉTOILES BRILLENT.')
+        :'LA VALLÉE ATTEND SON GARDIEN.',
+      W/2,yB,gagne?'#d8e0ff':'#d8c0c8','#0a0c18');
+    const larg=Math.min(W-12,208), bx=Math.round(W/2-larg/2);
+    panneau(X,bx,by,larg,hPan);
     texteCentre(X,'PARTIE : '+nomPartie,W/2,by+5,'#ffe06a','#0a0c18');
     const g=bx+8, d=Math.round(W/2+6);
     texte(X,'PIERRES  '+J.fragments+'/3',g,by+18,'#e8b0a0','#0a0c18');
@@ -9479,11 +9646,9 @@ function ecranFin(gagne){
 
   // le menu n'apparaît qu'une fois le verrou levé
   if(finT>VERROU_FIN-14){
-    const opts=optionsFin(gagne);
-    const larg=Math.min(W-12,200);
-    dessinerMenu(opts,W/2,H-32-opts.length*14,larg);
+    dessinerMenu(opts,W/2,yMenu,Math.min(W-12,200));
     if(finT>VERROU_FIN && tick%50<32)
-      texteCentre(X,'START POUR CHOISIR',W/2,H-16,'#8f9cc4','#0a0c18');
+      texteCentre(X,'START POUR CHOISIR',W/2,yLeg,'#8f9cc4','#0a0c18');
   }
 }
 
@@ -9502,7 +9667,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.5';
+const VERSION='V2.6';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -9766,6 +9931,18 @@ async function chargerInterne(slot){
      Faille s'ouvre dès que la Sentinelle est tombée, et `razQuetes()` a déjà
      posé les drapeaux manquants à zéro AVANT la lecture de la sauvegarde. */
   if(Q.sentinelleTue&&!Q.failleOuverte) Q.failleOuverte=true;
+
+  /* LES SCEAUX DE RÉGION SONT NEUFS. Une partie commencée avant eux peut se
+     trouver DÉJÀ au sud d'un sceau qu'elle n'a jamais mérité — la mise à jour
+     la murerait dans un monde sans retour ni suite. On ouvre donc d'office
+     tout verrou situé AU NORD du héros.
+     Via `sceauForce`, et non en cochant `coeurTue` & consorts : cela aurait
+     faussement marqué jusqu'à six gardiens comme abattus au journal et au
+     bilan de complétion. On libère le chemin, on ne ment pas sur les exploits. */
+  if(!Array.isArray(Q.sceauForce)) Q.sceauForce=[0,0,0,0,0,0,0,0];
+  while(Q.sceauForce.length<NB_REGIONS) Q.sceauForce.push(0);
+  const rgJ=regionIdx(Math.floor(J.y/TS));
+  for(let i=1;i<=rgJ;i++) if(!verrouOuvert(i)) Q.sceauForce[i]=1;
   // et les outils du sac doivent redonner leurs drapeaux, et l'inverse
   for(const [id,drap] of [['cape','cape'],['fanal','fanal'],['bracelet','bracelet'],
                           ['grappin','grappin'],['boomerang','boomerang']]){

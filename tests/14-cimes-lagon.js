@@ -40,6 +40,8 @@ module.exports = {
           if ((s === S.EAU || s === S.EAUPROF) && !Q.palmes) return false;
           const o = Obj(x, y);
           if (o === O.PORTAIL) return !!Q.portailOuvert;
+          // le sceau d'une région : il ne cède qu'à la chute de son gardien
+          if (o === O.SCEAUMONDE) return verrouOuvert(regionIdx(y));
           if (o === O.ROCNOIR || o === O.GLACON) return false;   // marteau / boomerang
           if (o && DUR_O[o] && !FRANCH_O[o]) return false;
           return true;
@@ -56,8 +58,11 @@ module.exports = {
       const at = (vus, x, y) => !!vus[y * MW + x];
       const pres = (vus, x, y) => at(vus, x, y) || [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(vus, x + dx, y + dy));
 
-      // depuis le col des Cendres, portail ouvert, SANS palmes ni boomerang
-      Q.portailOuvert = true;
+      /* Depuis le col des Cendres, SANS palmes ni boomerang. Le Cœur de Cendre
+         est abattu — c'est lui qui descelle le col des Cimes depuis que chaque
+         région a son verrou (cf. 31-verrous.js) : sans cela, on mesurerait le
+         sceau au lieu de mesurer le terrain. */
+      Q.portailOuvert = true; Q.coeurTue = true;
       const sx = (CENDRE.col.x0 + CENDRE.col.x1) >> 1, sy = Y_CENDRE + 6;
       let a = joignable(sx, sy);
       out.colVersCimes = at(a, (CIMES.col.x0 + CIMES.col.x1) >> 1, Y_CIMES + 3);
@@ -65,7 +70,11 @@ module.exports = {
       out.clochesOk = CLOCHES_POS.every(([x, y]) => pres(a, x, y));
       // l'arène du Sommet reste scellée par les glaçons tant qu'on n'a pas le boomerang
       out.sommetScelle = !at(a, CIMES.sommet.x0 + (CIMES.sommet.w >> 1), CIMES.sommet.y0 + 3);
-      // on descend au Lagon et l'on atteint la grève et les palmes à pied
+      /* LE SCEAU DES CIMES tient tant que le Yéti tient : la grève du Lagon
+         est hors d'atteinte, et c'est voulu. */
+      out.lagonScelleAvantYeti = !at(a, LAGON.greve.x0 + 2, LAGON.greve.y0 + 2);
+      // le Yéti abattu, on descend au Lagon et l'on atteint la grève à pied
+      Q.yetiTue = true; a = joignable(sx, sy);
       out.greveOk = at(a, LAGON.greve.x0 + 2, LAGON.greve.y0 + 2);
       out.palmesOk = pres(a, PALMES_POS[0], PALMES_POS[1]);
       out.naufrageOk = pres(a, NAUFRAGE_POS[0], NAUFRAGE_POS[1]);
@@ -120,7 +129,10 @@ module.exports = {
       sonnerCloche(CLOCHES_POS[0][0], CLOCHES_POS[0][1]);
       out.clocheSonne = Q.cloches === nb0 + 1 && Obj(CLOCHES_POS[0][0], CLOCHES_POS[0][1]) !== O.CLOCHE;
 
-      // ---- gardien : le Roi Yéti s'éveille dans l'Arène du Sommet et tombe ----
+      /* ---- gardien : le Roi Yéti s'éveille dans l'Arène du Sommet et tombe ----
+         On le RESSUSCITE : le parcours plus haut l'avait déclaré mort pour
+         desceller le Lagon, et un gardien déjà tombé ne se réveille plus. */
+      Q.yetiTue = false;
       Q.boomerang = true;
       J.x = (CIMES.sommet.x0 + (CIMES.sommet.w >> 1)) * TS + 8; J.y = (CIMES.sommet.y0 + 4) * TS + 8; J.z = 0; J.invuln = 99999;
       await dort(250);
@@ -196,6 +208,8 @@ module.exports = {
     v('les trois monstres du Lagon peuplent la mer',
       r.fauneLagon.every(n => n > 0), `crabe/triton/méduse = ${r.fauneLagon.join('/')}`);
     v('le col des Cendres descend dans les Cimes', r.colVersCimes, 'col bouché');
+    v('LE LAGON RESTE SCELLÉ TANT QUE LE YÉTI TIENT', r.lagonScelleAvantYeti,
+      'on descend au Lagon sans avoir abattu le Roi Yéti');
     v('le Temple de Givre et le boomerang sont atteignables', r.templeGivreOk, 'injoignable');
     v('les trois cloches de givre sont atteignables', r.clochesOk, 'une cloche injoignable');
     v('L\'ARÈNE DU SOMMET RESTE SCELLÉE SANS LE BOOMERANG', r.sommetScelle, 'entrée déjà libre');

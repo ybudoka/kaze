@@ -24,6 +24,8 @@ module.exports = {
         if ((s === S.EAU || s === S.EAUPROF) && !Q.palmes) return false;
         const o = Obj(x, y);
         if (o === O.PORTAIL) return !!Q.portailOuvert;
+        // le sceau d'une région : il ne cède qu'à la chute de son gardien
+        if (o === O.SCEAUMONDE) return verrouOuvert(regionIdx(y));
         if (o === O.BLOCB) return etatInter(y) !== 0;
         if (o === O.BLOCO) return etatInter(y) !== 1;
         if (o === O.ROCNOIR || o === O.GLACON || o === O.CAISSE || o === O.ANCRE || o === O.PORTEP || o === O.BLOCLOURD) return false;
@@ -93,9 +95,18 @@ module.exports = {
         interPreserve: etatInter(0) === 1,                 // la bascule d'époque est gardée
         bracelet: !!Q.bracelet, fresques: Q.fresques, colosse: !!Q.colosseTue,
         pasCoince: !solide(J.x, J.y, J.z),
-        // à la nage, on atteint l'oued qui descend vers les Sables
-        atteintOued: reachable(Math.floor(J.x / TS), Math.floor(J.y / TS),
+        /* Cette partie est échouée sur la grève du Lagon sans avoir abattu le
+           Léviathan. Depuis les verrous de région, elle ne DOIT plus descendre
+           aux Sables — mais elle doit pouvoir PROGRESSER : rejoindre le Large,
+           l'antre du Léviathan, qui est son objectif du moment. */
+        atteintLarge: reachable(Math.floor(J.x / TS), Math.floor(J.y / TS),
+          LAGON.large.x0 + (LAGON.large.w >> 1), LAGON.large.y0 + 3),
+        ouedScelle: !reachable(Math.floor(J.x / TS), Math.floor(J.y / TS),
           (SABLES.wadi.x0 + SABLES.wadi.x1) >> 1, Y_SABLES + 3),
+        /* Et elle ne doit pas être MURÉE : les verrous au nord d'elle ont été
+           ouverts d'office au chargement (voir `sceauForce`). */
+        remonteAuNord: reachable(Math.floor(J.x / TS), Math.floor(J.y / TS),
+          (CIMES.col.x0 + CIMES.col.x1) >> 1, Y_CIMES + 3),
       };
 
       /* ---- 3) une position héritée d'une carte plus petite ne piège pas ----
@@ -137,7 +148,12 @@ module.exports = {
       r.inter.interLen === 6 && r.inter.interPreserve, `len=${r.inter.interLen} garde=${r.inter.interPreserve}`);
     v('les champs des Sables sont par défaut',
       !r.inter.bracelet && r.inter.fresques === 0 && !r.inter.colosse, 'champs Sables hérités à tort');
-    v('elle atteint l\'oued vers les Sables (à la nage)', r.inter.atteintOued && r.inter.pasCoince, 'oued injoignable');
+    v('elle peut encore progresser (le Large, à la nage)',
+      r.inter.atteintLarge && r.inter.pasCoince, 'antre du Léviathan injoignable');
+    v('LES SABLES LUI RESTENT SCELLÉS : LE LÉVIATHAN TIENT ENCORE',
+      r.inter.ouedScelle, 'elle descend aux Sables sans avoir abattu le Léviathan');
+    v('UNE VIEILLE PARTIE N\'EST PAS MURÉE : ELLE REMONTE AU NORD',
+      r.inter.remonteAuNord, 'les verrous au nord ne se sont pas ouverts au chargement');
 
     v('une position au bord est chargée sans crash', r.bordLoad === true, 'chargement refusé');
     v('UNE POSITION HÉRITÉE NE PIÈGE PAS LE HÉROS', r.bordPasCoince && r.bordDansCarte, 'coincé ou hors carte');
