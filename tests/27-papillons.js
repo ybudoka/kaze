@@ -112,7 +112,7 @@ module.exports = {
         const p = unPapillon(); const rg = p.rg; const avant = paps().length;
         Q.filet = true;
         if (!J.objets.includes('filet')) J.objets.push('filet');
-        J.objSel = J.objets.indexOf('filet');
+        equiper('filet', 'Y');
         J.x = p.x - 14; J.y = p.y; J.z = p.z; J.dir = 3; J.filetT = 0;
         coupDeFilet();
         out.prisAuFilet = paps().length === avant - 1;
@@ -152,12 +152,12 @@ module.exports = {
       const causer = p => { dial = null; dialoguePNJ(p); const d = dial; dial = null; return d; };
       const finir = d => { if (d && d.apres) d.apres(); };
       {
-        razQuetes(); J.objets = []; J.objSel = 0;
+        razQuetes(); J.objets = []; J.equipe = { Y: null, X: null };
         const d = causer(orla);
         out.orlaPropose = d.pages.join(' ');
         finir(d);
         out.orlaDonneLeFilet = Q.filet && J.objets.includes('filet');
-        out.filetEstEquipe = J.objets[J.objSel] === 'filet';
+        out.filetEstEquipe = outilDe('Y') === 'filet' || outilDe('X') === 'filet';
       }
       {
         // les huit rendus : cœur, rubis et potions

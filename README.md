@@ -18,8 +18,11 @@ navigateur cesse d'effacer tes sauvegardes au bout de sept jours.
 
 | | |
 |---|---|
-| **B** épée (maintenir = tourbillon) · **A** saut | **Y** objet · **X** bouclier |
-| **L/R** changer d'objet | **START** carte · **SELECT** journal |
+| **B** épée (maintenir = tourbillon) · **A** saut | **Y** et **X** tes **deux outils** |
+| **L/R** la page des outils | **START** carte · **SELECT** journal |
+
+Le **bouclier se lève tout seul** : il pare ce qui vient d'en face tant que tu
+ne frappes pas, et retombe un instant après chaque parade.
 
 Le bouton **MUSIQUE** coupe ou rallume la bande-son ; le choix est retenu.
 Elle change selon l'endroit — village, salle close, vallée, Terres de Cendre,
@@ -38,8 +41,8 @@ s'efface alors d'elle-même (le bouton **MANETTE** la ramène).
 | Manette | Jeu |
 |---|---|
 | bouton du **bas** / **droite** | **B** épée · **A** saut |
-| bouton de **gauche** / **haut** | **Y** objet · **X** bouclier |
-| **tranches** (et gâchettes) | **L/R** changer d'objet |
+| bouton de **gauche** / **haut** | **Y** et **X** tes deux outils |
+| **tranches** (et gâchettes) | **L/R** la page des outils |
 | **START** · **SELECT** | carte · journal |
 | **croix** ou **stick gauche** | se déplacer — le stick dose la vitesse |
 

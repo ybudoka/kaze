@@ -51,7 +51,7 @@ module.exports = {
       if (posVide) {
         const [vx, vy] = posVide;
         // 1) sans la cape : on tombe, on perd un cœur, on revient au sol ferme
-        Q.cape = false; J.objets = []; J.objSel = 0;
+        Q.cape = false; J.objets = []; J.equipe = { Y: null, X: null };
         J.pv = J.pvmax = 12;
         poser(vx, vy - 3); await dort(120);            // un pas de sol ferme d'abord
         const solX = J.solX, solY = J.solY, pv0 = J.pv;
@@ -60,7 +60,7 @@ module.exports = {
         out.chute = { pvPerdu: pv0 - J.pv, revenu: Math.hypot(J.x - solX, J.y - solY) < 4,
                       surLeVide: Sol(Math.floor(J.x / TS), Math.floor(J.y / TS)) === S.VIDE };
         // 2) avec la cape et en plein vol : le vide ne reprend pas
-        Q.cape = true; J.objets = ['cape']; J.objSel = 0;
+        Q.cape = true; J.objets = []; J.equipe = { Y: null, X: null }; equiper('cape');
         J.pv = J.pvmax; poser(vx, vy - 3); await dort(90);
         J.invuln = 99999;
         capeAction();                                   // on ouvre la cape
@@ -94,9 +94,9 @@ module.exports = {
 
       /* ---------- LA CAPE : elle est bien dans le monde, et s'équipe ---------- */
       out.capeEnPlace = butins.some(b => b.type === 'cape');
-      J.objets = []; Q.cape = false; J.objSel = 0;
+      J.objets = []; Q.cape = false; J.equipe = { Y: null, X: null };
       ramasserButin({ x: J.x, y: J.y, z: 0, type: 'cape' });
-      out.capeRecue = Q.cape && J.objets.includes('cape') && J.objets[J.objSel] === 'cape';
+      out.capeRecue = Q.cape && J.objets.includes('cape') && (outilDe('Y') === 'cape' || outilDe('X') === 'cape');
 
       /* ---------- les carillons : au boomerang, pas à l'épée ---------- */
       Q.carillons = 0;

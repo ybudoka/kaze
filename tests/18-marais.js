@@ -55,7 +55,7 @@ module.exports = {
       };
       const near = (v, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => dansCarte(x + dx, y + dy) && v[(y + dy) * MW + x + dx]);
       /* Les gardiens du nord sont abattus : depuis les verrous de région
-         (31-verrous.js), ce sont eux qui descellent la route jusqu'au
+         (36-verrous.js), ce sont eux qui descellent la route jusqu'au
          marécage. Sans cela on mesurerait les sceaux au lieu de la tourbière. */
       Q.portailOuvert = true; Q.palmes = true;
       Q.coeurTue = true; Q.yetiTue = true; Q.leviathanTue = true; Q.colosseTue = true;
@@ -77,12 +77,12 @@ module.exports = {
       J.x = FANAL_POS[0] * TS + 8; J.y = FANAL_POS[1] * TS + 8; J.z = 0; J.invuln = 99999;
       await dort(150);
       out.fanalPris = Q.fanal && J.objets.includes('fanal');
-      out.fanalEquipe = J.objets[J.objSel] === 'fanal';
+      out.fanalEquipe = outilDe('Y') === 'fanal' || outilDe('X') === 'fanal';
 
       // ---- le fanal BRÛLE une ronce du rideau ----
       const cxA = MARAIS.arene.x0 + (MARAIS.arene.w >> 1), ry = MARAIS.ronce.y0;
       out.ronceLa = Obj(cxA, ry) === O.RONCE;
-      J.x = cxA * TS + 8; J.y = (ry - 1) * TS + 8; J.z = 0; J.dir = 2; J.objSel = J.objets.indexOf('fanal');
+      J.x = cxA * TS + 8; J.y = (ry - 1) * TS + 8; J.z = 0; J.dir = 2; equiper('fanal', 'Y');
       fanalAction();
       out.ronceBrulee = Obj(cxA, ry) !== O.RONCE;
 

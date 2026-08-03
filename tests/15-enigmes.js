@@ -121,7 +121,7 @@ module.exports = {
       const rx = 40, ry = Y_CENDRE + 20;
       putS(rx, ry, S.CENDRE); putO(rx, ry, O.RIEN);
       putO(rx, ry - 1, O.ROCNOIR);                    // la roche à briser, au nord
-      J.objets = ['marteau']; J.objSel = 0;
+      J.objets = []; J.equipe = { Y: null, X: null }; equiper('marteau');
       J.x = rx * TS + 8; J.y = ry * TS + 8; J.z = 0; J.dir = 0; J.atk = 0; J.slam = 0; J.spin = 0;
       J.invuln = 99999;
       enfoncer('Y'); await dort(60); BTN['Y'] = 0;     // on déclenche le marteau

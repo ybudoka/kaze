@@ -260,8 +260,13 @@ module.exports = {
     v('au calme, le panneau se lit',
       pan.auCalme.pris && pan.auCalme.ouvert, JSON.stringify(pan.auCalme));
     v('UNE CRÉATURE À PORTÉE, LE PANNEAU NE S OUVRE PLUS',
-      pan.sousLeNez.pris && !pan.sousLeNez.ouvert, JSON.stringify(pan.sousLeNez));
-    v('et le jeu dit pourquoi', /RÔDE/.test(pan.sousLeNez.msg), pan.sousLeNez.msg);
+      !pan.sousLeNez.ouvert, JSON.stringify(pan.sousLeNez));
+    /* Et le refus est TOTAL : `tenterInteraction` rend `false`, donc l'appui
+       repart à l'épée. Il rendait `true` — l'appelant y lisait « appui
+       consommé » et sortait : B ne sortait plus jamais l'épée près d'un
+       panneau (0 coup sur 60 pressions). Voir 39-panneaux.js. */
+    v('IL NE MANGE PAS L\'APPUI : L\'ÉPÉE REPREND LA MAIN',
+      pan.sousLeNez.pris === false, JSON.stringify(pan.sousLeNez));
     v('la créature partie, on relit', pan.apresFuite.ouvert, JSON.stringify(pan.apresFuite));
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();

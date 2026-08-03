@@ -102,19 +102,25 @@ module.exports = {
       await dort(300);
 
       /* ---------- 4. maintenu, un bouton vaut UN appui ----------
-         L'objet ne doit changer qu'une fois, pas à chaque image. */
-      J.objets.length = 0; J.objets.push('arc', 'bombe', 'grappin'); J.objSel = 0;
-      let changements = 0, dernier = J.objSel;
+         `R` ouvre la page des outils. Maintenu, il ne doit l'ouvrir qu'UNE
+         fois — surtout pas la faire clignoter à chaque image. On compte donc
+         les BASCULES d'état, et non les changements de sélection : il n'y a
+         plus de cycle L/R depuis que les deux mains se choisissent sur une
+         page (cf. 37-outils.js). */
+      J.objets.length = 0; J.objets.push('arc', 'bombe', 'grappin');
+      let bascules = 0, dernier = etat;
       const guet = setInterval(() => {
-        if (J.objSel !== dernier) { changements++; dernier = J.objSel; }
+        if (etat !== dernier) { bascules++; dernier = etat; }
       }, 8);
-      window.__b(0, 5, true);            // R : objet suivant, maintenu
+      window.__b(0, 5, true);            // R : la page des outils, maintenu
       await dort(500);
       window.__relacher();
       await dort(120);
       clearInterval(guet);
-      out.changementsObjet = changements;
-      out.objSel = J.objSel;
+      out.basculesEtat = bascules;
+      out.etatApres = etat;
+      etat = 'jeu';                      // on referme, pour la suite des mesures
+      await dort(60);
 
       /* ---------- 5. la croix directionnelle déplace le héros ---------- */
       out.croixDroite = await bouger(() => window.__b(0, 15, true));
@@ -167,8 +173,8 @@ module.exports = {
 
     v('LE BOUTON DU BAS SORT L\'ÉPÉE', r.epee, 'aucun coup d\'épée');
     v('UN BOUTON MAINTENU VAUT UN APPUI, PAS CENT',
-      r.changementsObjet === 1 && r.objSel === 1,
-      `${r.changementsObjet} changements d'objet, sélection ${r.objSel}`);
+      r.basculesEtat === 1 && r.etatApres === 'outils',
+      `${r.basculesEtat} bascules d'état, état final « ${r.etatApres} »`);
 
     v('LA CROIX DIRECTIONNELLE DÉPLACE LE HÉROS',
       r.croixDroite.dx > 8 && Math.abs(r.croixDroite.dy) < 4

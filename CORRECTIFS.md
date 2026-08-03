@@ -2993,7 +2993,7 @@ bilan de complétion. On libère le chemin, on ne ment pas sur les exploits.
 
 ### Comment c'est vérifié
 
-`tests/31-verrous.js` — 27 contrôles. Deux mesures indépendantes :
+`tests/36-verrous.js` — 27 contrôles. Deux mesures indépendantes :
 
 1. **Ce qui est atteignable à pied.** Un remplissage par diffusion dont la seule
    règle de passage est le **vrai `solide()`**, jamais un miroir qui dériverait.
@@ -3056,3 +3056,144 @@ la nouvelle règle soit affirmée là où l'ancienne l'était :
 - **Migrer en cochant un drapeau d'exploit** pour débloquer un chemin : le
   journal et le bilan de complétion mentiraient. Un drapeau de circonstance
   (`sceauForce`) coûte huit octets et dit la vérité.
+
+---
+
+## 44. Neuf outils sur un seul cycle, et un panneau qui désarmait
+
+### 44.1 — Le panneau mangeait le coup d'épée
+
+**Symptôme rapporté** : « je me fais tuer en lisant le panneau ».
+
+La cause est ailleurs : **on ne lit rien du tout**. Un panneau ne se lit pas
+sous le nez d'une créature — la boîte de dialogue fige le héros — et ce refus
+était déjà écrit. Mais il renvoyait `true` :
+
+```js
+if(creatureProche(J.x,J.y,LECTURE_SUR)){
+  SFX.erreur(); dire("PAS LE MOMENT DE LIRE : QUELQUE CHOSE RÔDE.",120);
+  return true;                       // ← « l'interaction a consommé l'appui »
+}
+```
+
+et l'appelant en tire la conclusion qu'il ne fallait pas :
+
+```js
+if(appui('B') && J.atk<=0 && J.spin<=0 && tenterInteraction()){ pris('B'); … return; }
+```
+
+**Mesuré : 0 coup d'épée sur 60 pressions de B.** Debout près d'un panneau avec
+quelque chose autour, le panneau ne s'ouvrait pas, l'épée ne sortait pas, et
+l'on mourait le pouce sur le bouton d'attaque. On ne mourait pas *en lisant* :
+on mourait **désarmé par le panneau**.
+
+**Correctif** : le refus renvoie `false`. Le panneau devient inerte, l'appui
+repart à l'épée. Et plus de message ni de bruit d'erreur — à cet instant le
+pouce veut frapper, pas lire.
+
+`tests/39-panneaux.js` : au calme le panneau se lit ; une créature à portée,
+**l'épée sort — 60 fois sur 60** ; le danger écarté, le panneau se relit.
+
+### 44.2 — Deux outils en main, et une page pour les choisir
+
+Neuf outils sur un seul cycle `L/R` : jusqu'à **quatre pressions** pour en
+atteindre un, en plein combat. Le code le savait déjà et compensait par **sept
+endroits** qui forçaient `J.objSel` à la place du joueur. Cette auto-sélection
+était le symptôme, pas la solution.
+
+Désormais **deux emplacements**, `Y` et `X`, et une **page** qui les montre
+tous les neuf (`L` ou `R`). `X` se libère parce que le bouclier se lève seul.
+
+Deux choix de fond :
+
+- **Par identifiant, jamais par indice.** Le sac grandit quand on ramasse : un
+  indice sauvegardé désignait alors un autre objet. Il fallait le borner
+  **deux fois** au chargement (`J.objSel=clamp(…)`, à deux endroits) — un
+  symptôme qu'on avait appris à vivre avec. Un identifiant ne peut pas glisser.
+- **`VERSION_SAUVE` reste à 1.** Comme au § 43 : la monter effacerait les
+  parties en cours. Les vieilles sauvegardes traduisent leur `objSel` en
+  identifiant une fois pour toutes au chargement.
+
+### 44.3 — Le bouclier automatique, et ce que la mesure a corrigé
+
+`J.bouclier = presse('X') && …` devient un état dérivé : la garde tombe quand
+on frappe, tournoie, abat le marteau, porte un bloc ou plane.
+
+**Trois défauts découverts en le mesurant, aucun deviné :**
+
+**a) La parade ne servait à rien.** Trace image par image :
+
+```
+f0  bouclier=true   recup=0   invuln=0    pv 200->200   ← paré
+f1  bouclier=false  recup=49  invuln=0    pv 200->199   ← encaissé
+f2  bouclier=false  recup=48  invuln=59   pv 199->199
+```
+
+La garde revenait au bout de 50 images, l'invincibilité durait 59 : elle était
+donc **toujours relevée avant la fin de l'invincibilité**, et la cadence des
+coups reçus restait exactement celle d'un héros qui tourne le dos —
+**15 coups de face comme de dos**. Une parade doit *consommer* l'attaque, pas
+retarder d'une image le coup qui vient. D'où `PAR_GRACE` : un court répit.
+
+Après correctif, sous pression identique et de face :
+
+| région | de face | de dos | gain |
+|---|---|---|---|
+| Vallée | 12 | 15 | −20 % |
+| Sables | 24 | 30 | −20 % |
+| Faille | 36 | 45 | −20 % |
+
+La rampe du sud (1 : 2 : 3) tient **exactement**, et se défendre paie enfin.
+
+**b) Deux coups dans la même image étaient parés tous les deux.** `J.bouclier`
+n'est calculé qu'une fois par image ; la parade le met désormais à `false`
+sur-le-champ, sans attendre l'image suivante.
+
+**c) LE VIDE ET LES BRAISES ÉTAIENT PARABLES.** `tomberDansLeVide` appelait
+`blesser(1,J.x,J.y+12)` — une source au sud : le héros tourné vers le sud
+**parait sa propre chute**. Idem pour le sol brûlant des Cendres. Le défaut
+existait avant, mais il fallait tenir `X` au bon moment pour le déclencher ;
+levé en permanence, le bouclier l'a rendu systématique. Les deux sont
+désormais `parable=false`.
+
+Et la **pénalité de vitesse** (`v=.85` tant qu'on tenait le bouclier) a été
+retirée : toujours levé, elle aurait condamné le héros à marcher à 85 % pour
+toujours. Mesuré : 93 px en 60 images, contre 79 avec l'ancienne pénalité.
+
+### 44.4 — Trois faux coupables, tous à trois pas de la cause
+
+Les régressions de la suite complète n'étaient pas où le message les plaçait :
+
+1. **Quatre contrôles de manette rouges** pour une seule cause : le test
+   maintient `R` pour vérifier qu'un bouton tenu vaut un appui. `R` ouvre
+   maintenant la page des outils, le jeu y restait, et **tout ce qui suivait
+   mesurait un héros figé**.
+2. **« le menu respire dans son panneau », 5 px au lieu de 6.** Rien à voir
+   avec la mise en page : `33-ecran-titre.js` trie les textes relevés **par
+   préfixe** (`RE_AIDE = /^(B EPEE|START CARTE|…)/`). La seconde ligne d'aide
+   étant passée de « START CARTE » à « L/R OUTILS », elle basculait du côté
+   « texte de menu ». Les 5 px correspondaient au pixel près à cette ligne
+   centrée.
+3. **Fausse piste assumée** : on a d'abord cru que le texte d'aide HTML, entré
+   dans le budget de hauteur de `redim()`, rétrécissait la résolution interne.
+   Il le fait — mais les résolutions mesurées étaient inchangées. Le raccourcir
+   n'a rien réglé ; seule la relecture du classement l'a fait.
+
+### À ne pas réintroduire
+
+- **Un refus qui renvoie « j'ai traité »**. Refuser une interaction et
+  consommer l'appui sont deux choses : la seconde désarme le joueur. Un refus
+  doit être TOTAL — l'appui repart à l'action par défaut.
+- **Ranger une sélection par indice dans une liste qui grandit.** Deux
+  `clamp()` au chargement pour tenir un indice droit, c'est le signe qu'il
+  fallait un identifiant.
+- **Un état dérivé calculé une fois par image et modifié entre-temps.** La
+  parade devait baisser la garde immédiatement, pas à l'image suivante.
+- **Des dégâts d'ENVIRONNEMENT parables.** Chute, sol brûlant, noyade : rien de
+  tout cela ne se pare. Tout nouvel appel à `blesser` doit se demander si un
+  bouclier a le droit de l'arrêter.
+- **Un équilibrage réglé au jugé.** `PAR_RECUP=50` semblait raisonnable et ne
+  changeait RIEN : seule la trace image par image l'a montré.
+- **Un test qui trie par préfixe de libellé.** Changer un texte affiché fait
+  alors rougir un contrôle sans rapport apparent. Quand un échec paraît absurde,
+  relire d'abord comment le test CLASSE ce qu'il mesure.

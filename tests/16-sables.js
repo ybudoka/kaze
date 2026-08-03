@@ -53,7 +53,7 @@ module.exports = {
       };
       const near = (v, x, y) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => dansCarte(x + dx, y + dy) && v[(y + dy) * MW + x + dx]);
       /* Les gardiens du nord sont abattus : depuis les verrous de région
-         (31-verrous.js), ce sont eux qui descellent la route jusqu'à l'oued.
+         (36-verrous.js), ce sont eux qui descellent la route jusqu'à l'oued.
          Sans cela on mesurerait les sceaux au lieu de mesurer le désert. */
       Q.portailOuvert = true; Q.palmes = true;
       Q.coeurTue = true; Q.yetiTue = true; Q.leviathanTue = true;
@@ -81,7 +81,7 @@ module.exports = {
       J.x = BRACELET_POS[0] * TS + 8; J.y = BRACELET_POS[1] * TS + 8; J.z = Etg(BRACELET_POS[0], BRACELET_POS[1]) * EH; J.invuln = 99999;
       await dort(150);
       out.braceletPris = Q.bracelet && J.objets.includes('bracelet');
-      out.braceletEquipe = J.objets[J.objSel] === 'bracelet';
+      out.braceletEquipe = outilDe('Y') === 'bracelet' || outilDe('X') === 'bracelet';
 
       // un banc d'essai propre : un sable mouvant avec du désert au-dessus, un bloc à côté
       const qx = 45, qy = Y_SABLES + 20;
@@ -89,7 +89,7 @@ module.exports = {
       putS(qx, qy - 1, S.DESERT); putO(qx, qy - 1, O.RIEN);
       putS(qx, qy - 2, S.DESERT); putO(qx, qy - 2, O.BLOCLOURD);
       // soulever le bloc au-dessus
-      J.x = qx * TS + 8; J.y = (qy - 1) * TS + 8; J.z = 0; J.dir = 0; J.objSel = J.objets.indexOf('bracelet'); J.porte = null;
+      J.x = qx * TS + 8; J.y = (qy - 1) * TS + 8; J.z = 0; J.dir = 0; equiper('bracelet', 'Y'); J.porte = null;
       brasBracelet();
       out.souleve = J.porte === 'lourd' && Obj(qx, qy - 2) === O.RIEN;
       // se placer au-dessus du sable mouvant et le jeter dedans

@@ -21,7 +21,7 @@ module.exports = {
       /* Dessine le héros seul, avec ou sans son arme au poing, et rend la boîte
          des pixels que l'arme ajoute. */
       const boiteArme = (dir, objets, atk) => {
-        J.objets = objets.slice(); J.objSel = 0;
+        J.objets = []; J.equipe = { Y: null, X: null }; for (const o of objets) equiper(o);
         J.dir = dir; J.atk = atk || 0; J.slam = 0;
         J.porte = null; J.grap = null; J.z = 0; J.animF = 0;
         J.x = T / 2; J.y = T / 2 + 12;
@@ -66,8 +66,8 @@ module.exports = {
 
       // 4) l'outil tenu change bien avec la sélection
       J.objets = ['marteau', 'boomerang']; J.dir = 3; J.atk = 0;
-      J.objSel = 0; out.spr0 = armeAuPoing();
-      J.objSel = 1; out.spr1 = armeAuPoing();
+      J.equipe = { Y: 'marteau', X: null }; out.spr0 = armeAuPoing();
+      J.equipe = { Y: 'boomerang', X: null }; out.spr1 = armeAuPoing();
       J.objets = []; out.sprEpee = armeAuPoing();
       return out;
     });

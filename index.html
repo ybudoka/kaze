@@ -208,8 +208,11 @@ body.sanspad #pad{display:none}
 </div>
 
 <div id="aide">
-  <b>B</b> épée (maintenir = tourbillon) · <b>A</b> saut · <b>Y</b> objet · <b>X</b> bouclier ·
-  <b>L/R</b> changer d'objet · <b>START</b> carte<br>
+  <!-- Ce texte entre dans le BUDGET DE HAUTEUR de `redim()` : l'allonger d'une
+       ligne rétrécit d'autant la résolution interne du jeu, et l'écran-titre
+       s'en trouve resserré. On le garde au gabarit. -->
+  <b>B</b> épée (maintenir = tourbillon) · <b>A</b> saut · <b>Y</b>/<b>X</b> tes deux outils ·
+  <b>L/R</b> page des outils · <b>START</b> carte<br>
   Clavier : <b>flèches/WASD</b> · <b>J</b>=B · <b>K</b>=A · <b>U</b>=Y · <b>I</b>=X · <b>Q/E</b>=L/R · <b>Entrée</b>=Start<br>
   Manette Bluetooth : appuie sur un bouton pour qu'elle se signale
 </div>
@@ -4802,8 +4805,7 @@ function dialoguePNJ(p){
        "JE N'AI PLUS L'ÂGE DE COURIR APRÈS. TOI, SI.",
        "PRENDS MON FILET. IL PREND CE QUI VOLE - ET PAS QUE LES PAPILLONS."],
       ()=>{ Q.naturalisteParle=true; Q.filet=true;
-            if(!J.objets.includes('filet')) J.objets.push('filet');
-            J.objSel=J.objets.indexOf('filet');
+            equiper('filet');
             autoSauver(); SFX.coffre(); secousse=6;
             particules(J.x,J.y,J.z+12,24,'#dff0ff',2.6,34);
             annonce('LE FILET À PAPILLONS');
@@ -4875,13 +4877,21 @@ function tenterInteraction(){
   /* Un panneau ne se lit pas sous le nez d'une créature : la boîte de dialogue
      fige le héros, et l'on prenait des coups sans pouvoir rien faire — un
      panneau planté près d'un monstre devenait un piège. Les personnages, eux,
-     restent accessibles : leur halo de paix a déjà chassé ce qui rôdait. */
+     restent accessibles : leur halo de paix a déjà chassé ce qui rôdait.
+
+     LE REFUS DOIT ÊTRE TOTAL : on renvoie `false`, et l'appui repart à l'épée.
+     Renvoyer `true` — ce que faisait ce refus — disait à l'appelant « l'appui
+     est consommé », et il sortait de `majJoueur` :
+
+       if(appui('B') && … && tenterInteraction()){ pris('B'); … return; }
+
+     Debout près d'un panneau avec quelque chose autour, B ne sortait alors
+     PLUS JAMAIS l'épée — mesuré : 0 coup sur 60 pressions. On ne mourait pas
+     en lisant le panneau, on mourait parce qu'il désarmait. Et plus de message
+     ni de bruit d'erreur : à cet instant le pouce veut frapper, pas lire. */
   for(const s of panneaux)
     if(Math.hypot(s.x-J.x,s.y-J.y)<22){
-      if(creatureProche(J.x,J.y,LECTURE_SUR)){
-        SFX.erreur(); dire("PAS LE MOMENT DE LIRE : QUELQUE CHOSE RÔDE.",120);
-        return true;
-      }
+      if(creatureProche(J.x,J.y,LECTURE_SUR)) return false;
       parler('PANNEAU',s.txt); return true;
     }
   return false;
@@ -4905,7 +4915,10 @@ function tomberDansLeVide(){
   J.vz=0; J.enAir=false; J.kx=0; J.ky=0; J.plane=0;
   secousse=9; son(300,.45,'sine',.06,-260); bruit(.35,.08);
   particules(J.x,J.y,J.z+10,18,'#8e97b8',2.6,30);
-  if(J.invuln<=0) blesser(1,J.x,J.y+12);
+  /* IMPARABLE : on ne se protège pas d'une chute avec un bouclier. Tant qu'il
+     fallait tenir X, le défaut passait inaperçu ; levé en permanence, il
+     annulait la chute dès que le héros regardait au sud. */
+  if(J.invuln<=0) blesser(1,J.x,J.y+12,false);
   J.x=J.solX; J.y=J.solY; J.z=J.solZ; J.kx=0; J.ky=0;   // blesser repousse : on recale
   J.invuln=Math.max(J.invuln,70);
   dire("LE VIDE T'A REPRIS.",120);
@@ -5537,12 +5550,38 @@ const OBJETS=[
   {id:'cape',nom:'CAPE',spr:'capeItem'},
   {id:'filet',nom:'FILET',spr:'filetItem'}
 ];
+/* ------------------------ DEUX OUTILS EN MAIN ------------------------
+   Neuf outils sur un seul cycle L/R, c'était jusqu'à QUATRE pressions pour en
+   atteindre un, en plein combat. Le code compensait par sept endroits qui
+   forçaient la sélection à la place du joueur : l'auto-sélection était le
+   symptôme, pas la solution.
+
+   Deux emplacements donc, `Y` et `X` — `X` se libère parce que le bouclier se
+   lève désormais tout seul (voir majJoueur). Et rangés par IDENTIFIANT, jamais
+   par indice : le sac grandit quand on ramasse, et un indice sauvegardé
+   désignait alors un autre objet — il fallait le borner DEUX fois au
+   chargement. Un identifiant ne peut pas glisser. */
+const FENTES=['Y','X'];
+/* L'outil réellement tenu dans une fente : rien si on ne l'a plus. */
+function outilDe(f){ const id=J.equipe&&J.equipe[f]; return (id&&J.objets.includes(id))?id:null; }
+/* Met un outil en main. Sans fente imposée : la première libre, sinon `Y`,
+   le plus à portée du pouce. Un outil déjà tenu ne bouge pas — sinon ramasser
+   deux fois de suite chassait ce qu'on venait tout juste d'équiper. */
+function equiper(id,fente){
+  if(!J.objets.includes(id)) J.objets.push(id);
+  if(fente){ if(J.equipe[fente]!==id&&J.equipe[fente==='Y'?'X':'Y']===id)
+               J.equipe[fente==='Y'?'X':'Y']=null;      // pas le même outil deux fois
+             J.equipe[fente]=id; return fente; }
+  for(const f of FENTES) if(J.equipe[f]===id) return f;  // déjà en main
+  for(const f of FENTES) if(!outilDe(f)){ J.equipe[f]=id; return f; }
+  J.equipe.Y=id; return 'Y';
+}
 
 const J={
   x:35*TS, y:45*TS, z:0, vz:0, dir:2, r:5,
   pv:6, pvmax:6, rubis:0, bombes:0, fleches:0, fragments:0,
-  objets:[], objSel:0,
-  atk:0, charge:0, spin:0, invuln:0, bouclier:false, kx:0, ky:0, nage:false,
+  objets:[], equipe:{Y:null,X:null},
+  atk:0, charge:0, spin:0, invuln:0, bouclier:false, parRecup:0, kx:0, ky:0, nage:false,
   animT:0, animF:0, pose:'marche', enAir:false, coyote:8, degatFlash:0,
   slam:0, slamHit:false, pousse:0, pousseDir:-1, grap:null, porte:null,
   /* Cité des Nues : le vol plané et le dernier sol ferme foulé */
@@ -5919,6 +5958,19 @@ function frapper(e,deg,sx,sy,type){
   return true;
 }
 
+/* Images de garde baissée après chaque parade. C'est LE prix du bouclier
+   automatique : sans lui, un héros de face serait intouchable, et la montée
+   des dégâts du sud (+1 aux Sables, +2 aux Nues) ne vaudrait plus rien.
+   Réglé par la mesure, pas au jugé — voir `33-equilibre.js`. */
+const PAR_RECUP=50;
+/* Et le court répit qu'une parade accorde. Sans lui, elle ne servait à RIEN :
+   mesuré image par image, le cycle était parade → coup encaissé à l'image
+   suivante → 59 images d'invincibilité. La garde revenant au bout de 50, elle
+   était toujours relevée avant la fin de l'invincibilité, et la cadence des
+   coups reçus restait EXACTEMENT celle d'un héros qui tourne le dos : 15 coups
+   de face comme de dos. Une parade doit consommer l'attaque, pas seulement
+   retarder d'une image le coup qui vient. */
+const PAR_GRACE=18;
 function blesser(deg,sx,sy,parable=true){
   if(J.invuln>0||etat!=='jeu') return;
   if(parable&&J.bouclier){
@@ -5926,7 +5978,13 @@ function blesser(deg,sx,sy,parable=true){
     const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
     if(Math.cos(a)*vd[0]+Math.sin(a)*vd[1]>(Q.bouclierFort?-.05:.35)){
       SFX.bouclier(); eclat(J.x+vd[0]*10,J.y+vd[1]*10-10,J.z+10,'#cfe0ff');
-      J.kx=-vd[0]*1.6; J.ky=-vd[1]*1.6; return;
+      J.kx=-vd[0]*1.6; J.ky=-vd[1]*1.6;
+      /* La garde retombe SUR-LE-CHAMP, pas à l'image suivante : `J.bouclier`
+         n'est calculé qu'une fois par image (voir majJoueur), et deux coups
+         portés dans la même image auraient été parés tous les deux. */
+      J.parRecup=PAR_RECUP; J.bouclier=false;
+      J.invuln=Math.max(J.invuln,PAR_GRACE);   // la parade consomme l'attaque
+      return;
     }
   }
   /* LE SUD FRAPPE PLUS FORT. Un loup des Cimes, un djinn des Sables et un écho
@@ -6043,6 +6101,40 @@ function exploser(b){
   }
 }
 
+/* Ce que fait un outil, quelle que soit la fente d'où il vient : `Y` et `X`
+   partagent ce corps, sinon les deux se seraient mis à diverger. */
+function utiliserOutil(o){
+  if(o==='marteau'){
+    // on ARME le marteau : il monte au-dessus de la tête, puis s'abat. Le
+    // coup lui-même part à l'impact (voir slamMarteau), pas tout de suite.
+    if(J.slam<=0&&J.atk<=0&&J.spin<=0){ J.slam=SLAM_DUR; J.slamHit=false;
+      son(220,.12,'triangle',.04,80); }
+  }
+  else if(o==='bombe') poserBombe();
+  else if(o==='arc'){
+    if(J.fleches>0){ J.fleches--;
+      tirs.push({x:J.x+[0,-8,0,8][J.dir],y:J.y+[-8,0,8,0][J.dir]-2,z:J.z+9,
+        vx:[0,-3.4,0,3.4][J.dir],vy:[-3.4,0,3.4,0][J.dir],vie:120,ami:1,spr:'fleche',dir:J.dir});
+      SFX.fleche();
+    } else { SFX.erreur(); dire("PLUS DE FLÈCHES."); }
+  }
+  else if(o==='boomerang'){
+    // un seul boomerang en vol : il part droit devant, ralentit, puis revient
+    if(!tirs.some(t=>t.boom)){
+      const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
+      tirs.push({x:J.x+vd[0]*8,y:J.y+vd[1]*8-2,z:J.z+10,
+        vx:vd[0]*4.2,vy:vd[1]*4.2,vie:160,ami:1,spr:'boomerang',boom:1,phase:'aller',
+        ang:0,frappes:new Set()});
+      SFX.fleche(); son(520,.09,'triangle',.045,180);
+    } else SFX.erreur();
+  }
+  else if(o==='grappin') lancerGrappin();
+  else if(o==='bracelet') brasBracelet();
+  else if(o==='fanal') fanalAction();
+  else if(o==='cape') capeAction();
+  else if(o==='filet') coupDeFilet();
+}
+
 /* ============================ JOUEUR ============================ */
 function majJoueur(){
   const b=baseSol(J.x,J.y);
@@ -6052,41 +6144,10 @@ function majJoueur(){
   { const t=Sol(Math.floor(J.x/TS),Math.floor(J.y/TS));
     J.nage=(t===S.EAU||t===S.EAUPROF)&&!J.enAir&&!J.grap&&!J.porte&&J.z<=b+.5; }
 
-  /* --- objet actif (on ne change pas d'objet les bras chargés) --- */
-  if(!J.porte&&appui('L')&&J.objets.length){ pris('L'); J.objSel=(J.objSel+J.objets.length-1)%J.objets.length; SFX.menu(); }
-  if(!J.porte&&appui('R')&&J.objets.length){ pris('R'); J.objSel=(J.objSel+1)%J.objets.length; SFX.menu(); }
-  if(appui('Y')&&J.objets.length){ pris('Y');
-    const o=J.objets[J.objSel];
-    if(o==='marteau'){
-      // on ARME le marteau : il monte au-dessus de la tête, puis s'abat. Le
-      // coup lui-même part à l'impact (voir slamMarteau), pas tout de suite.
-      if(J.slam<=0&&J.atk<=0&&J.spin<=0){ J.slam=SLAM_DUR; J.slamHit=false;
-        son(220,.12,'triangle',.04,80); }
-    }
-    else if(o==='bombe') poserBombe();
-    else if(o==='arc'){
-      if(J.fleches>0){ J.fleches--;
-        tirs.push({x:J.x+[0,-8,0,8][J.dir],y:J.y+[-8,0,8,0][J.dir]-2,z:J.z+9,
-          vx:[0,-3.4,0,3.4][J.dir],vy:[-3.4,0,3.4,0][J.dir],vie:120,ami:1,spr:'fleche',dir:J.dir});
-        SFX.fleche();
-      } else { SFX.erreur(); dire("PLUS DE FLÈCHES."); }
-    }
-    else if(o==='boomerang'){
-      // un seul boomerang en vol : il part droit devant, ralentit, puis revient
-      if(!tirs.some(t=>t.boom)){
-        const vd=[[0,-1],[-1,0],[0,1],[1,0]][J.dir];
-        tirs.push({x:J.x+vd[0]*8,y:J.y+vd[1]*8-2,z:J.z+10,
-          vx:vd[0]*4.2,vy:vd[1]*4.2,vie:160,ami:1,spr:'boomerang',boom:1,phase:'aller',
-          ang:0,frappes:new Set()});
-        SFX.fleche(); son(520,.09,'triangle',.045,180);
-      } else SFX.erreur();
-    }
-    else if(o==='grappin') lancerGrappin();
-    else if(o==='bracelet') brasBracelet();
-    else if(o==='fanal') fanalAction();
-    else if(o==='cape') capeAction();
-    else if(o==='filet') coupDeFilet();
-  }
+  /* --- les outils : Y et X, chacun le sien (on n'en change pas les bras chargés) --- */
+  if(!J.porte&&(appui('L')||appui('R'))&&J.objets.length){
+    pris('L','R'); SFX.menu(); ouvrirPageOutils(); return; }
+  for(const f of FENTES) if(appui(f)){ const o=outilDe(f); if(o){ pris(f); utiliserOutil(o); } }
 
   /* --- le grappin tire le héros jusqu'à l'ancre : il glisse en ligne droite,
      par-dessus l'eau et les gouffres, et l'on ne fait rien d'autre pendant --- */
@@ -6102,8 +6163,19 @@ function majJoueur(){
     return;
   }
 
-  /* --- bouclier --- */
-  J.bouclier = presse('X') && J.atk<=0 && J.spin<=0;
+  /* --- LE BOUCLIER SE LÈVE TOUT SEUL ---
+     Il ne se tient plus : `X` porte désormais le second outil. La garde tombe
+     dès qu'on fait autre chose que se garder — frapper, tournoyer, abattre le
+     marteau, porter un bloc, planer — et pendant la RÉCUPÉRATION qui suit
+     chaque parade (voir `blesser`).
+
+     Cette fenêtre n'est pas un détail : `blesser` majore les dégâts de +1 dès
+     les Sables et de +2 aux Nues, en notant explicitement que « celui qui se
+     défend ne subit pas la montée ». Une garde permanente aurait donc effacé
+     toute la courbe de difficulté du sud. Mesuré dans `33-equilibre.js`. */
+  if(J.parRecup>0) J.parRecup--;
+  J.bouclier = J.parRecup<=0 && J.atk<=0 && J.spin<=0 && J.slam<=0
+               && !J.porte && J.plane<=0;
 
   /* --- déplacement : pleine vitesse dès 62 % de course du pavé --- */
   let dx=axe.x, dy=axe.y;
@@ -6119,7 +6191,9 @@ function majJoueur(){
   const solJ=Sol(Math.floor(J.x/TS),Math.floor(J.y/TS));
   const nage=Q.palmes&&(solJ===S.EAU||solJ===S.EAUPROF);
   let v=1.55;
-  if(J.atk>0) v=.45; else if(J.slam>0) v=.15; else if(J.spin>0) v=.8; else if(J.bouclier) v=.85;
+  /* Plus de pénalité de bouclier : il est levé en permanence, elle aurait
+     condamné le héros à marcher à 85 % pour toujours. */
+  if(J.atk>0) v=.45; else if(J.slam>0) v=.15; else if(J.spin>0) v=.8;
   if(J.porte) v*=.72;                            // les bras chargés d'un bloc, on ralentit
   if(nage) v*=.78;
   if(solJ===S.VASE) v*=.6;                        // la vase du marais colle aux bottes
@@ -6295,7 +6369,7 @@ function majJoueur(){
   /* --- les braises brûlent qui n'a pas les bottes --- */
   if(!Q.bottes&&J.invuln<=0&&Sol(Math.floor(J.x/TS),Math.floor(J.y/TS))===S.BRAISE
      &&J.z<=baseSol(J.x,J.y)+2){
-    blesser(1,J.x,J.y-14);
+    blesser(1,J.x,J.y-14,false);          // un sol brûlant ne se pare pas non plus
     dire("LE SOL BRÛLE ! IL FAUT DES BOTTES.",120);
     particules(J.x,J.y,J.z+4,8,'#ff9a3c',2,20);
   }
@@ -6314,11 +6388,9 @@ function ouvrirCoffre(c){
   particules(c.x,c.y,c.e*EH+14,26,'#ffe86a',3,44);
   J.fragments++;
   J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
-  /* On équipe aussitôt l'objet trouvé : sans cela la boîte d'objet continuait
-     d'afficher l'arc, et on pouvait repartir d'un coffre en croyant n'avoir
-     rien reçu — il fallait deviner qu'il fallait faire défiler avec L/R. */
-  const equiper=id=>{ if(!J.objets.includes(id)) J.objets.push(id);
-                      J.objSel=J.objets.indexOf(id); };
+  /* On équipe aussitôt l'objet trouvé, dans la première fente libre : sans
+     cela on repartait d'un coffre en croyant n'avoir rien reçu. */
+
   if(c.contenu==='arc'){ equiper('arc'); J.fleches=Math.max(J.fleches,20);
     dire("L'ARC ! FLÈCHES : 20. PIERRE DE GARDE "+J.fragments+"/3"); }
   else if(c.contenu==='bombe'){ equiper('bombe'); J.bombes=Math.max(J.bombes,8);
@@ -6377,8 +6449,7 @@ function ramasserButin(o){
     dire('LA PORTE DU SANCTUAIRE PEUT S OUVRIR.'); }
   /* ---- Cimes Gelées & Lagon d'Azur ---- */
   if(o.type==='boomerang'){ Q.boomerang=true;
-    if(!J.objets.includes('boomerang')) J.objets.push('boomerang');
-    J.objSel=J.objets.indexOf('boomerang');
+    equiper('boomerang');
     SFX.coffre(); secousse=8; annonce('LE BOOMERANG DE GIVRE');
     particules(o.x,o.y,o.z+10,26,'#c8ecff',3,36);
     dire("LE BOOMERANG ! ÉQUIPÉ : APPUIE SUR Y. IL BRISE LA GLACE ET REVIENT.",320);
@@ -6387,27 +6458,23 @@ function ramasserButin(o){
     annonce('LES PALMES'); particules(o.x,o.y,o.z+10,22,'#57c9bf',2.6,32);
     dire("LES PALMES ! TU PEUX NAGER DANS L'EAU PROFONDE.",300); autoSauver(); }
   if(o.type==='grappin'){ Q.grappin=true;
-    if(!J.objets.includes('grappin')) J.objets.push('grappin');
-    J.objSel=J.objets.indexOf('grappin');
+    equiper('grappin');
     SFX.coffre(); secousse=6; annonce('LE GRAPPIN');
     particules(o.x,o.y,o.z+10,22,'#c8d8ff',2.6,32);
     dire("LE GRAPPIN ! VISE UNE ANCRE ET APPUIE SUR Y : IL T'Y TIRE.",320); autoSauver(); }
   if(o.type==='bracelet'){ Q.bracelet=true;
-    if(!J.objets.includes('bracelet')) J.objets.push('bracelet');
-    J.objSel=J.objets.indexOf('bracelet');
+    equiper('bracelet');
     SFX.coffre(); secousse=8; annonce('LE BRACELET DE FORCE');
     particules(o.x,o.y,o.z+10,24,'#ffcf4a',2.8,34);
     dire("LE BRACELET ! Y SOULÈVE UN BLOC LOURD, Y LE JETTE.",320); autoSauver(); }
   if(o.type==='cape'){ Q.cape=true;
-    if(!J.objets.includes('cape')) J.objets.push('cape');
-    J.objSel=J.objets.indexOf('cape');
+    equiper('cape');
     SFX.coffre(); secousse=8; annonce('LA CAPE DES COURANTS');
     particules(o.x,o.y,o.z+10,26,'#a8c8ff',3,36);
     dire("LA CAPE ! Y POUR PLANER. LES COLONNES D'AIR TE PORTENT PLUS LOIN.",340);
     autoSauver(); }
   if(o.type==='fanal'){ Q.fanal=true;
-    if(!J.objets.includes('fanal')) J.objets.push('fanal');
-    J.objSel=J.objets.indexOf('fanal');
+    equiper('fanal');
     SFX.coffre(); secousse=6; annonce('LE FANAL');
     particules(o.x,o.y,o.z+10,24,'#f4ffb0',2.6,34);
     dire("LE FANAL ! IL ÉCLAIRE LA NUIT, BRÛLE LES RONCES, RALLUME LES VEILLEUSES.",320); autoSauver(); }
@@ -6419,8 +6486,7 @@ function ramasserButin(o){
     particules(o.x,o.y,o.z+8,8,'#e8f4ff',1.8,22);
     dire('PERLE DU LAGON : '+Q.perles+'/5',120); autoSauver(); }
   if(o.type==='filet'){ Q.filet=true;
-    if(!J.objets.includes('filet')) J.objets.push('filet');
-    J.objSel=J.objets.indexOf('filet');
+    equiper('filet');
     SFX.coffre(); secousse=6; annonce('LE FILET À PAPILLONS');
     particules(o.x,o.y,o.z+10,22,'#dff0ff',2.6,32);
     dire("LE FILET ! Y POUR BALAYER. IL PREND LES PAPILLONS, ET RENVOIE CE QU'ON TE JETTE.",340);
@@ -8186,9 +8252,9 @@ const ARME_MAIN=[[-9,-13, 1.30, 1],
                  [-10,-12, 2.25, 0],
                  [  9,-11, 1.10, 0],
                  [ 10,-12, 0.95, 0]];
-/* L'outil tenu : celui qui est sélectionné, l'épée à défaut. */
+/* L'outil tenu : celui de `Y` d'abord, celui de `X` sinon, l'épée à défaut. */
 function armeAuPoing(){
-  const o=J.objets.length?J.objets[J.objSel]:null;
+  const o=outilDe('Y')||outilDe('X');
   if(!o) return null;                                  // l'épée
   const d=OBJETS.find(x=>x.id===o);
   return d?d.spr:null;
@@ -8735,22 +8801,21 @@ function ath(){
   }
   X.globalAlpha=1;
 
-  // boîte d'objet
-  panneau(X,2,H-24,34,22);
-  if(J.objets.length){
-    const o=J.objets[J.objSel];
-    /* La boîte affichait EN DUR la flèche dès que l'objet n'était pas une
-       bombe : le marteau y ressemblait donc trait pour trait à l'arc, munitions
-       comprises, et on croyait ne l'avoir jamais reçu. On lit la table `OBJETS`,
-       et seuls les objets à munitions affichent un compte — le marteau montre
-       la touche qui s'en sert. */
+  /* Les DEUX boîtes d'objet, marquées de leur touche. La boîte affichait
+     autrefois EN DUR la flèche dès que l'objet n'était pas une bombe : le
+     marteau ressemblait trait pour trait à l'arc, munitions comprises. On lit
+     la table `OBJETS`, et seuls les objets à munitions affichent un compte. */
+  panneau(X,2,H-24,68,22);
+  const boite=(f,bx)=>{
+    const o=outilDe(f);
+    texte(X,f,bx,H-22,o?'#7de0a0':'#5a6280');
+    if(!o){ texte(X,'--',bx+8,H-16,'#5a6280'); return; }
     const def=OBJETS.find(d=>d.id===o);
-    X.drawImage(SPR[def?def.spr:'fleche'],8,H-20,14,14);
+    X.drawImage(SPR[def?def.spr:'fleche'],bx+7,H-20,14,14);
     const munitions=o==='bombe'?J.bombes:o==='arc'?J.fleches:null;
-    if(munitions!==null) texte(X,String(munitions),22,H-16,'#e8f0ff');
-    else texte(X,'Y',24,H-16,'#7de0a0');
-    if(J.objets.length>1){ texte(X,'L',4,H-22,'#7f8ab0'); texte(X,'R',29,H-22,'#7f8ab0'); }
-  } else texte(X,'--',12,H-16,'#5a6280');
+    if(munitions!==null) texte(X,String(munitions),bx+21,H-16,'#e8f0ff');
+  };
+  boite('Y',5); boite('X',36);
 
   // barre du gardien
   if(boss){
@@ -9059,14 +9124,14 @@ function ecranTitre(){
      tout sur une ligne quand l'écran est large (le ciel y gagne 12 px), sinon
      deux lignes, et la version courte quand même celles-ci ne rentrent pas. */
   if(aide1){
-    texteCentre(X,'B EPEE  A SAUT  Y OBJET  X BOUCLIER  START CARTE  SELECT JOURNAL  B PARLER',
+    texteCentre(X,'B EPEE  A SAUT  Y ET X TES OUTILS  L/R OUTILS  START CARTE  SELECT JOURNAL',
       W/2,yAide,'#93a0cc','#0a0c18');
   } else {
     const large=W>=236;
-    texteCentre(X,large?'B EPEE   A SAUT   Y OBJET   X BOUCLIER'
-                       :'B EPEE  A SAUT  Y OBJET  X BOUCL.',W/2,yAide,'#93a0cc','#0a0c18');
-    texteCentre(X,large?'START CARTE   SELECT JOURNAL   B PARLER'
-                       :'START CARTE  SELECT JOURNAL',W/2,yAide+12,'#7f8ab8','#0a0c18');
+    texteCentre(X,large?'B EPEE   A SAUT   Y ET X TES OUTILS'
+                       :'B EPEE  A SAUT  Y ET X OUTILS',W/2,yAide,'#93a0cc','#0a0c18');
+    texteCentre(X,large?'L/R OUTILS   START CARTE   SELECT JOURNAL'
+                       :'L/R OUTILS  START CARTE',W/2,yAide+12,'#7f8ab8','#0a0c18');
   }
 }
 
@@ -9667,7 +9732,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V2.6';
+const VERSION='V2.7';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -9776,7 +9841,7 @@ function construireSauve(){
     Q:Object.assign({},Q),
     J:{x:J.x,y:J.y,z:J.z,dir:J.dir,pv:J.pv,pvmax:J.pvmax,rubis:J.rubis,
        bombes:J.bombes,fleches:J.fleches,fragments:J.fragments,
-       objets:J.objets.slice(),objSel:J.objSel},
+       objets:J.objets.slice(),equipe:{Y:J.equipe.Y,X:J.equipe.X}},
     coffres:coffres.map(c=>[c.ouvert?1:0,c.verrou?1:0]),
     lucioles:lucioles.map(l=>l.pris?1:0),
     diff, diffS, vu:bitsVers(vu)
@@ -9900,7 +9965,7 @@ async function chargerInterne(slot){
   vu.set(bitsDepuis(d.vu||'',MW*MH));
   peupler();
 
-  Object.assign(J,{atk:0,charge:0,spin:0,invuln:60,bouclier:false,kx:0,ky:0,
+  Object.assign(J,{atk:0,charge:0,spin:0,invuln:60,bouclier:false,parRecup:0,kx:0,ky:0,
     vz:0,animT:0,animF:0,enAir:false,coyote:8,degatFlash:0,
     slam:0,slamHit:false,pousse:0,pousseDir:-1,grap:null,porte:null},d.J||{});
   if(!Array.isArray(J.objets)) J.objets=[];
@@ -9909,7 +9974,13 @@ async function chargerInterne(slot){
   // les outils gagnés restent équipés : si un drapeau dit qu'on les a, ils sont dans le sac
   for(const [drapeau,id] of [[Q.boomerang,'boomerang'],[Q.grappin,'grappin'],[Q.bracelet,'bracelet'],[Q.fanal,'fanal']])
     if(drapeau&&!J.objets.includes(id)) J.objets.push(id);
-  J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
+  /* LES DEUX MAINS. Les sauvegardes d'avant ne rangeaient qu'un INDICE
+     (`objSel`) : on le traduit une fois pour toutes en identifiant, et il
+     n'aura plus jamais à être borné. */
+  if(!J.equipe||typeof J.equipe!=='object') J.equipe={Y:null,X:null};
+  if(d.J&&d.J.objSel!==undefined&&!d.J.equipe)
+    J.equipe={Y:J.objets[clamp(d.J.objSel|0,0,Math.max(0,J.objets.length-1))]||null,X:null};
+  for(const f of FENTES) if(J.equipe[f]&&!J.objets.includes(J.equipe[f])) J.equipe[f]=null;
   // une position héritée d'une carte plus petite reste dans les bornes de la nouvelle
   J.x=clamp(J.x,TS*2,(MW-2)*TS); J.y=clamp(J.y,TS*2,(MH-2)*TS); J.z=J.z||0;
 
@@ -9949,7 +10020,10 @@ async function chargerInterne(slot){
     if(J.objets.includes(id)) Q[drap]=true;
     else if(Q[drap]) J.objets.push(id);
   }
-  J.objSel=clamp(J.objSel|0,0,Math.max(0,J.objets.length-1));
+  /* Une main vide alors que le sac est plein : on y met quelque chose, sinon
+     Y ou X ne servirait à rien tant qu'on n'a pas ouvert la page. */
+  for(const f of FENTES) if(!outilDe(f))
+    for(const o of J.objets) if(!FENTES.some(g=>J.equipe[g]===o)){ J.equipe[f]=o; break; }
   // le dernier sol ferme : sans lui, une chute dans le vide renverrait à zéro
   J.solX=J.x; J.solY=J.y; J.solZ=J.z; J.plane=0;
 
@@ -10017,6 +10091,75 @@ function optionsFin(gagne){
 const ALPHABET=['ABCDEFGHIJ','KLMNOPQRST','UVWXYZ0123','456789 -.'];
 const NOM_MAX=10;
 let nomSaisi='', nomCx=0, nomCy=0, nomSlot=0, grilleTempo=0;
+
+/* ====================== LA PAGE DES OUTILS ======================
+   Neuf outils ne se parcourent pas au cycle : on les MONTRE, tous, et l'on
+   choisit lequel va dans quelle main. La page fige le jeu, comme la carte et
+   le journal — sur un téléphone, une roue à neuf branches sur 256 px de large
+   donnerait 28 px par secteur, intenable au pouce.
+
+   Le curseur réutilise `fleche2()`, déjà écrit pour la grille de lettres de
+   l'écran de saisie du nom : une direction débouncée, rien de plus. */
+const COLS_OUTILS=5;
+let outilCx=0, outilCy=0;
+function ouvrirPageOutils(){
+  etat='outils';
+  const i=OBJETS.findIndex(o=>o.id===outilDe('Y'));
+  const j=i>=0?i:0;
+  outilCx=j%COLS_OUTILS; outilCy=(j/COLS_OUTILS)|0; grilleTempo=0;
+}
+const outilVise=()=>OBJETS[outilCy*COLS_OUTILS+outilCx]||null;
+function naviguerOutils(){
+  const d=fleche2();
+  if(d){
+    const lignes=Math.ceil(OBJETS.length/COLS_OUTILS);
+    if(d.dy){ outilCy=(outilCy+d.dy+lignes)%lignes; }
+    if(d.dx){ outilCx=(outilCx+d.dx+COLS_OUTILS)%COLS_OUTILS; }
+    /* La dernière rangée est incomplète : on ne laisse pas le curseur flotter
+       sur une case vide, il retombe sur le dernier outil. */
+    if(outilCy*COLS_OUTILS+outilCx>=OBJETS.length){
+      const der=OBJETS.length-1;
+      outilCx=der%COLS_OUTILS; outilCy=(der/COLS_OUTILS)|0;
+    }
+    SFX.menu();
+  }
+  for(const f of FENTES) if(appui(f==='Y'?'B':'X')){
+    pris(f==='Y'?'B':'X');
+    const o=outilVise();
+    /* On ne met en main que ce qu'on possède : le reste est grisé, et le
+       refuser en silence vaudrait un bug pour le joueur. */
+    if(o&&J.objets.includes(o.id)){ equiper(o.id,f); SFX.coffre(); }
+    else SFX.erreur();
+  }
+  if(appui('L')||appui('R')||appui('Start')||appui('Select')){
+    pris('L','R','Start','Select'); etat='jeu'; SFX.menu(); }
+}
+function ecranPageOutils(){
+  rendreMonde(); ath();
+  X.fillStyle='rgba(6,8,18,.72)'; X.fillRect(0,0,W,H);
+  const cw=26, ch=30, lignes=Math.ceil(OBJETS.length/COLS_OUTILS);
+  const hBloc=26+lignes*ch+30;
+  const y0=Math.max(2,Math.round((H-hBloc)/2));
+  texteCentre(X,'OUTILS',W/2,y0,'#ffe06a','#0a0c18');
+  const gx=Math.round(W/2-COLS_OUTILS*cw/2), gy=y0+16;
+  OBJETS.forEach((o,i)=>{
+    const cx=gx+(i%COLS_OUTILS)*cw, cy=gy+((i/COLS_OUTILS)|0)*ch;
+    const a=J.objets.includes(o.id), sel=(i===outilCy*COLS_OUTILS+outilCx);
+    panneau(X,cx,cy,cw-3,ch-4);
+    if(sel){ X.fillStyle='rgba(60,78,140,.85)'; X.fillRect(cx+1,cy+1,cw-5,ch-6); }
+    if(a) X.drawImage(SPR[o.spr],cx+4,cy+3,14,14);
+    else { texte(X,'-',cx+9,cy+7,'#4a5270','#0a0c18'); }
+    /* La main qui le tient, sous l'icône : c'est ce qui évite d'ouvrir la page
+       pour se rappeler ce qu'on a sous le pouce. */
+    for(const f of FENTES) if(J.equipe[f]===o.id&&a)
+      texte(X,f,cx+7,cy+18,'#7de0a0','#0a0c18');
+  });
+  const yb=gy+lignes*ch+2;
+  const vise=outilVise();
+  texteCentre(X,vise&&J.objets.includes(vise.id)?vise.nom:'—',W/2,yb,'#e8f0ff','#0a0c18');
+  texteCentre(X,'B EN Y    X EN X',W/2,yb+12,'#8f9cc4','#0a0c18');
+  texteCentre(X,'L OU R POUR REVENIR',W/2,yb+24,'#8f9cc4','#0a0c18');
+}
 function ouvrirSaisieNom(slot){
   nomSlot=slot; nomSaisi=''; nomCx=0; nomCy=0; grilleTempo=10; etat='nom';
 }
@@ -10109,7 +10252,8 @@ function nouvellePartie(nom,slot){
   razQuetes(); dial=null; boutique=null; journal=false;
   genererMonde(); prerendreSol(); construireMini(); poserCoffres(); peupler();
   Object.assign(J,{x:35*TS+8,y:45*TS+8,z:0,vz:0,dir:2,pv:6,pvmax:6,rubis:0,bombes:0,
-    fleches:0,fragments:0,objets:[],objSel:0,atk:0,charge:0,spin:0,invuln:0,
+    fleches:0,fragments:0,objets:[],equipe:{Y:null,X:null},parRecup:0,
+    atk:0,charge:0,spin:0,invuln:0,
     bouclier:false,kx:0,ky:0,animT:0,animF:0,enAir:false,coyote:8,degatFlash:0});
   cam.x=clamp(J.x-W/2,0,MW*TS-W); cam.y=clamp(J.y-H/2,0,MH*TS-H-EH);
   msgT=0; bandeauT=0; secousse=0; gel=0;
@@ -10218,6 +10362,7 @@ function boucleCorps(){
     return;
   }
   if(etat==='nom'){ ecranNom(); naviguerNom(); return; }
+  if(etat==='outils'){ ecranPageOutils(); naviguerOutils(); return; }
   if(etat==='epilogue'){
     majEpilogue(); ecranEpilogue();
     /* On ne peut l'écourter qu'une fois le bilan posé : sans ce verrou, une

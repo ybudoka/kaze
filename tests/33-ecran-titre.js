@@ -81,7 +81,11 @@ const recouvrement = (as, bs) =>
 
 /* Les libellés du titre et de l'aide, pour trier les textes relevés. */
 const RE_TITRE = /^(LA LÉGENDE DE|ET LE RONGEUR)/;
-const RE_AIDE = /^(B EPEE|START CARTE|SAUVEGARDE NON)/;
+/* Ce classement suit les LIBELLÉS : changer le début d'une ligne d'aide sans
+   toucher à cette expression la fait basculer du côté « texte de menu », et
+   c'est la marge du panneau qui rougit — un symptôme à trois pas de la cause.
+   (Vécu : la seconde ligne est passée de « START CARTE » à « L/R OUTILS ».) */
+const RE_AIDE = /^(B EPEE|START CARTE|L\/R OUTILS|SAUVEGARDE NON)/;
 const RE_VERSION = /^V\d/;
 
 module.exports = {

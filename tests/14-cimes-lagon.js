@@ -60,7 +60,7 @@ module.exports = {
 
       /* Depuis le col des Cendres, SANS palmes ni boomerang. Le Cœur de Cendre
          est abattu — c'est lui qui descelle le col des Cimes depuis que chaque
-         région a son verrou (cf. 31-verrous.js) : sans cela, on mesurerait le
+         région a son verrou (cf. 36-verrous.js) : sans cela, on mesurerait le
          sceau au lieu de mesurer le terrain. */
       Q.portailOuvert = true; Q.coeurTue = true;
       const sx = (CENDRE.col.x0 + CENDRE.col.x1) >> 1, sy = Y_CENDRE + 6;
@@ -99,7 +99,7 @@ module.exports = {
       J.z = Etg(BOOMERANG_POS[0], BOOMERANG_POS[1]) * EH; J.invuln = 99999;
       await dort(150);
       out.boomerangPris = Q.boomerang && J.objets.includes('boomerang');
-      out.boomerangEquipe = J.objets[J.objSel] === 'boomerang';
+      out.boomerangEquipe = outilDe('Y') === 'boomerang' || outilDe('X') === 'boomerang';
       J.dir = 3;
       const vd = [[0, -1], [-1, 0], [0, 1], [1, 0]][J.dir];
       tirs.push({ x: J.x + vd[0] * 8, y: J.y + vd[1] * 8 - 2, z: J.z + 10, vx: vd[0] * 4.2, vy: vd[1] * 4.2, vie: 160, ami: 1, spr: 'boomerang', boom: 1, phase: 'aller', ang: 0, frappes: new Set() });

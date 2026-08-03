@@ -82,12 +82,12 @@ module.exports = {
       // marteau -> on brise la roche noire qui bouche la brèche.
       // Le joueur arrive ici avec l'arc et les bombes : le marteau se range
       // donc APRÈS eux, et sans équipement automatique il resterait invisible.
-      J.objets = ['arc', 'bombe']; J.objSel = 0;
+      J.objets = []; J.equipe = { Y: null, X: null }; equiper('arc'); equiper('bombe');
       ouvrirCoffre(coffres[3]); await dort(200);
       out.marteau = J.objets.includes('marteau'); out.braises1 = Q.braises;
       // il doit être ÉQUIPÉ, sinon la boîte d'objet montre encore l'arc et on
       // repart du coffre en croyant n'avoir rien reçu
-      out.marteauEquipe = J.objets[J.objSel] === 'marteau';
+      out.marteauEquipe = outilDe('Y') === 'marteau' || outilDe('X') === 'marteau';
 
       /* La boîte d'objet doit MONTRER l'objet tenu. Elle affichait en dur la
          flèche dès que l'objet n'était pas une bombe : le marteau y était
@@ -98,9 +98,9 @@ module.exports = {
            suffisait à rendre les images différentes, et le contrôle restait
            vert alors que les deux dessins étaient les mêmes. */
         const lireBoite = async i => {
-          J.objSel = i; await dort(120);
+          equiper(J.objets[i], 'Y'); await dort(120);
           const c = document.createElement('canvas'); c.width = 14; c.height = 14;
-          c.getContext('2d').drawImage(CV, 8, H - 20, 14, 14, 0, 0, 14, 14);
+          c.getContext('2d').drawImage(CV, 12, H - 20, 14, 14, 0, 0, 14, 14);
           return c.toDataURL();
         };
         const vues = [];
@@ -110,7 +110,7 @@ module.exports = {
         out.boiteStable = (await lireBoite(0)) === vues[0];
         out.boitesDistinctes = new Set(vues).size === J.objets.length;
         out.boiteObjets = J.objets.slice();
-        J.objSel = J.objets.indexOf('marteau');
+        equiper('marteau', 'Y');
       }
       const cf = CENDRE.falaises, cx = cf.x0 + (cf.w >> 1);
       for (let k = -1; k <= 1; k++) putO(cx + k, cf.y0, O.RIEN);
