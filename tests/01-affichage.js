@@ -108,6 +108,25 @@ module.exports = {
         i.src = 'icone.svg';
       }));
       v('l\'icône se décode comme image', dessinable, 'illisible');
+
+      /* ---------- § 62 : le README des tests dit-il la vérité ? ----------
+         Il annonce « ce que couvre chaque fichier ». Onze fichiers n'y
+         figuraient pas — ajoutés au fil des livraisons, jamais inscrits. Un
+         sommaire incomplet est pire qu'absent : on le croit. */
+      const dossier = path.resolve(__dirname);
+      const fichiers = fs.readdirSync(dossier)
+        .filter(f => /^\d\d-.*\.js$/.test(f)).sort();
+      const readme = fs.readFileSync(path.join(dossier, 'README.md'), 'utf8');
+      const listes = [...readme.matchAll(/^\| `([0-9a-z-]+\.js)`/gm)].map(m => m[1]);
+      const absents = fichiers.filter(f => !listes.includes(f));
+      const orphelines = listes.filter(f => !fichiers.includes(f));
+      v('CHAQUE FICHIER DE TEST FIGURE DANS LE README',
+        absents.length === 0, `absents : ${absents.join(', ')}`);
+      v('et le README ne décrit aucun fichier disparu',
+        orphelines.length === 0, `orphelines : ${orphelines.join(', ')}`);
+      v('les lignes du sommaire sont dans l\'ordre des numéros',
+        listes.every((f, i) => i === 0 || parseInt(f) >= parseInt(listes[i - 1])),
+        listes.join(' '));
       await page.context().close();
     }
   },

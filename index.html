@@ -2982,9 +2982,11 @@ function bakeDecors(){
     // l'anneau : coins ÉVIDÉS, sinon c'est une fenêtre, pas un cerceau
     rc(g,8,1,4,1,'#eaf0ff'); rc(g,8,6,4,1,'#b8c8dc');
     rc(g,7,2,1,4,'#eaf0ff'); rc(g,12,2,1,4,'#c8d4e6');
-    // la poche, qui pend sous l'anneau et s'effile
-    rc(g,8,7,4,1,'#6a86a4'); rc(g,8,8,3,1,'#6a86a4');
-    rc(g,9,9,2,1,'#5c7690'); rc(g,9,10,1,1,'#4e6479');
+    /* La poche, qui pend sous l'anneau et s'effile. Elle était trop sombre pour
+       se voir à 14 px : le filet passait pour une LOUPE. Éclaircie, elle
+       redonne au dessin sa moitié basse. */
+    rc(g,8,7,4,2,'#8fa8c4'); rc(g,9,7,2,1,'#a9c0d8');
+    rc(g,9,9,2,2,'#7f98b4'); rc(g,9,11,1,1,'#6a86a4');
   });
   /* La baguette lisait comme un DOMINO surmonté d'une fleur : trois morceaux
      qui ne se touchaient pas. Une baguette, c'est un fût en biais et une
@@ -2998,11 +3000,13 @@ function bakeDecors(){
     rc(g,6,6,2,2,'#8f86a8');                                 // la virole d'argent
     /* L'étoile : quatre branches FINES qui s'affinent vers la pointe. Un cœur
        massif la faisait lire comme une fleur. */
-    rc(g,9,0,2,8,'#c8a8ff'); rc(g,6,3,8,2,'#c8a8ff');        // la croix
+    /* La croix : branches d'UN pixel aux pointes, deux au centre. Des branches
+       épaisses jusqu'au bout donnaient un pâté blanc à 14 px, sans direction. */
+    rc(g,9,0,2,8,'#c8a8ff'); rc(g,6,3,8,2,'#c8a8ff');
     rc(g,9,1,2,6,'#e8dcff'); rc(g,7,3,6,2,'#e8dcff');
     rc(g,9,3,2,2,'#ffffff');                                 // le cœur, net
-    rc(g,8,2,1,1,'#e8dcff'); rc(g,11,2,1,1,'#e8dcff');       // les écoinçons
-    rc(g,8,5,1,1,'#e8dcff'); rc(g,11,5,1,1,'#e8dcff');
+    rc(g,9,0,1,1,'#ffffff'); rc(g,10,7,1,1,'#c8a8ff');       // pointes affinées
+    rc(g,6,3,1,1,'#ffffff'); rc(g,13,4,1,1,'#c8a8ff');
     // deux étincelles, à l'écart du fût pour ne pas le salir
     rc(g,13,1,1,1,'#e8dcff'); rc(g,12,7,1,1,'#c8a8ff');
   });
@@ -10331,7 +10335,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.1';
+const VERSION='V4.2';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

@@ -4124,3 +4124,40 @@ aucune icône n'est faite de taches franchement séparées, avec son contrôle �
 blanc. La lisibilité d'un pixel art se juge **à l'œil, sur l'image rendue** ;
 je n'ai pas trouvé de nombre qui la capture, et il vaut mieux l'écrire que
 laisser un contrôle faire croire à une garantie qu'il n'offre pas.
+
+---
+
+## 62. Les deux points laissés ouverts au § 61
+
+### Les icônes, jugées cette fois à la taille du jeu
+
+J'avais jugé le filet et la baguette **à dix fois leur taille**, et je l'avais
+dit. Rendues à leur taille réelle — dans les deux boîtes d'objet et au poing du
+héros dans les quatre directions — deux défauts restaient, invisibles au zoom :
+
+- la **poche du filet** était trop sombre pour se voir à 14 px : le dessin
+  perdait sa moitié basse et passait pour une **loupe** ;
+- les branches de **l'étoile**, épaisses jusqu'au bout, se fondaient en un pâté
+  blanc sans direction.
+
+Poche éclaircie, branches affinées à un pixel aux pointes. Les deux se lisent
+maintenant dans la boîte d'objet, et au poing la silhouette reste reconnaissable
+malgré la petite taille.
+
+### Le sommaire des tests mentait
+
+`tests/README.md` annonce « ce que couvre chaque fichier ». **Onze fichiers n'y
+figuraient pas** — `27-icones`, `27-papillons`, `28-cimes-enrichies`,
+`29-nage-et-vue`, `30-desert-et-etoiles`, `31-gue-panneaux-reprise`,
+`32-reperes-de-quete`, `33-ecran-titre`, `34-frontieres`, `35-ecran-fin`,
+`41-cape` — ajoutés au fil des livraisons, jamais inscrits. Un sommaire
+incomplet est pire qu'absent : on le croit.
+
+Les onze lignes sont écrites, à partir de ce que chaque fichier mesure vraiment,
+et la table est remise **dans l'ordre des numéros** (elle ne l'était plus).
+
+`01-affichage.js` vérifie désormais la correspondance : **47 fichiers, 47
+lignes**, aucun absent, aucune ligne orpheline, et l'ordre tenu.
+
+> **Réinjection** : une ligne retirée du sommaire → rouge ; une ligne déplacée
+> hors d'ordre → rouge.
