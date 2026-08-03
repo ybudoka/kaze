@@ -6120,6 +6120,25 @@ function fanalActif(){
 
 function frapper(e,deg,sx,sy,type){
   if(e.flash>6) return false;
+  /* LE CŒUR DE CENDRE : chauffé à blanc, rien ne l'entame. Chaque coup ajoute
+     à sa chaleur — le marteler le rend donc invulnérable, et c'est tout
+     l'intérêt : on frappe, on recule, on attend qu'il retombe. */
+  if(e.type==='coeur'){
+    if(e.chaleur>=COEUR_SEUIL&&type!=='explosion'){
+      SFX.bouclier(); eclat(sx,sy-8,e.z+12,'#ff8b3a'); return false;
+    }
+    e.chaleur=(e.chaleur||0)+16;
+  }
+  /* LE ROI YÉTI : le blizzard le dérobe. Il ne s'offre qu'EN PLEINE CHARGE ou
+     sonné — le reste du temps on frappe de la neige. */
+  if(e.type==='yeti'&&e.stun<=0&&e.phase!=='charge'&&type!=='explosion'){
+    SFX.bouclier(); eclat(sx,sy-8,e.z+12,'#dbe4f2'); return false;
+  }
+  /* LE LÉVIATHAN : il ne se touche qu'à la RÉSURGENCE, la fenêtre qui suit sa
+     plongée. Ailleurs il est sous l'eau, ou sur ses gardes. */
+  if(e.type==='kraken'&&!(e.surface>0)&&type!=='explosion'){
+    SFX.bouclier(); eclat(sx,sy-8,e.z+10,'#5fd0e0'); return false;
+  }
   /* La Sentinelle se clôt pendant sa rafale : sa coque est alors impénétrable.
      Elle l'annonçait déjà (« RAFALE : ELLE SE CLÔT ») — mais rien, dans le
      code, ne lisait `close`. On pouvait la marteler pendant qu'elle se
@@ -7404,17 +7423,53 @@ function majEnnemis(){
 /* ------------------------ LE CŒUR DE CENDRE ------------------------
    Second gardien : il alterne les charges et les gerbes de braises. Sa
    carapace ne cède qu'au marteau — l'arme trouvée à la Forge Noire. */
+/* ======================= L'ESCALADE DES GARDIENS =======================
+   Mesuré avant refonte, en coups d'épée nue : 17, 15, 19, —, 16, 18, 30. Le
+   DEUXIÈME gardien était plus facile que le premier, et les cinq du milieu se
+   valaient à un coup près. Il n'y avait pas de courbe, juste sept sacs de
+   points de vie.
+
+   La difficulté est désormais ÉCRITE, et tient en trois nombres par gardien :
+   ce qu'il faut de coups pour l'abattre, ce qu'il rend quand il touche, et
+   combien de RÈGLES il impose — c'est la troisième qui compte le plus, parce
+   qu'une règle de plus, c'est une chose de plus à comprendre.
+
+   `24-gardiens.js` vérifie que l'indice croît strictement, gardien après
+   gardien. Sans cela on retombe en trois livraisons sur sept sacs de points. */
+const GARDIENS={
+  coeur:      {n:1, coups:10, deg:1, regles:1, nom:'LE COEUR DE CENDRE'},
+  yeti:       {n:2, coups:13, deg:2, regles:2, nom:'LE ROI YÉTI'},
+  kraken:     {n:3, coups:16, deg:2, regles:2, nom:'LE LÉVIATHAN'},
+  colosse:    {n:4, coups:12, deg:2, regles:3, nom:'LE COLOSSE DE GRÈS'},
+  reine:      {n:5, coups:20, deg:3, regles:3, nom:'LA REINE DES LUCIOLES'},
+  sentinelle: {n:6, coups:24, deg:3, regles:4, nom:'LA SENTINELLE DU CIEL'},
+  rongeur:    {n:7, coups:30, deg:4, regles:5, nom:"LE RONGEUR D'ÉTOILES"}
+};
+/* L'indice : les coups pèsent une fois, les dégâts quatre, une règle six. Une
+   règle de plus vaut donc six coups de plus — c'est délibéré, c'est ce qui
+   fait qu'un gardien se retient au lieu de se marteler. */
+const indiceGardien=g=>g.coups+4*g.deg+6*g.regles;
+/* Les points de vie découlent des coups : deux points par coup d'épée. */
+const pvGardien=id=>GARDIENS[id].coups*2;
+
 function reveillerCoeur(){
   if(boss) return;
   const a=CENDRE.arene;
   boss={type:'coeur',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-5)*TS+8,z:0,vz:0,r:17,dir:0,
-    pv:34,pvmax:34,phase:'attente',t:0,cd:60,flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0};
+    pv:pvGardien('coeur'),pvmax:pvGardien('coeur'),phase:'attente',t:0,cd:60,
+    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,chaleur:0};
   annonce('LE COEUR DE CENDRE');
   son(70,1,'sawtooth',.1,-30); bruit(.8,.11);
   secousse=16;
 }
+/* Le Cœur ne se martèle pas : CHAQUE COUP LE CHAUFFE. Au-delà du seuil il
+   rougit, devient impénétrable et brûle deux fois plus au contact. Il refroidit
+   tout seul, et d'un coup quand il lâche sa gerbe. Toute sa règle tient là :
+   frapper, puis SAVOIR S'ARRÊTER. */
+const COEUR_SEUIL=40;
 function majCoeur(){
   const B=boss;
+  if(B.chaleur>0) B.chaleur=Math.max(0,B.chaleur-.35);
   if(B.pv<=0){
     particules(B.x,B.y,B.z+20,70,'#ff8b3a',4.5,60);
     particules(B.x,B.y,B.z+20,34,'#ffe9a8',3.5,44);
@@ -7447,6 +7502,7 @@ function majCoeur(){
   }
   else if(B.phase==='gerbe'){
     if(B.cd%14===0){
+      B.chaleur=Math.max(0,B.chaleur-18);        // la gerbe le vide de sa chaleur
       const n=8, base=rnd()*6.28;
       for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
         tirs.push({x:B.x,y:B.y,z:B.z+14,vx:Math.cos(a)*2.1,vy:Math.sin(a)*2.1,
@@ -7456,7 +7512,7 @@ function majCoeur(){
     if(B.cd<=0){ B.phase='attente'; B.cd=64; }
   }
   B.kx*=.88; B.ky*=.88;
-  if(d<24&&Math.abs(B.z-J.z)<28) blesser(2,B.x,B.y);
+  if(d<24&&Math.abs(B.z-J.z)<28) blesser(B.chaleur>=COEUR_SEUIL?2:1,B.x,B.y);
 }
 
 /* ------------------------ LE ROI YÉTI ------------------------
@@ -7466,7 +7522,8 @@ function reveillerYeti(){
   if(boss) return;
   const s=CIMES.sommet;
   boss={type:'yeti',x:(s.x0+(s.w>>1))*TS+8,y:(s.y0+s.h-5)*TS+8,z:0,vz:0,r:18,dir:0,
-    pv:30,pvmax:30,phase:'attente',t:0,cd:50,flash:0,kx:0,ky:0,anim:0,stun:0};
+    pv:pvGardien('yeti'),pvmax:pvGardien('yeti'),phase:'attente',t:0,cd:50,
+    flash:0,kx:0,ky:0,anim:0,stun:0};
   annonce('LE ROI YÉTI'); son(80,.9,'sawtooth',.1,-30); bruit(.7,.1); secousse=16;
 }
 function majYeti(){
@@ -7527,7 +7584,8 @@ function reveillerLeviathan(){
   if(boss) return;
   const la=LAGON.large;
   boss={type:'kraken',x:(la.x0+(la.w>>1))*TS+8,y:(la.y0+(la.h>>1))*TS+8,z:0,vz:0,r:20,dir:2,
-    pv:38,pvmax:38,phase:'attente',t:0,cd:60,flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0};
+    pv:pvGardien('kraken'),pvmax:pvGardien('kraken'),phase:'attente',t:0,cd:60,
+    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,surface:0};
   annonce('LE LÉVIATHAN'); son(60,1.1,'sawtooth',.1,-24); bruit(.9,.12); secousse=18;
 }
 function majKraken(){
@@ -7544,6 +7602,7 @@ function majKraken(){
   }
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
   if(B.invincible>0){ B.invincible--; if(B.invincible===0) B.phase='attente'; }
+  if(B.surface>0) B.surface--;
   if(B.stun>0){ B.kx*=.9; B.ky*=.9;
     if(B.t%8===0) particules(B.x+(rnd()-.5)*26,B.y-12,B.z+24,1,'#8ff0ff',1,20); return; }
   if(B.cd>0) B.cd--;
@@ -7563,6 +7622,10 @@ function majKraken(){
     if(B.invincible===40){ B.x=clamp(J.x+(rnd()-.5)*60,LAGON.large.x0*TS,(LAGON.large.x0+LAGON.large.w)*TS);
       B.y=clamp(J.y+(rnd()-.5)*60,LAGON.large.y0*TS,(LAGON.large.y0+LAGON.large.h)*TS); }
     if(B.invincible<=0){ B.phase='attente'; B.cd=50; secousse=8;
+      /* Il resurgit : une fenêtre, et une seule. Hors de ces quatre-vingt-dix
+         images il est sous l'eau ou sur ses gardes — sa règle n'est pas de le
+         marteler, c'est d'ÊTRE LÀ quand il remonte. */
+      B.surface=90; annonce('IL REMONTE');
       particules(B.x,B.y,B.z+8,20,'#eaf6ff',3,28); }
   }
   else if(B.phase==='geyser'){
@@ -7590,7 +7653,8 @@ function reveillerColosse(){
   if(boss) return;
   const ar=SABLES.arene;
   boss={type:'colosse',x:(ar.x0+(ar.w>>1))*TS+8,y:(ar.y0+ar.h-5)*TS+8,z:0,vz:0,r:20,dir:0,
-    pv:8,pvmax:8,phase:'attente',t:0,cd:60,flash:0,kx:0,ky:0,anim:0,stun:0};
+    pv:pvGardien('colosse'),pvmax:pvGardien('colosse'),phase:'attente',t:0,cd:60,
+    flash:0,kx:0,ky:0,anim:0,stun:0};
   annonce('LE COLOSSE DE GRÈS'); son(70,1,'sawtooth',.1,-30); bruit(.8,.11); secousse=18;
 }
 function majColosse(){
@@ -7646,7 +7710,8 @@ function reveillerReine(){
   if(boss) return;
   const ar=MARAIS.arene;
   boss={type:'reine',x:(ar.x0+(ar.w>>1))*TS+8,y:(ar.y0+ar.h-5)*TS+8,z:0,vz:0,r:18,dir:2,
-    pv:32,pvmax:32,phase:'attente',t:0,cd:56,flash:0,kx:0,ky:0,anim:0,stun:0,voile:0};
+    pv:pvGardien('reine'),pvmax:pvGardien('reine'),phase:'attente',t:0,cd:56,
+    flash:0,kx:0,ky:0,anim:0,stun:0,voile:0};
   annonce('LA REINE DES LUCIOLES NOIRES'); son(80,.9,'sawtooth',.1,-30); bruit(.7,.1); secousse=16;
 }
 function majReine(){
@@ -7708,8 +7773,8 @@ function reveillerSentinelle(){
   if(boss) return;
   const a=NUES.arene;
   boss={type:'sentinelle',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-5)*TS+8,z:0,vz:0,r:18,dir:0,
-    pv:36,pvmax:36,phase:'attente',t:0,cd:70,flash:0,kx:0,ky:0,anim:0,stun:0,
-    close:0,coeurs:3};
+    pv:pvGardien('sentinelle'),pvmax:pvGardien('sentinelle'),phase:'attente',t:0,cd:70,
+    flash:0,kx:0,ky:0,anim:0,stun:0,close:0,coeurs:3};
   annonce('LA SENTINELLE DU CIEL');
   son(180,.8,'square',.08,-60); bruit(.6,.1); secousse=16;
 }
@@ -7773,7 +7838,7 @@ function reveillerRongeur(){
   if(boss) return;
   const a=FAILLE.arene;
   boss={type:'rongeur',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-6)*TS+8,z:0,vz:0,r:22,dir:0,
-    pv:60,pvmax:60,phase:'attente',t:0,cd:80,flash:0,kx:0,ky:0,anim:0,stun:0,
+    pv:pvGardien('rongeur'),pvmax:pvGardien('rongeur'),phase:'attente',t:0,cd:80,flash:0,kx:0,ky:0,anim:0,stun:0,
     ax:0,ay:0,palier:0,coeurNu:false,etoiles:3};
   annonce("LE RONGEUR D'ÉTOILES");
   son(50,1.4,'sawtooth',.12,-24); bruit(1,.14); secousse=22;
@@ -7785,12 +7850,35 @@ function palierRongeur(B){
   const p=B.pv/B.pvmax;
   return p>.8?0 : p>.6?1 : p>.4?2 : p>.2?3 : 4;
 }
+/* Ce qu'il a pris. On garde les identifiants, pas les objets : au rechargement
+   le sac est reconstruit de toute façon (voir `chargerInterne`). */
+function devorerUnOutil(B){
+  if(!B.vole) B.vole=[];
+  const pris=J.objets.filter(o=>o!=='epee');
+  if(!pris.length) return;
+  const id=pris[pris.length-1];
+  J.objets=J.objets.filter(o=>o!==id);
+  for(const f of FENTES) if(J.equipe[f]===id) J.equipe[f]=null;
+  B.vole.push(id);
+  SFX.erreur(); secousse=Math.max(secousse,10);
+  annonce('IL TE PREND '+(OBJETS.find(o=>o.id===id)||{nom:'UN OUTIL'}).nom);
+  particules(J.x,J.y,J.z+14,20,'#e08aff',2.8,34);
+}
+function rendreLesOutils(B){
+  if(!B.vole||!B.vole.length) return;
+  for(const id of B.vole){ if(!J.objets.includes(id)) J.objets.push(id); equiper(id); }
+  B.vole.length=0;
+  SFX.rare(); secousse=Math.max(secousse,14);
+  annonce('IL RECRACHE TOUT');
+  dire("IL REND CE QU'IL A PRIS. FINIS-EN.",240);
+}
 function majRongeur(){
   const B=boss;
   if(B.pv<=0){
     particules(B.x,B.y,B.z+24,90,'#e08aff',5,70);
     particules(B.x,B.y,B.z+24,50,'#ffe86a',4,56);
     secousse=30; SFX.mort(); son(45,1.8,'sawtooth',.12,-20);
+    rendreLesOutils(B);            // il meurt : rien ne reste dans son ventre
     Q.rongeurTue=true; boss=null;
     annonce("LE RONGEUR D'ÉTOILES TOMBE");
     // les trois étoiles reprises, une par une
@@ -7800,7 +7888,14 @@ function majRongeur(){
     setTimeout(autoSauver,600); return;
   }
   const pal=palierRongeur(B);
-  if(pal!==B.palier){ B.palier=pal; B.phase='attente'; B.cd=50; secousse=10;
+  if(pal!==B.palier){
+    /* IL DÉVORE. À chaque palier franchi il prend un outil du sac et le garde
+       jusqu'au dernier, où il rend tout d'un coup. Le combat se resserre donc
+       de lui-même : au quatrième palier il ne reste que la lame. C'est la
+       cinquième règle, et la seule du jeu qui vous retire quelque chose. */
+    // les paliers vont de 0 à 4 : le DERNIER est 4, pas 5
+    if(pal<4) devorerUnOutil(B); else rendreLesOutils(B);
+    B.palier=pal; B.phase='attente'; B.cd=50; secousse=10;
     annonce(['','GERBE DE BRAISES','GLACE ET BOURRASQUES','DÉLUGE ET PLONGÉE','LE CŒUR À NU'][pal]||'');
     son(120,.5,'sawtooth',.08,-40); }
   B.coeurNu=(pal===4);
@@ -10335,7 +10430,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.2';
+const VERSION='V4.3';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)

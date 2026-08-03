@@ -4161,3 +4161,74 @@ lignes**, aucun absent, aucune ligne orpheline, et l'ordre tenu.
 
 > **Réinjection** : une ligne retirée du sommaire → rouge ; une ligne déplacée
 > hors d'ordre → rouge.
+
+---
+
+## 63. Les sept gardiens : une règle chacun, et une escalade écrite
+
+| | |
+|---|---|
+| **Demande** | « Repense tous les boss pour être BEAUCOUP plus originaux et avoir une escalade dans le niveau de difficulté. » |
+
+### Il n'y avait pas de courbe
+
+Mesuré, en coups d'épée nue :
+
+```
+1 Cœur 17   2 Yéti 15   3 Léviathan 19   4 Colosse —   5 Reine 16
+6 Sentinelle 18   7 Rongeur 30
+```
+
+Le **deuxième gardien était plus facile que le premier**, et les cinq du milieu
+se valaient à un coup près. Sept sacs de points de vie, dont **un seul** — le
+Colosse — imposait quoi que ce soit (§ 48).
+
+### La difficulté est maintenant écrite
+
+Trois nombres par gardien : les coups qu'il demande, ce qu'il rend quand il
+touche, et **combien de règles il impose**. L'indice pèse une règle **six
+coups** : c'est délibéré, c'est ce qui fait qu'on se retient au lieu de marteler.
+
+| | gardien | coups | dégâts | règles | indice |
+|---|---|---|---|---|---|
+| 1 | Cœur de Cendre | 10 | 1 | 1 | **20** |
+| 2 | Roi Yéti | 13 | 2 | 2 | **33** |
+| 3 | Léviathan | 16 | 2 | 2 | **36** |
+| 4 | Colosse de Grès | 12 | 2 | 3 | **38** |
+| 5 | Reine des Lucioles | 20 | 3 | 3 | **50** |
+| 6 | Sentinelle du Ciel | 24 | 3 | 4 | **60** |
+| 7 | Rongeur d'Étoiles | 30 | 4 | 5 | **76** |
+
+Les points de vie **découlent** de la table : ils ne s'écrivent plus à la main,
+donc ils ne peuvent plus diverger.
+
+### Les règles, une par gardien
+
+- **Le Cœur de Cendre** ne se martèle pas : **chaque coup le chauffe**. Passé le
+  seuil il rougit, devient impénétrable et **brûle deux fois plus** au contact.
+  Il refroidit tout seul, et d'un coup quand il lâche sa gerbe. Frapper, puis
+  **savoir s'arrêter** — c'est la leçon d'entrée du jeu.
+- **Le Roi Yéti** est **dérobé par le blizzard**. Il ne s'offre qu'**en pleine
+  charge**, ou sonné : il faut appeler la charge et l'esquiver pour le toucher.
+- **Le Léviathan** ne se touche **qu'à la résurgence** — quatre-vingt-dix images
+  après sa plongée. Sa règle n'est pas de le marteler, c'est d'**être là quand il
+  remonte**.
+- **Le Colosse** garde la sienne (ses propres blocs, § 48).
+- **La Reine** garde les siennes (le voile, la lumière, § 22).
+- **La Sentinelle** garde les siennes (la coque close, § 22).
+- **Le Rongeur d'Étoiles dévore un outil à chaque palier** et les garde jusqu'au
+  dernier, où il recrache tout. Au quatrième il ne reste que la lame. C'est la
+  seule mécanique du jeu qui **retire** quelque chose au joueur.
+
+> **Réinjection**, quatre fois : escalade cassée (le 2ᵉ redevenu plus facile) ;
+> Cœur qui ne chauffe plus ; blizzard levé ; Rongeur qui ne dévore plus.
+>
+> La dernière est d'abord restée **verte** : le contrôle appelait
+> `devorerUnOutil()` **à la main** au lieu de franchir les paliers. *Tester la
+> fonction, ce n'est pas tester qu'elle est appelée* — quatrième fois (§ 19,
+> § 20, § 53, § 60). Il franchit maintenant les paliers pour de vrai, et le seuil
+> était d'ailleurs faux : les paliers vont de **0 à 4**, pas de 1 à 5, si bien
+> que le Rongeur ne rendait jamais rien.
+>
+> Le garde-fou du § 62 a immédiatement signalé que `47-gardiens.js` manquait au
+> sommaire. Il sert.
