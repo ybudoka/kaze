@@ -3699,3 +3699,70 @@ if(!pointeursBas.has(e.pointerId)&&!e.buttons){ finDoigt(e.pointerId); return; }
 >
 > Un correctif qui ne casse rien n'est prouvé que si l'on sait aussi faire
 > rougir le contrôle **en corrigeant trop**.
+
+---
+
+## 53. Les cœurs : 21 conteneurs pour 7 places, et deux plafonds
+
+| | |
+|---|---|
+| **Symptôme** | « Évalue aussi si le nombre de cœurs max est réaliste. » |
+| **Cause réelle** | Trois défauts qui se tenaient. L'**offre** : 21 conteneurs pour 7 places utiles. Le **plafond** : deux valeurs concurrentes, 20 pour tout ce que le monde donne, 24 pour la boutique et la perle. L'**ATH** : incapable de dessiner le second plafond sans recouvrir les rubis. |
+
+### La mesure
+
+| | avant |
+|---|---|
+| départ | 6 points = **3 cœurs** |
+| plafond | 20 points = **10 cœurs** (24 pour deux sources) |
+| offre totale | 42 points = **21 conteneurs** |
+
+Sept conteneurs suffisaient à plafonner — et **les six coffres sont tous dans la
+Vallée et les Cendres**. On était donc au maximum **avant de quitter la deuxième
+région**, après quoi les sept trésors d'énigme et les cinq cœurs des gardiens ne
+faisaient plus rien. *Abattre le Léviathan donnait un cœur qui ne comptait pas.*
+
+L'ATH, mesuré aux cinq tailles d'écran, à la largeur interne minimale (W = 200,
+atteinte sur un 414×900 en portrait) :
+
+| cœurs | bord droit | rubis à | |
+|---|---|---|---|
+| 10 | 95 | 108 | ✅ |
+| 12 | **113** | 108 | ❌ |
+
+Le plafond de 10 n'était donc pas arbitraire : c'était la limite d'une rangée.
+Mais deux sources montaient à 12 — et **cassaient l'affichage**.
+
+### Le correctif
+
+- **Les coffres ne donnent plus de cœur.** Ils donnent déjà un outil, et
+  c'étaient eux qui plafonnaient le joueur dès la région 2. Ils soignent encore.
+- **Un seul plafond**, `PVMAX = 40` — **20 cœurs**, soit deux rangées pleines.
+- **L'ATH passe à la ligne** tous les dix cœurs (onze tiennent encore à W = 200,
+  douze touchent les rubis : dix laisse la marge). Le cadre grandit d'autant, et
+  le panneau de débug se pose sous lui au lieu d'une position fixe.
+- **Le Cœur de Cendre laisse son cœur**, comme les cinq autres. Il était le seul
+  à ne rien donner — trouvé en les abattant tous les six et en comptant.
+
+Le monde donne désormais **exactement 38 points** : 7 trésors d'énigme, 6
+gardiens, le cabinet des huit et la perle du lac. Soit **un cœur de moins que le
+plafond** — le dernier s'achète chez la colporteuse, ce qui donne enfin un sens
+à son « CŒUR SUPPLÉMENTAIRE » à 120 rubis. Aucun conteneur n'est gaspillé, et
+aucun n'est redondant.
+
+### Le contrôle, et une leçon déjà connue
+
+`44-coeurs.js` ramasse **réellement** tout ce que le monde pose, abat
+**réellement** les six gardiens, déroule **réellement** les deux dialogues de
+récompense, et regarde où la jauge s'arrête.
+
+> **Réinjection**, trois fois. Deux rouges du premier coup ; la troisième — le
+> passage à la ligne supprimé — est restée **VERTE**.
+>
+> Le contrôle relevait les `drawImage` de l'ATH et gardait ceux dont `x < W/2`,
+> pour les distinguer des rubis. Ce filtre écartait **précisément les cœurs qui
+> débordent**. Il intercepte maintenant `coeurATH` lui-même — la fonction qui
+> place chaque cœur — et la réinjection donne 3 rouges.
+>
+> À retenir, encore : **un filtre qui sert à isoler ce qu'on mesure peut cacher
+> exactement le défaut cherché.**

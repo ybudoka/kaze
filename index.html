@@ -4647,7 +4647,7 @@ function articlesItinerants(){
     /* « COEUR » et non « CŒUR » : la police pixel du jeu n'a pas de Œ et
        afficherait un point d'interrogation. */
     {id:'coeur',nom:'COEUR SUPPLÉMENTAIRE',prix:prixItinerant(120),spr:'coeurMaxItem',
-     ok:()=>J.pvmax<24, effet:()=>{J.pvmax=Math.min(24,J.pvmax+2); J.pv=J.pvmax;}},
+     ok:()=>J.pvmax<PVMAX, effet:()=>{J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;}},
     {id:'potion',nom:'POTION ROUGE',prix:prixItinerant(40),spr:'potion',
      ok:()=>Q.potions<4, effet:()=>{Q.potions++;}}
   ];
@@ -4734,7 +4734,7 @@ function dialoguePNJ(p){
       "SUIS LA BÊTE VERS LE SUD, KAZE. ELLE A NOS ÉTOILES."]);
     if(Q.perle&&!Q.coeurCristal) return parler(p.nom,
       ["UNE PERLE DU LAC ! JE N'EN AVAIS PAS VU DEPUIS QUARANTE ANS.","TIENS, PRENDS CE COEUR DE CRISTAL."],
-      ()=>{ Q.perle=false; Q.coeurCristal=true; autoSauver(); J.pvmax=Math.min(24,J.pvmax+4); J.pv=J.pvmax;
+      ()=>{ Q.perle=false; Q.coeurCristal=true; autoSauver(); J.pvmax=Math.min(PVMAX,J.pvmax+4); J.pv=J.pvmax;
             SFX.coffre(); dire("COEUR DE CRISTAL : +2 COEURS !"); });
     if(!Q.parleDoyenne) return parler(p.nom,
       ["TROIS ÉTOILES GARDAIENT LA VALLÉE. UNE BÊTE LES A DÉVORÉES.",
@@ -4855,7 +4855,7 @@ function dialoguePNJ(p){
        "PLUS PERSONNE N'AVAIT RÉUNI CE CABINET DEPUIS LES ANCIENS.",
        "PRENDS CE CŒUR DE CRISTAL. ET DE QUOI TE REFAIRE UNE SANTÉ."],
       ()=>{ Q.papillonsRendus=true; autoSauver();
-            J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
+            J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;
             J.rubis=Math.min(999,J.rubis+300);
             Q.potions=Math.min(9,Q.potions+2);
             SFX.coffre(); secousse=10;
@@ -6478,12 +6478,33 @@ function majJoueur(){
     if(dansCarte(tx+dx,ty+dy)) vu[(ty+dy)*MW+tx+dx]=1;
 }
 
+/* ---- LES CŒURS ----
+   Un cœur vaut DEUX points. Trois plafonds coexistaient — 20 pour tout ce que
+   le monde donne, 24 pour la boutique et la perle — si bien que les deux
+   dernières sources dépassaient ce que l'ATH sait dessiner : mesuré à la
+   largeur interne minimale (W = 200), douze cœurs finissent à 113 px alors que
+   le compteur de rubis commence à 108. Ils se chevauchaient.
+
+   Et l'offre était absurde : 21 conteneurs pour 7 places utiles. Six coffres
+   dans les deux premières régions suffisaient à plafonner — après quoi les
+   sept trésors d'énigme et les cinq cœurs des gardiens ne faisaient RIEN.
+   Abattre le Léviathan donnait un cœur qui ne comptait pas.
+
+   Désormais : les coffres ne donnent plus de cœur (ils donnent déjà un outil),
+   et le plafond vaut exactement ce que le monde contient — pas un conteneur
+   n'est gaspillé. Voir `38-equilibre.js`, qui compare l'offre au plafond. */
+const PVMAX=40;                  // 20 cœurs : deux rangées pleines
+const COEURS_RANGEE=10;          // dix par rangée — mesuré : onze tiennent
+                                 // encore à W=200, douze touchent les rubis
+const rangeesCoeurs=()=>Math.ceil((J.pvmax/2)/COEURS_RANGEE);
+const hauteurATH=()=>20+(rangeesCoeurs()-1)*9;
+
 function ouvrirCoffre(c){
   if(!c||c.ouvert) return;          // un coffre ne se rouvre pas : sinon il redonne son contenu
   c.ouvert=true; SFX.coffre(); secousse=4; setTimeout(autoSauver,900);
   particules(c.x,c.y,c.e*EH+14,26,'#ffe86a',3,44);
   J.fragments++;
-  J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
+  J.pv=J.pvmax;                   // il soigne, mais n'agrandit plus la jauge
   /* On équipe aussitôt l'objet trouvé, dans la première fente libre : sans
      cela on repartait d'un coffre en croyant n'avoir rien reçu. */
 
@@ -6609,7 +6630,7 @@ function ramasserButin(o){
   if(o.type==='fleurgivre'){ Q.fleurs=Math.min(6,Q.fleurs+1); SFX.rubis();
     son(980,.1,'triangle',.05,240,.05); particules(o.x,o.y,o.z+8,8,'#dff0ff',1.8,22);
     dire('FLEUR DE GIVRE : '+Q.fleurs+'/6',120); autoSauver(); }
-  if(o.type==='coeurmax'){ J.pvmax=Math.min(20,J.pvmax+2); J.pv=J.pvmax;
+  if(o.type==='coeurmax'){ J.pvmax=Math.min(PVMAX,J.pvmax+2); J.pv=J.pvmax;
     SFX.coeur(); annonce('CŒUR DE CRISTAL'); particules(o.x,o.y,o.z+10,20,'#ff8fa4',2.6,34); }
   // trésor unique d'une énigme : on retient qu'il est pris, il ne repousse plus
   if(o.uf){ Q[o.uf]=true; autoSauver(); }
@@ -7173,6 +7194,9 @@ function majCoeur(){
     particules(B.x,B.y,B.z+20,34,'#ffe9a8',3.5,44);
     secousse=24; SFX.mort(); son(60,1.4,'sawtooth',.11,-26);
     Q.coeurTue=true; coffres[5].verrou=false; boss=null;
+    /* Il était le SEUL des six gardiens à ne rien laisser — mesuré en les
+       abattant tous les six et en comptant : 0 pour lui, 1 pour les autres. */
+    butins.push({x:B.x,y:B.y,z:B.z+6,vz:2,type:'coeurmax',t:0});
     annonce('LE COEUR S EST TU'); setTimeout(autoSauver,600);
     return;
   }
@@ -8997,11 +9021,14 @@ function panneau(g,x,y,w,h){
   g.fillStyle='#2a3050'; g.fillRect(x+1,y+1,w-2,1);
 }
 function ath(){
-  panneau(X,2,2,W-4,20);
+  panneau(X,2,2,W-4,hauteurATH());
+  /* Les cœurs passent à la ligne au-delà de neuf : sur l'écran le plus étroit
+     que le jeu accepte (W = 200), la dixième case touche déjà le compteur de
+     rubis. Le cadre grandit d'autant, sinon la seconde rangée déborde dessous. */
   const n=J.pvmax/2;
   for(let i=0;i<n;i++){
     const r=J.pv-i*2;
-    coeurATH(X,6+i*9,5,r>=2?2:(r===1?1:0));
+    coeurATH(X,6+(i%COEURS_RANGEE)*9,5+Math.floor(i/COEURS_RANGEE)*9,r>=2?2:(r===1?1:0));
   }
   // rubis
   X.drawImage(SPR.rubis0,W-92,4);
@@ -9946,7 +9973,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.4';
+const VERSION='V3.5';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10532,7 +10559,7 @@ function panneauDebug(){
      les cœurs, les rubis et les étoiles transparaissaient à travers les
      chiffres, et l'on ne lisait plus ni l'un ni l'autre. */
   const larg=Math.min(W-4,Math.max(...L.map(largeurTexte))+8);
-  const y0=22, haut=L.length*9+5;
+  const y0=hauteurATH()+2, haut=L.length*9+5;
   X.fillStyle='#04060e'; X.fillRect(2,y0,larg,haut);
   X.fillStyle='#2a3358'; X.fillRect(2,y0,larg,1); X.fillRect(2,y0+haut-1,larg,1);
   for(let i=0;i<L.length;i++)
