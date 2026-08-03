@@ -3766,3 +3766,64 @@ récompense, et regarde où la jauge s'arrête.
 >
 > À retenir, encore : **un filtre qui sert à isoler ce qu'on mesure peut cacher
 > exactement le défaut cherché.**
+
+---
+
+## 54. Le coffre-fort ne se fermait AU DOIGT sur aucun appareil
+
+| | |
+|---|---|
+| **Symptôme** | « Le modal de sauvegarde est impossible à fermer en VR. Aucun bouton ne semble réagir. » |
+| **Cause réelle** | Rien de propre à la VR. Le verrouillage tactile annulait `touchstart` **partout hors de `#pad` et `#outils`** — et annuler `touchstart` empêche le navigateur de **synthétiser le `click`**. Les boutons du coffre-fort, qui écoutent `click`, ne recevaient donc **jamais rien au toucher**. Sur n'importe quel téléphone, comme au laser d'un casque, qui se présente lui aussi comme un contact tactile. |
+
+### La mesure
+
+Avec un vrai toucher — `page.touchscreen.tap`, la séquence tactile du
+navigateur, la seule capable de montrer le clic qui ne vient pas :
+
+```
+tape sur FERMER  -> panneau encore ouvert
+clic souris      -> panneau fermé
+```
+
+Le panneau couvre l'écran : une fois ouvert, on ne pouvait plus ni jouer ni en
+sortir. **Sur téléphone aussi**, depuis toujours.
+
+### Le correctif
+
+Le verrouillage épargne désormais l'**interface en HTML** entière
+(`#pad, #outils, #coffreFort`), et non plus la seule manette — `touchmove`
+compris, sans quoi la zone de texte du code de sauvegarde ne défile pas sous le
+doigt. Partout ailleurs il tient : le contrôle vérifie qu'un `touchstart` sur la
+toile du jeu est toujours annulé, sinon on « corrigerait » en laissant la page
+défiler pendant qu'on joue.
+
+> **Réinjection** : coffre-fort retiré de la liste épargnée → rouge.
+
+---
+
+## 55. Le casque : ne jamais s'y retrouver enfermé
+
+En session immersive, le casque n'affiche **que la couche WebGL**. Tout le HTML
+— barre d'outils, manette à l'écran, coffre-fort — est invisible et hors
+d'atteinte. Trois conséquences, corrigées ensemble :
+
+- **Ouvrir le coffre-fort quitte d'abord la VR.** Sinon le joueur se retrouve
+  devant un panneau modal qu'il ne voit pas.
+- **Entrer en VR referme le coffre-fort**, pour la même raison en sens inverse.
+- **On peut sortir du casque depuis les manettes** : les **deux poignées tenues
+  ensemble une seconde**. Le bouton « QUITTER LA VR » est en HTML, donc invisible
+  une fois le casque sur les yeux : sans ce geste, la seule issue était le menu
+  système du casque. Une seule poignée ne fait rien — on attrape son fauteuil
+  sans vouloir quitter la partie.
+
+Et puisque rien n'écrivait les commandes nulle part, l'entrée en session les
+annonce : joystick gauche pour marcher, gâchette droite pour frapper, les deux
+poignées pour sortir.
+
+> **Réinjection**, trois fois : geste de sortie retiré → rouge ; geste ramené à
+> une seule poignée → rouge ; coffre-fort qui ne quitte plus la VR → rouge.
+>
+> La première version de la bannière disait « CASQUE : GÂCHETTE = ÉPÉE ».
+> `13-police.js` l'a refusée : **la police pixel ne connaît pas le signe « = »**
+> et l'aurait remplacé en silence par « ? ». Le piège du § 8, pris sur le fait.

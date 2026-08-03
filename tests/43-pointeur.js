@@ -107,5 +107,55 @@ module.exports = {
 
     v('aucune erreur JS', page.erreursJS.length === 0, page.erreursJS[0]);
     await page.context().close();
+
+    /* ---------- § 54 : le coffre-fort se ferme AU DOIGT ----------
+       Le verrouillage tactile annulait `touchstart` partout hors de la manette.
+       Or annuler `touchstart` empêche le navigateur de synthétiser le `click` :
+       les boutons du panneau de sauvegarde ne répondaient à AUCUN toucher.
+       Signalé depuis un casque — dont le laser se présente comme un contact
+       tactile — mais c'était vrai sur n'importe quel téléphone.
+       On tape pour de VRAI : `page.touchscreen.tap` produit la vraie séquence
+       tactile du navigateur, seule capable de montrer le clic qui ne vient pas. */
+    const tel = await pageDeJeu(navigateur, { largeur: 414, hauteur: 900, mobile: true });
+    await nouvellePartie(tel);
+    await tel.evaluate(() => ouvrirCoffreFort());
+    await tel.waitForTimeout(250);
+    const ouvert = await tel.evaluate(() => !document.getElementById('coffreFort').hidden);
+    v('le coffre-fort s\'ouvre', ouvert, 'panneau resté caché');
+
+    /* Chaque bouton est éprouvé sur un panneau FRAÎCHEMENT ouvert : « COPIER »
+       sélectionne la zone de texte et déplace ce qui suit, si bien qu'enchaîner
+       les deux tapes mesurait la mise en page, pas le clic. */
+    const taper = async id => {
+      const b = await tel.evaluate(i => { const r = document.getElementById(i).getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }, id);
+      await tel.touchscreen.tap(b.x, b.y);
+      await tel.waitForTimeout(250);
+    };
+    await taper('cfFermer');
+    const encore = await tel.evaluate(() => !document.getElementById('coffreFort').hidden);
+    v('LE COFFRE-FORT SE FERME AU DOIGT, PAS SEULEMENT À LA SOURIS',
+      !encore, 'le panneau reste ouvert : on ne peut plus en sortir');
+
+    await tel.evaluate(() => { document.getElementById('cfEtat').textContent = ''; return ouvrirCoffreFort(); });
+    await tel.waitForTimeout(250);
+    await taper('cfCopier');
+    const etatCopier = await tel.evaluate(() => document.getElementById('cfEtat').textContent);
+    v('UN AUTRE BOUTON DU PANNEAU RÉPOND AUSSI AU DOIGT',
+      etatCopier !== '' && !/Lecture/.test(etatCopier), `état : « ${etatCopier} »`);
+    await tel.evaluate(() => fermerCoffre());
+
+    /* Et le verrouillage doit tenir PARTOUT AILLEURS : sans ce contrôle, on
+       pourrait « corriger » en supprimant l'annulation, et la page se mettrait
+       à défiler sous le doigt pendant qu'on joue. */
+    const bloque = await tel.evaluate(() => {
+      const ev = new TouchEvent('touchstart', { bubbles: true, cancelable: true, touches: [] });
+      document.getElementById('c').dispatchEvent(ev);
+      return ev.defaultPrevented;
+    });
+    v('AILLEURS, LE VERROUILLAGE TACTILE TIENT TOUJOURS', bloque,
+      'la page peut défiler sous le doigt');
+    v('aucune erreur JS (téléphone)', tel.erreursJS.length === 0, tel.erreursJS[0]);
+    await tel.context().close();
   },
 };

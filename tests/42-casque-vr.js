@@ -183,6 +183,33 @@ module.exports = {
       fausseSession.inputSources = [];
       { const cb = rafCb; rafCb = null; cb(0, fauxFrame); }
 
+      /* ---- SORTIR DU CASQUE SANS LE MENU SYSTÈME ----
+         La barre d'outils est en HTML : une fois le casque sur les yeux, le
+         bouton « QUITTER LA VR » est invisible. Les deux poignées tenues
+         ensemble doivent donc suffire. Une seule ne doit rien faire — sinon on
+         quitterait la partie en attrapant son fauteuil. */
+      fausseSession.inputSources = [touch('right', { 1: 1 })];
+      // `cb` peut manquer si la session se ferme : on s'arrête proprement, sinon
+      // la réinjection « une seule poignée suffit » plante au lieu de rapporter
+      for (let i = 0; i < 90; i++) { const cb = rafCb; rafCb = null; if (!cb) break; cb(0, fauxFrame); }
+      out.uneSeulePoignee = xrSession === fausseSession;      // toujours en casque
+      fausseSession.inputSources = [touch('right', { 1: 1 }), touch('left', { 1: 1 })];
+      let images = 0;
+      for (let i = 0; i < 200 && xrSession; i++) { const cb = rafCb; rafCb = null; if (!cb) break; images++; cb(0, fauxFrame); }
+      out.sortiePoignees = xrSession === null;
+      out.imagesAvantSortie = images;                          // ~60 : une seconde
+      fausseSession.inputSources = [];
+
+      /* Le panneau de sauvegarde est en HTML : invisible sous le casque. Il ne
+         doit jamais rester ouvert derrière une session. */
+      out.entree2 = await entrerVR();
+      await ouvrirCoffreFort();
+      out.coffreFermeParLaVR = document.getElementById('coffreFort').hidden;
+      out.vrQuitteeParLeCoffre = xrSession === null;
+      fermerCoffre();
+      if (!xrSession) out.entree3 = await entrerVR();
+      out.coffreFermeALEntree = document.getElementById('coffreFort').hidden;
+
       /* Sortie : tout se défait, la page reprend la main. */
       await fausseSession.end();
       out.sessionFermee = xrSession === null && xrGL === null && xrRef === null;
@@ -243,6 +270,14 @@ module.exports = {
       `images=${r.sessionJoue} dessins=${r.yeuxDessines} replanifiée=${r.replanifie}`);
     v('LES MANETTES DE LA SESSION ARRIVENT DANS LE JEU',
       r.manetteEnSession, 'la gâchette ne frappe pas');
+    v('UNE SEULE POIGNÉE NE FAIT PAS QUITTER LE CASQUE',
+      r.uneSeulePoignee === true, 'sortie sur une poignée');
+    v('LES DEUX POIGNÉES TENUES ENSEMBLE FONT SORTIR DU CASQUE',
+      r.sortiePoignees === true && r.imagesAvantSortie >= 55 && r.imagesAvantSortie <= 75,
+      `sortie=${r.sortiePoignees} après ${r.imagesAvantSortie} images`);
+    v('LE PANNEAU DE SAUVEGARDE NE RESTE JAMAIS OUVERT DERRIÈRE LE CASQUE',
+      r.vrQuitteeParLeCoffre === true && r.coffreFermeALEntree === true,
+      `VR quittée=${r.vrQuitteeParLeCoffre} refermé à l'entrée=${r.coffreFermeALEntree}`);
     v('EN SORTANT, TOUT SE DÉFAIT ET LA PAGE REPREND LA MAIN',
       r.sessionFermee && r.pageReprend && !/QUITTER/.test(r.libelleRendu),
       `fermée=${r.sessionFermee} reprend=${r.pageReprend} bouton=${r.libelleRendu}`);

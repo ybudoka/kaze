@@ -677,8 +677,17 @@ const stop=e=>{ if(e.cancelable) e.preventDefault(); };
    On évite d'y annuler touchstart : sur iOS cela peut interrompre le flux
    d'événements pointeur et laisser un doigt « collé » sur le pavé. */
 const surManette=el=>!!(el&&el.closest&&el.closest('#pad,#outils'));
-document.addEventListener('touchstart',e=>{ if(!surManette(e.target)) stop(e); },{passive:false,capture:true});
-document.addEventListener('touchmove', stop,{passive:false,capture:true});  // sans risque pour les pointeurs
+/* L'INTERFACE EN HTML doit être épargnée par le verrouillage, pas seulement la
+   manette : annuler `touchstart` empêche le navigateur de synthétiser le
+   `click`, et les boutons du coffre-fort ne répondaient donc à AUCUN toucher —
+   ni au doigt sur un téléphone, ni au laser d'un casque, qui se présente lui
+   aussi comme un contact tactile. Mesuré : un vrai toucher sur FERMER laissait
+   le panneau ouvert, un clic souris le fermait. On ne pouvait plus en sortir.
+   `touchmove` est épargné pour la même raison : sans quoi la zone de texte du
+   code de sauvegarde ne défile pas sous le doigt. */
+const surInterface=el=>!!(el&&el.closest&&el.closest('#pad,#outils,#coffreFort'));
+document.addEventListener('touchstart',e=>{ if(!surInterface(e.target)) stop(e); },{passive:false,capture:true});
+document.addEventListener('touchmove', e=>{ if(!surInterface(e.target)) stop(e); },{passive:false,capture:true});
 document.addEventListener('wheel',     stop,{passive:false,capture:true});
 
 /* Comptage des contacts réels : touchend est bien plus fiable que pointerup
@@ -9973,7 +9982,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V3.5';
+const VERSION='V3.6';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
@@ -10608,6 +10617,26 @@ function majManetteXR(){
     else if(!padMaint[b]&&padAvant[b]&&!tenuAilleurs(b)) BTN[b]=0;
     padAvant[b]=padMaint[b];
   }
+  majSortieVR(src);
+}
+
+/* Sortir du casque SANS le menu système : les deux poignées tenues ensemble une
+   seconde. La barre d'outils — et donc le bouton QUITTER LA VR — est en HTML,
+   donc invisible une fois le casque sur les yeux : sans ce geste, la seule
+   issue était le menu du casque. */
+const SORTIE_VR=60;                       // ~1 s à 60 images/s
+let sortieVR=0;
+function majSortieVR(src){
+  let g=0;
+  for(let i=0;i<src.length;i++){
+    const gp=src[i]&&src[i].gamepad;
+    if(gp&&gp.buttons&&presseMan(gp.buttons[1])) g++;
+  }
+  if(g>=2){
+    sortieVR++;
+    if(sortieVR===1) annonce('TIENS LES DEUX POIGNÉES POUR SORTIR');
+    if(sortieVR>=SORTIE_VR){ sortieVR=0; basculerVR(); }
+  } else sortieVR=0;
 }
 
 /* ============================ CASQUE VR ============================
@@ -10736,9 +10765,14 @@ async function entrerVR(){
     if(!ref) throw new Error('aucun repère');
     const r=batirRenduVR(gl);
     xrGL=gl; xrRef=ref; xrProg=r.prog; xrTex=r.tex; xrUmvp=r.umvp;
-    xrAncre.pose=false; xrAncre.suit=false;
+    xrAncre.pose=false; xrAncre.suit=false; sortieVR=0;
     s.addEventListener('end',finVR);
     xrSession=s;
+    fermerCoffre();                          // rien d'ouvert en HTML derrière le casque
+    // les commandes ne sont écrites nulle part : on les dit à l'entrée
+    annonce('CASQUE VR');            // pas de « = » : la police pixel l'ignore
+    dire('JOYSTICK GAUCHE POUR MARCHER. GÂCHETTE DROITE POUR FRAPPER. '
+        +'LES DEUX POIGNÉES ENSEMBLE POUR SORTIR DU CASQUE.',420);
     relacherEntrees();                       // aucun bouton ne doit rester collé
     s.requestAnimationFrame(boucleVR);
     majBoutonVR();
@@ -10998,6 +11032,11 @@ function lireCode(txt){
    fonction qui ouvre les coffres du jeu, et la déclaration la plus tardive
    écrase l'autre (ouvrir un coffre affichait alors ce panneau). */
 async function ouvrirCoffreFort(){
+  /* En session immersive, le casque n'affiche QUE la couche WebGL : tout le
+     HTML — barre d'outils, manette à l'écran, ce panneau — est invisible et
+     hors d'atteinte. Ouvrir le coffre-fort en VR enfermait donc le joueur
+     devant un panneau qu'il ne voyait pas. On quitte la VR d'abord. */
+  if(xrSession){ try{ await xrSession.end(); }catch(_){ finVR(); } }
   cf('coffreFort').hidden=false;
   cfDire('Lecture des emplacements...');
   const code=await construireCode();
