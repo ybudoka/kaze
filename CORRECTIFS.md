@@ -371,6 +371,13 @@ Autres pièges rencontrés en construisant la région :
   s'entend chez moi » dépend du casque et de la distance ; −38 dBFS de rms, non.
   Et rien sous **30 Hz** : aucun haut-parleur d'ordinateur, de téléphone ou de
   téléviseur ne le restitue (cf. 23).
+- **Les cotes d'un sprite se RELÈVENT sur l'image rendue, jamais sur le code qui
+  le dessine** : `faireSprite` ajoute un contour d'un pixel que le calcul
+  oublie, et le torse « large de 11 px » en fait 17 (cf. 47).
+- **Ce qui se dessine à la volée par-dessus une planche pré-rendue doit rejouer
+  ses décalages de pose** — `y0`, `el`, `pen` — et lire `dirHeros()` et non
+  `J.dir`, car le tourbillon tourne le corps sans toucher à la direction
+  voulue (cf. 47).
 
 ---
 
@@ -3346,3 +3353,88 @@ a un sens. Aucun panneau n'en arrive là.
 - **Écrire « rien à corriger » sur la foi d'un instrument dont le contrôle à
   blanc n'a jamais été vert.** Le § 45 le dit lui-même, puis conclut quand
   même.
+
+---
+
+## 47. La cape était TENUE AU POING, comme un marteau
+
+Équipée, la cape des courants passait par `dessinerArmeMain`, la mécanique qui
+met l'outil sélectionné dans la main du héros (cf. § 20). Résultat à l'écran :
+l'icône de 14 px flottait **à hauteur de hanche, du côté du regard**, sans
+toucher le personnage. Une cape ne se tient pas : elle se porte.
+
+### La cause réelle : une exception qui n'existait pas
+
+`armeAuPoing()` ne connaissait qu'une seule règle — « l'outil de `Y`, celui de
+`X` sinon » — et neuf outils sur neuf s'y pliaient. La cape est le seul du sac
+qui n'est pas un objet qu'on brandit. Il ne manquait pas un dessin : il manquait
+la **notion** d'un objet porté. Elle sort donc de la main (`armeAuPoing` saute
+la cape et donne l'autre outil, ou l'épée) et gagne sa propre passe de rendu.
+
+### Ce que la mesure a corrigé dans le dessin
+
+Trois versions ont été rendues et **regardées** à ×14 avant que la cape ne
+ressemble à autre chose qu'un bloc bleu :
+
+1. **Les cotes déduites du code étaient fausses.** `corpsHeros` dessine un torse
+   large de 11 px, mais `faireSprite` ajoute **un contour d'un pixel** : la
+   silhouette réelle va de −9 à +7. Une cape calculée sur 11 px passait
+   entièrement derrière le corps et ne se voyait pas. Les cotes retenues sont
+   **relevées sur le sprite rendu**, ligne par ligne, pas déduites.
+2. **Sans contour, la cape flottait à côté du héros** au lieu d'appartenir à sa
+   silhouette. Elle est donc décrite en **bandes d'un pixel** dont on tire deux
+   passes : le contour (`#14101f`, celui de `faireSprite`), puis la toile. Jamais
+   de contour AU-DESSUS quand elle passe devant — le trait tombait en pleine
+   chevelure.
+3. **De profil, dix pixels de traîne au minimum.** En dessous, l'épaule mange le
+   haut de la cape : elle semblait commencer à mi-torse, détachée du corps.
+
+### L'assiette du buste
+
+La cape est tracée à la volée, à côté d'une planche pré-rendue : elle doit
+reproduire les décalages que `corpsHeros` applique au buste — le balancement de
+marche (`y0`), l'élan du coup d'épée (`el`) et le buste penché (`pen`). Sans
+`assietteHeros()`, elle se décroche d'un pixel à chaque pas et reste plantée en
+arrière pendant une attaque.
+
+Même piège pour la direction : le **tourbillon** fait tourner le corps sans
+toucher à `J.dir`. `dirHeros()` rejoue la table de `bakeHeros` — sinon la cape
+part du côté de l'intention du joueur, pas du côté du dos dessiné.
+
+### Comment c'est vérifié — `41-cape.js`
+
+On isole les pixels que la cape AJOUTE au héros, et on regarde **où ils
+tombent** — jamais « il y a du bleu quelque part ». Le contrôle décisif n'est pas
+la boîte englobante mais le **masque du corps** : de face et de profil, la cape
+passe derrière, donc **pas un pixel du corps ne doit changer** (0 sur 0) ; de
+dos, c'est l'inverse — 70 % au moins des pixels ajoutés tombent sur le corps.
+
+Deux erreurs de mesure ont dû être corrigées avant que le contrôle ne dise vrai :
+
+- **l'ombre portée comptait comme « corps »**. `dessinerJoueur` commence par
+  elle : les pixels de cape posés dessus passaient pour des pixels de corps
+  recouverts (22 faux positifs de face). Le masque est désormais le **sprite
+  seul**, pas « tout ce qui est rendu sans la cape » ;
+- **l'élan du tourbillon** pousse tout le buste de trois pixels vers la droite.
+  Exiger que rien ne dépasse de ce côté était faux ; on demande que la masse
+  parte franchement à gauche.
+
+**Réinjection** : cape remise au poing et appels à `dessinerCape` retirés —
+**11 des 14 contrôles rougissent**. Les trois qui restent verts sont le contrôle
+à blanc, « aucune erreur JS », et « elle est dessinée dans les quatre
+directions » : cette dernière est vraie aussi d'une cape tenue en main, et c'est
+précisément pourquoi elle ne suffisait pas.
+
+### À ne pas réintroduire
+
+- **Déduire les cotes d'un sprite du code qui le dessine.** `faireSprite` ajoute
+  un contour d'un pixel que le calcul oublie. On relève sur l'image rendue.
+- **Tracer à la volée à côté d'une planche pré-rendue sans reprendre ses
+  décalages de pose.** `y0`, `el` et `pen` vivent dans `corpsHeros` ; tout ce qui
+  s'accroche au buste doit les rejouer (`assietteHeros`).
+- **Lire `J.dir` pour dessiner.** Pendant le tourbillon, le corps regarde
+  ailleurs (`dirHeros`).
+- **Prendre « tout ce qui est rendu » pour masque d'un corps.** L'ombre portée en
+  fait partie, et elle ment.
+- **Un nouvel objet du sac n'est pas forcément un objet qu'on brandit.** Le seul
+  chemin d'affichage était la main : c'est une hypothèse, pas une règle.
