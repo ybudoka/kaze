@@ -4285,3 +4285,109 @@ ligne rendus au ciel et à la bête, sans retirer aucune option.
 > **Réinjection**, cinq fois : partie+ qui efface les outils ; partie+ qui garde
 > les gardiens abattus ; cycle qui ne durcit plus rien ; arène qui écrase la
 > sauvegarde ; score sans enchaînement.
+
+## 65. La manière dont les gardiens attaquent
+
+> *« Je veux que tu changes la manière dont les boss nous attaquent, pour que ce
+> soit plus original et différent les uns des autres. Ils se déplacent, ils
+> peuvent voler, ils peuvent remplir deux morceaux. Ça peut être des serpents.
+> Plus d'originalité s'il te plaît. »*
+
+Le § 63 avait donné à chacun **une règle** — ce qu'il faut comprendre pour le
+toucher. Il n'avait rien changé à ce qu'ils **font**. Dépouillement des sept
+fonctions `maj*`, avant refonte :
+
+| ce qu'ils partageaient | combien |
+|---|---|
+| marcher droit sur le héros | **7 / 7** |
+| la même gerbe radiale (N tirs en rond, angle de départ tiré au hasard) | **6 / 7** |
+| charger en ligne droite | **5 / 7** |
+| « appeler 2 sbires à 30 px, direction au hasard » | 3 / 7 |
+| occuper plus d'une tuile | **0 / 7** |
+| voler vraiment | **0 / 7** (deux flottaient de dix pixels — on les évite pareil) |
+
+Sept gardiens, un seul répertoire. Le joueur n'apprenait donc **rien** en
+passant de l'un à l'autre : il refaisait le même pas de côté sept fois.
+
+### Un déplacement par gardien
+
+Le geste d'approche compte autant que l'attaque : c'est lui qu'on lit en
+premier, et c'est lui qui dit où se placer.
+
+- **Le Cœur de Cendre** ne marche plus, il **bat** : deux poussées sèches coup
+  sur coup, puis un long repos. On se place pendant le silence.
+- **Le Roi Yéti** **bondit**. En l'air il ne dévie plus — sa trajectoire est
+  lisible ; c'est la **retombée** qui blesse, par une onde de neige trouée. Ses
+  loups ne tombent plus du ciel au hasard : ils jaillissent d'un impact sur
+  trois.
+- **Le Léviathan** est devenu **un serpent de mer** : neuf anneaux qui suivent
+  la tête à la trace, sur une dizaine de tuiles. Le **corps blesse**, seule la
+  tête se frappe — et toujours seulement à la résurgence.
+- **Le Colosse de Grès** ne marche pas : il **plonge dans le sable**, y court
+  comme une butte, et **jaillit** sous le héros.
+- **La Reine des Lucioles** **tourne** autour du héros, en vol, et ne vient
+  jamais droit. Après avoir soufflé le fanal elle est **lasse** : elle
+  redescend, et c'est là qu'on la rejoint.
+- **La Sentinelle du Ciel** est une **machine** : jamais de diagonale, jamais
+  de dérive. Elle s'immobilise, file d'un trait sur un axe, s'arrête net.
+- **Le Rongeur d'Étoiles** vole et **clignote** — trois tuiles d'un coup, sans
+  trajectoire : on ne le tient pas à distance.
+
+### Deux morceaux, et un corps
+
+- Le **poing du Colosse** se **détache** et vole seul, au bout d'une chaîne :
+  deux dangers à deux endroits en même temps.
+- Le **corps du Léviathan** couvre plusieurs tuiles à lui seul, et le
+  **Rongeur** s'en fait pousser un au troisième palier.
+
+Tout est alloué **à l'éveil** : la trace des anneaux est un `Float32Array`
+circulaire, les anneaux sont mis à jour **sur place**. Un `.map()` par image
+ici, c'est soixante tableaux par seconde sur un téléphone (§ 8).
+
+### Une géométrie par salve
+
+La gerbe radiale à angle aléatoire a disparu de six gardiens sur six. Ce qui
+compte n'est pas le sprite du projectile mais **ce que sa forme oblige à
+faire** :
+
+| gardien | ce qu'il jette | ce qu'il faut faire |
+|---|---|---|
+| Cœur | **spirale** qui tourne — et qui **s'inverse quand il est chaud** | tourner avec elle, ou couper vers le centre |
+| Cœur | **anneau troué** de 20 braises, qui **accélère** | trouver la brèche et passer au travers |
+| Yéti | **mur d'avalanche** d'un bord à l'autre, une brèche | être dans la brèche |
+| Léviathan | **éventail** devant lui | se mettre derrière sa tête — où il y a tout son corps |
+| Reine | **lucioles à tête chercheuse**, lâchées une à une | tourner court, ou lui mettre un mur |
+| Sentinelle | **grille** sur les axes du monde, jamais au hasard | se placer **à l'avance** dans un interstice |
+| Sentinelle | **rayon balayant** — la seule attaque qui **ne lance rien** | courir dans son sens |
+
+Deux briques nouvelles portent tout cela, écrites une fois pour toutes : l'**onde
+de choc** (un anneau au ras du sol, avec sa brèche) et deux traits posés sur le
+tir lui-même — `hom`, qui poursuit, et `acc`, qui accélère. Aucun gardien ne
+pilote ses projectiles image par image.
+
+Le § 63 n'a pas bougé d'un chiffre : **aucune règle de vulnérabilité n'a été
+ajoutée ni retirée**, l'escalade tient toujours. La hauteur de vol de la Reine
+reste dans la portée de la lame — la hauteur est un **décor**, pas une règle de
+plus à payer dans la table.
+
+### Ce que les contrôles ont trouvé
+
+- **Le poing du Colosse partait du coin du monde.** Il n'était placé qu'à la
+  **fin** de la mise à jour, donc après le tir : lancé à sa toute première
+  image, il décollait de (0,0) — **6 111 px** entre le tronc et son poing. Seule
+  la **borne haute** de la mesure l'a vu ; « il est loin du tronc » applaudissait.
+- **Un contrôle vert pour une mauvaise raison.** « La Sentinelle ne se déplace
+  que sur un axe » restait vert alors qu'on lui avait rendu la diagonale : le
+  héros était posé **sur la même ligne** que le gardien, si bien que marcher
+  droit sur lui *était* un déplacement axial. Le héros est désormais placé **en
+  biais** — réinjecté, ça rougit.
+
+> **Réinjection**, vingt-deux fois, toutes rouges : le Cœur qui remarche ; le
+> Yéti qui ne bondit plus ; le Léviathan privé de corps ; le Colosse qui ne
+> fouit plus ; son poing qui reste collé, puis qui part de (0,0) ; la Reine qui
+> revient droit sur le héros ; la Sentinelle en diagonale ; le Rongeur qui ne
+> clignote plus ; l'anneau refermé ; l'avalanche redevenue gerbe ; les lucioles
+> qui ne poursuivent plus ; la grille tirée au hasard ; le rayon qui blesse
+> partout ; l'onde sans brèche ; le moteur privé de poursuite ; deux gardiens
+> ramenés au même répertoire ; et les cinq dessins — corps, poing, rayon,
+> essaim, onde — supprimés un à un.

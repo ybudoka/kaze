@@ -5736,7 +5736,7 @@ function objectifCourant(){
 /* ============================ ÉTAT DE JEU ============================ */
 let etat='titre';           // titre | jeu | carte | mort | epilogue | victoire
 let tick=0, gel=0, secousse=0, fondu=0, fonduDir=0, fonduSuite=null;
-let ennemis=[], tirs=[], butins=[], bombes=[], parts=[], coffres=[], boss=null;
+let ennemis=[], tirs=[], butins=[], bombes=[], parts=[], coffres=[], ondes=[], boss=null;
 let message='', msgT=0, bandeau='', bandeauT=0;
 
 const OBJETS=[
@@ -5860,7 +5860,7 @@ function libre(x,y){
 const BUTIN_PERISSABLE={rubis:1,saphir:1,grenat:1,coeur:1,bombe:1,fleche:1};
 
 function peupler(){
-  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
+  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];ondes=[];boss=null;
   let n=0,g=0;
   while(n<46&&g++<9000){
     const x=4+Math.floor(rnd()*(MW-8)), y=4+Math.floor(rnd()*(Y_CENDRE-8));
@@ -6165,6 +6165,10 @@ function frapper(e,deg,sx,sy,type){
   if((e.type==='spectre'||e.type==='meduse'||e.type==='djinn'||e.type==='ombre')&&e.fondu>.5){
     SFX.bouclier(); eclat(e.x,e.y-10,e.z+8,e.type==='ombre'?'#c83a5a':'#b98cff'); return false;
   }
+  /* Enfoui sous le sable, il n'y a rien à toucher : le bloc renvoyé lui passe
+     au-dessus. Ce n'est pas une règle de plus à apprendre — c'est qu'il n'est
+     pas là. */
+  if(e.type==='colosse'&&e.z<-6){ eclat(sx,sy-8,0,'#d6ab6e'); return false; }
   // le Colosse de Grès : rien ne l'entame que ses propres blocs (bracelet) ou une bombe
   if(e.type==='colosse'&&type!=='lourd'&&type!=='explosion'){
     SFX.bouclier(); eclat(sx,sy-8,e.z+12,'#c89a5c'); return false;
@@ -7438,8 +7442,8 @@ function majEnnemis(){
 }
 
 /* ------------------------ LE CŒUR DE CENDRE ------------------------
-   Second gardien : il alterne les charges et les gerbes de braises. Sa
-   carapace ne cède qu'au marteau — l'arme trouvée à la Forge Noire. */
+   Il BAT — deux poussées puis un silence — et n'a que deux gestes : une
+   spirale de braises qui tourne, et un anneau troué qui accélère. */
 /* ======================= L'ESCALADE DES GARDIENS =======================
    Mesuré avant refonte, en coups d'épée nue : 17, 15, 19, —, 16, 18, 30. Le
    DEUXIÈME gardien était plus facile que le premier, et les cinq du milieu se
@@ -7466,6 +7470,54 @@ const GARDIENS={
    règle de plus vaut donc six coups de plus — c'est délibéré, c'est ce qui
    fait qu'un gardien se retient au lieu de se marteler. */
 const indiceGardien=g=>g.coups+4*g.deg+6*g.regles;
+
+/* ==================== CORPS EN ANNEAUX (LE SERPENT) ====================
+   Mesuré avant refonte : sept gardiens sur sept marchaient droit sur le héros,
+   six sur sept lâchaient la MÊME gerbe radiale, cinq sur sept chargeaient en
+   ligne droite. Aucun n'occupait plus d'une tuile, aucun ne volait vraiment
+   (deux flottaient de dix pixels, ce qui ne change rien).
+
+   Un corps en anneaux règle le premier point d'un coup : le Léviathan devient
+   un serpent de mer long d'une dizaine de tuiles. Le corps BLESSE, seule la
+   TÊTE se frappe — c'est ce qui fait qu'on tourne autour de lui au lieu de le
+   marteler de face.
+
+   Tout est alloué à l'éveil, jamais par image : une trace circulaire de
+   positions passées (Float32Array) et les anneaux eux-mêmes, mis à jour SUR
+   PLACE. Un `.map()` par image ici, c'est 60 tableaux par seconde. */
+const ESPACE_ANNEAU=7;                 // images de retard entre deux anneaux
+function batirAnneaux(n){
+  const trace=new Float32Array((n+1)*ESPACE_ANNEAU*2);
+  const anneaux=new Array(n);
+  for(let k=0;k<n;k++) anneaux[k]={x:0,y:0,z:0,r:0};
+  return {trace,anneaux,traceI:0,traceRempli:0};
+}
+/* Chaque anneau va se poser là où la tête était il y a (k+1)×ESPACE images.
+   Le corps suit donc EXACTEMENT la route de la tête : il serpente parce que la
+   tête serpente, sans une ligne de plus. */
+function suivreAnneaux(B){
+  const A=B.serp; if(!A) return;
+  const n=A.trace.length>>1;
+  A.traceI=(A.traceI+1)%n;
+  A.trace[A.traceI*2]=B.x; A.trace[A.traceI*2+1]=B.y;
+  if(A.traceRempli<n) A.traceRempli++;
+  for(let k=0;k<A.anneaux.length;k++){
+    const recul=(k+1)*ESPACE_ANNEAU;
+    const s=A.anneaux[k];
+    if(A.traceRempli<=recul){ s.x=B.x; s.y=B.y; }        // pas encore de passé : tout est sur la tête
+    else { const j=((A.traceI-recul)%n+n)%n; s.x=A.trace[j*2]; s.y=A.trace[j*2+1]; }
+    s.z=B.z;
+    s.r=13-k*.55;                                        // il s'effile vers la queue
+  }
+}
+/* Le corps blesse au contact. Un seul appel par image : `blesser` gère
+   lui-même l'invulnérabilité, mais parcourir tous les anneaux pour rien
+   coûterait autant que le reste du gardien. */
+function anneauxBlessent(B,deg){
+  const A=B.serp; if(!A) return;
+  for(const s of A.anneaux)
+    if(Math.hypot(J.x-s.x,J.y-s.y)<s.r&&Math.abs(J.z-s.z)<26){ blesser(deg,s.x,s.y); return; }
+}
 /* Les points de vie découlent des coups : deux points par coup d'épée. */
 const pvGardien=id=>Math.round(GARDIENS[id].coups*2*mulPV());
 
@@ -7474,7 +7526,7 @@ function reveillerCoeur(){
   const a=CENDRE.arene;
   boss={type:'coeur',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-5)*TS+8,z:0,vz:0,r:17,dir:0,
     pv:pvGardien('coeur'),pvmax:pvGardien('coeur'),phase:'attente',t:0,cd:60,
-    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,chaleur:0};
+    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,chaleur:0,pouls:0,spir:0};
   annonce('LE COEUR DE CENDRE');
   son(70,1,'sawtooth',.1,-30); bruit(.8,.11);
   secousse=16;
@@ -7505,42 +7557,70 @@ function majCoeur(){
     return; }
   if(B.cd>0) B.cd--;
 
-  if(B.phase==='attente'){
+  /* IL BAT. Le Cœur ne marche pas sur vous : il BAT. Deux poussées sèches
+     coup sur coup, puis un long silence — systole, diastole. On apprend son
+     rythme et on se place pendant le silence ; le poursuivre pendant les deux
+     coups, c'est le prendre en pleine face. */
+  B.pouls=(B.pouls+1)%92;
+  if(B.pouls===0||B.pouls===14){
     const a=Math.atan2(dy,dx);
-    bouger(B,Math.cos(a)*.3+B.kx,Math.sin(a)*.3+B.ky);
-    if(B.cd<=0){ B.phase=(d<70||rnd()<.5)?'gerbe':'charge'; B.cd=(B.phase==='charge')?46:56;
-      if(B.phase==='charge'){ B.ax=Math.cos(a)*2.3; B.ay=Math.sin(a)*2.3; } }
+    B.kx+=Math.cos(a)*2.5; B.ky+=Math.sin(a)*2.5;
+    son(56,.16,'sine',.06,-24);
+    if(B.pouls===0){ secousse=Math.max(secousse,4);
+      particules(B.x,B.y,B.z+12,4,'#ff8b3a',1.8,18); }
   }
-  else if(B.phase==='charge'){
-    bouger(B,B.ax+B.kx,B.ay+B.ky);
-    if(B.t%4===0) particules(B.x,B.y,B.z+8,2,'#ff8b3a',1.4,16);
-    if(d<26&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
-    if(B.cd<=0){ B.phase='attente'; B.cd=70; }
+  bouger(B,B.kx,B.ky);
+
+  if(B.phase==='attente'){
+    if(B.cd<=0){ B.phase=(rnd()<.5)?'spirale':'anneau';
+      B.cd=(B.phase==='spirale')?96:70;
+      if(B.phase==='spirale') B.spir=Math.atan2(dy,dx)+Math.PI; }
   }
-  else if(B.phase==='gerbe'){
-    if(B.cd%14===0){
-      B.chaleur=Math.max(0,B.chaleur-18);        // la gerbe le vide de sa chaleur
-      const n=8, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+14,vx:Math.cos(a)*2.1,vy:Math.sin(a)*2.1,
-          vie:110,ami:0,spr:'caillou'}); }
-      son(280,.1,'sawtooth',.05,-120);
+  else if(B.phase==='spirale'){
+    /* LA SPIRALE : un bras de braises qui tourne sur lui-même. Fuir en ligne
+       droite ne sert à rien — le bras vous rattrape. Il faut tourner AVEC lui,
+       ou couper court vers le centre. Et quand il est CHAUD, la spirale
+       s'inverse : sa règle de chaleur se lit jusque dans son tir. */
+    if(B.cd%5===0){
+      B.spir+=(B.chaleur>=COEUR_SEUIL?-.40:.28);
+      for(let k=0;k<2;k++){ const a=B.spir+k*Math.PI;
+        tirs.push({x:B.x+Math.cos(a)*14,y:B.y+Math.sin(a)*14,z:B.z+14,
+          vx:Math.cos(a)*1.9,vy:Math.sin(a)*1.9,vie:120,ami:0,spr:'caillou'}); }
+      son(330,.05,'sawtooth',.035,-80);
     }
     if(B.cd<=0){ B.phase='attente'; B.cd=64; }
   }
-  B.kx*=.88; B.ky*=.88;
+  else if(B.phase==='anneau'){
+    /* L'ANNEAU TROUÉ : vingt braises d'un seul souffle, sauf UNE ouverture.
+       Reculer ne sauve de rien, l'anneau va plus vite que vous en accélérant :
+       il faut trouver la brèche et passer AU TRAVERS. Ce souffle le vide de sa
+       chaleur — c'est le seul moment où il se rouvre tout seul. */
+    if(B.cd===42){
+      B.chaleur=Math.max(0,B.chaleur-24);
+      const trou=rnd()*6.2832, n=22;
+      for(let k=0;k<n;k++){ const a=k*6.2832/n;
+        if(Math.abs(ecartAngle(a,trou))<.58) continue;
+        tirs.push({x:B.x+Math.cos(a)*12,y:B.y+Math.sin(a)*12,z:B.z+14,
+          vx:Math.cos(a)*1.15,vy:Math.sin(a)*1.15,vie:130,ami:0,spr:'caillou',acc:1.014}); }
+      son(150,.4,'sawtooth',.07,-40); secousse=Math.max(secousse,7);
+    }
+    if(B.cd<=0){ B.phase='attente'; B.cd=70; }
+  }
+  B.kx*=.90; B.ky*=.90;
   if(d<24&&Math.abs(B.z-J.z)<28) blesser(B.chaleur>=COEUR_SEUIL?2:1,B.x,B.y);
 }
 
 /* ------------------------ LE ROI YÉTI ------------------------
-   Gardien de l'Arène du Sommet. Il charge, souffle des bourrasques de neige
-   et appelle des loups. Le boomerang le fait vaciller. */
+   Gardien de l'Arène du Sommet. Il ne marche plus : il BONDIT, et le sol
+   tremble là où il retombe — une onde de neige part de son point de chute,
+   avec une brèche. Entre deux bonds il balaie l'arène d'une avalanche.
+   Le boomerang le fait vaciller ; il ne s'offre qu'en pleine charge. */
 function reveillerYeti(){
   if(boss) return;
   const s=CIMES.sommet;
   boss={type:'yeti',x:(s.x0+(s.w>>1))*TS+8,y:(s.y0+s.h-5)*TS+8,z:0,vz:0,r:18,dir:0,
     pv:pvGardien('yeti'),pvmax:pvGardien('yeti'),phase:'attente',t:0,cd:50,
-    flash:0,kx:0,ky:0,anim:0,stun:0};
+    flash:0,kx:0,ky:0,anim:0,stun:0,enVol:0,bonds:0,ax:0,ay:0};
   annonce('LE ROI YÉTI'); son(80,.9,'sawtooth',.1,-30); bruit(.7,.1); secousse=16;
 }
 function majYeti(){
@@ -7554,55 +7634,104 @@ function majYeti(){
     annonce('LE ROI YÉTI TOMBE'); dire("LE SOMMET EST À TOI. UN CŒUR DE CRISTAL ROULE DANS LA NEIGE.",300);
     setTimeout(autoSauver,600); return;
   }
-  B.z=baseSol(B.x,B.y);
+  const sol=baseSol(B.x,B.y);
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
   B.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?3:1):(dy>0?2:0);
-  if(B.stun>0){ B.kx*=.9; B.ky*=.9; bouger(B,B.kx,B.ky);
+  if(B.stun>0){ B.z=sol; B.enVol=0; B.kx*=.9; B.ky*=.9; bouger(B,B.kx,B.ky);
     if(B.t%8===0) particules(B.x+(rnd()-.5)*24,B.y-12,B.z+26,1,'#dbe4f2',1,20); return; }
   if(B.cd>0) B.cd--;
+
+  /* IL BONDIT. En l'air il ne dévie plus : sa trajectoire est LISIBLE, on la
+     lit et on s'écarte. C'est la retombée qui est dangereuse — une onde de
+     neige part du point de chute, et elle n'a qu'une brèche. */
+  if(B.enVol){
+    B.vz-=.23; B.z+=B.vz; bouger(B,B.ax+B.kx,B.ay+B.ky);
+    if(B.t%3===0) particules(B.x,B.y,B.z,1,'#eaf1fb',1,16);
+    if(B.z<=sol){
+      B.z=sol; B.vz=0; B.enVol=0; B.ax=0; B.ay=0; B.kx=0; B.ky=0;
+      secousse=13; bruit(.4,.1); son(64,.5,'sawtooth',.09,-30);
+      particules(B.x,B.y,B.z+4,26,'#eaf1fb',3.4,30);
+      onde(B.x,B.y,B.z,'#eaf1fb',2,2.5,132,rnd()*6.2832);
+      /* Un bond sur trois fait sortir la meute : ses loups ne tombent plus du
+         ciel au hasard, ils jaillissent de l'impact. */
+      if((++B.bonds)%3===0){ for(let k=0;k<2;k++){ const a=rnd()*6.2832;
+        const lx=Math.floor((B.x+Math.cos(a)*40)/TS), ly=Math.floor((B.y+Math.sin(a)*40)/TS);
+        pondre('loup',clamp(lx,4,MW-4),clamp(ly,Y_CIMES+2,Y_LAGON-2)); } }
+      B.phase='attente'; B.cd=44;
+    }
+    if(d<30&&Math.abs(B.z-J.z)<26) blesser(2,B.x,B.y);
+    return;
+  }
+  B.z=sol;
+
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    bouger(B,Math.cos(a)*.34+B.kx,Math.sin(a)*.34+B.ky);
+    bouger(B,B.kx,B.ky);                       // au sol, il piétine : il ne suit plus
     if(B.cd<=0){ const r=rnd();
-      if(r<.4&&d<130){ B.phase='charge'; B.cd=64; B.ax=Math.cos(a)*2.7; B.ay=Math.sin(a)*2.7;
-        son(150,.28,'sawtooth',.06,90); }
-      else if(r<.75){ B.phase='bourrasque'; B.cd=52; son(300,.3,'triangle',.05,-140); }
-      else { B.phase='appel'; B.cd=44; son(360,.25,'square',.05,-120); } }
+      if(r<.34&&d<150){ B.phase='charge'; B.cd=70; B.ax=0; B.ay=0;
+        annonce('IL BAISSE LA TÊTE'); son(150,.4,'sawtooth',.07,-50); }
+      else if(r<.66){ B.phase='avalanche'; B.cd=96; son(300,.4,'triangle',.05,-140); }
+      else { /* LE BOND : hauteur et portée calculées pour retomber SUR le
+                héros. Rien n'est aléatoire — c'est ce qui le rend lisible. */
+        B.enVol=1; B.vz=4.6; B.phase='bond';
+        const vol=2*B.vz/.23, a=Math.atan2(dy,dx), port=Math.min(d,140);
+        B.ax=Math.cos(a)*port/vol; B.ay=Math.sin(a)*port/vol;
+        son(220,.3,'triangle',.06,-70); } }
   }
   else if(B.phase==='charge'){
-    const ax=B.x, ay=B.y; bouger(B,B.ax+B.kx,B.ay+B.ky);
-    if(B.t%4===0) particules(B.x,B.y+6,B.z,2,'#eaf1fb',1.4,16);
-    if(d<28&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
-    if((Math.abs(B.x-ax)<.4&&Math.abs(B.y-ay)<.4)){ B.stun=70; secousse=10; bruit(.3,.09); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=64; }
+    /* Il baisse la tête vingt images avant de partir : c'est le seul moment
+       où l'on peut le toucher, il faut donc le VOIR venir et rester. */
+    if(B.cd>50){ if(B.t%4===0) particules(B.x,B.y+8,B.z,2,'#dbe4f2',1.2,14); }
+    else {
+      if(B.cd===50){ const a=Math.atan2(dy,dx); B.ax=Math.cos(a)*3.0; B.ay=Math.sin(a)*3.0;
+        son(150,.28,'sawtooth',.06,90); }
+      const ax=B.x, ay=B.y; bouger(B,B.ax+B.kx,B.ay+B.ky);
+      if(B.t%4===0) particules(B.x,B.y+6,B.z,2,'#eaf1fb',1.4,16);
+      if(d<28&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
+      if(Math.abs(B.x-ax)<.4&&Math.abs(B.y-ay)<.4){ B.stun=70; secousse=10; bruit(.3,.09); }
+    }
+    if(B.cd<=0){ B.phase='attente'; B.cd=54; }
   }
-  else if(B.phase==='bourrasque'){
-    if(B.cd%12===0){ const n=9, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+16,vx:Math.cos(a)*2.0,vy:Math.sin(a)*2.0,vie:110,ami:0,spr:'givre'}); }
-      son(300,.09,'triangle',.05,-150); }
+  else if(B.phase==='avalanche'){
+    /* L'AVALANCHE : un mur de neige qui balaie l'arène d'un bord à l'autre,
+       avec UNE brèche. Rien à parer, rien à esquiver au dernier moment — il
+       faut être dans la brèche quand il arrive. Il part toujours du bord le
+       plus LOIN du héros : on a le temps de la voir, et de courir. */
+    if(B.cd===78){
+      annonce('AVALANCHE');
+      const s=CIMES.sommet;
+      const x0=(s.x0+1)*TS, x1=(s.x0+s.w-1)*TS, y0=(s.y0+1)*TS, y1=(s.y0+s.h-1)*TS;
+      const vert=(rnd()<.5), n=12, trou=1+Math.floor(rnd()*(n-3));
+      for(let k=0;k<n;k++){
+        if(k===trou||k===trou+1) continue;
+        if(vert){ const px=x0+(k+.5)*(x1-x0)/n, haut=(J.y>(y0+y1)/2);
+          const py=haut?y0:y1;
+          tirs.push({x:px,y:py,z:baseSol(px,py)+12,vx:0,vy:haut?1.3:-1.3,
+            vie:260,ami:0,spr:'givre'}); }
+        else { const py=y0+(k+.5)*(y1-y0)/n, gauche=(J.x>(x0+x1)/2);
+          const px=gauche?x0:x1;
+          tirs.push({x:px,y:py,z:baseSol(px,py)+12,vx:gauche?1.3:-1.3,vy:0,
+            vie:260,ami:0,spr:'givre'}); }
+      }
+      son(90,.7,'triangle',.07,-40); secousse=Math.max(secousse,8);
+    }
     if(B.cd<=0){ B.phase='attente'; B.cd=60; }
-  }
-  else if(B.phase==='appel'){
-    if(B.cd===20){ for(let k=0;k<2;k++){ const a=rnd()*6.28;
-      const lx=Math.floor((B.x+Math.cos(a)*36)/TS), ly=Math.floor((B.y+Math.sin(a)*36)/TS);
-      pondre('loup',clamp(lx,4,MW-4),clamp(ly,Y_CIMES+2,Y_LAGON-2)); }
-      particules(B.x,B.y,B.z+10,14,'#dbe4f2',2.6,24); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=62; }
   }
   B.kx*=.88; B.ky*=.88;
   if(d<26&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
 }
 
 /* ------------------------ LE LÉVIATHAN ------------------------
-   Gardien du Large. Il crache des gerbes d'eau, plonge pour resurgir ailleurs,
-   et fouette de ses tentacules. On ne le combat qu'à la nage. */
+   Gardien du Large, et le SERPENT DE MER du jeu : neuf anneaux longs d'une
+   dizaine de tuiles, qui suivent la tête à la trace. Le corps blesse, seule la
+   tête se frappe — et seulement à la résurgence. Il ne s'arrête jamais : il
+   ondule, il vous ENROULE, et il tranche devant lui. */
 function reveillerLeviathan(){
   if(boss) return;
   const la=LAGON.large;
   boss={type:'kraken',x:(la.x0+(la.w>>1))*TS+8,y:(la.y0+(la.h>>1))*TS+8,z:0,vz:0,r:20,dir:2,
     pv:pvGardien('kraken'),pvmax:pvGardien('kraken'),phase:'attente',t:0,cd:60,
-    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,surface:0};
+    flash:0,kx:0,ky:0,anim:0,stun:0,invincible:0,surface:0,
+    cap:0,serp:batirAnneaux(9)};
   annonce('LE LÉVIATHAN'); son(60,1.1,'sawtooth',.1,-24); bruit(.9,.12); secousse=18;
 }
 function majKraken(){
@@ -7625,14 +7754,13 @@ function majKraken(){
   if(B.cd>0) B.cd--;
   B.z=baseSol(B.x,B.y);
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    B.x=clamp(B.x+Math.cos(a)*.5,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.5,TS*3,(MH-3)*TS);
+    nagerLeviathan(B,Math.atan2(dy,dx),1.15);
     if(B.cd<=0){ const r=rnd();
       if(r<.34){ B.phase='plonge'; B.invincible=90; secousse=8; bruit(.4,.1);
         particules(B.x,B.y,B.z+8,26,'#5fd0e0',3.4,30); son(120,.4,'sine',.06,-80); }
-      else if(r<.68){ B.phase='geyser'; B.cd=56; son(240,.3,'sawtooth',.05,-120); }
-      else { B.phase='fouet'; B.cd=40; const aa=Math.atan2(dy,dx); B.ax=Math.cos(aa)*2.4; B.ay=Math.sin(aa)*2.4;
-        son(180,.25,'sawtooth',.06,60); } }
+      else if(r<.68){ B.phase='enroule'; B.cd=150; annonce('IL VOUS ENROULE');
+        son(140,.5,'sine',.06,-30); }
+      else { B.phase='lame'; B.cd=56; son(180,.25,'sawtooth',.06,60); } }
   }
   else if(B.phase==='plonge'){
     // il disparaît sous l'eau et resurgit près du joueur
@@ -7645,33 +7773,63 @@ function majKraken(){
       B.surface=90; annonce('IL REMONTE');
       particules(B.x,B.y,B.z+8,20,'#eaf6ff',3,28); }
   }
-  else if(B.phase==='geyser'){
-    if(B.cd%13===0){ const n=10, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+16,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,vie:120,ami:0,spr:'givre'}); }
-      son(260,.09,'sawtooth',.05,-120); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=58; }
+  else if(B.phase==='enroule'){
+    /* L'ENROULEMENT : il ne vient pas sur vous, il TOURNE autour de vous, et
+       son cercle se resserre. Le danger n'est plus la tête mais le corps qui
+       se referme derrière : il faut sortir de la boucle avant qu'elle ferme. */
+    const rayon=Math.max(38,116-(150-B.cd)*.52);
+    const err=clamp((d-rayon)/60,-1,1);
+    nagerLeviathan(B,Math.atan2(dy,dx)+(Math.PI/2)*(1-err),1.55);
+    if(B.cd%20===0) particules(B.x,B.y,B.z+10,3,'#5fd0e0',1.6,20);
+    if(B.cd<=0){ B.phase='attente'; B.cd=62; }
   }
-  else if(B.phase==='fouet'){
-    B.x=clamp(B.x+B.ax,TS*3,(MW-3)*TS); B.y=clamp(B.y+B.ay,TS*3,(MH-3)*TS);
-    if(B.t%4===0) particules(B.x,B.y,B.z+8,2,'#39a8bc',1.4,16);
-    if(d<30&&Math.abs(B.z-J.z)<32) blesser(2,B.x,B.y);
+  else if(B.phase==='lame'){
+    /* LA LAME D'EAU : un éventail lâché DEVANT lui, dans l'axe où il nage.
+       Rien de radial — se mettre derrière sa tête est la bonne réponse, et
+       derrière sa tête il y a tout son corps. */
+    if(B.cd===34){ for(let k=-2;k<=2;k++){ const a=B.cap+k*.24;
+      tirs.push({x:B.x+Math.cos(a)*16,y:B.y+Math.sin(a)*16,z:B.z+14,
+        vx:Math.cos(a)*2.7,vy:Math.sin(a)*2.7,vie:110,ami:0,spr:'givre'}); }
+      son(260,.14,'sawtooth',.05,-90); }
+    nagerLeviathan(B,Math.atan2(dy,dx),1.9);
     if(B.cd<=0){ B.phase='attente'; B.cd=54; }
   }
   B.kx*=.9; B.ky*=.9;
-  if(B.invincible<=0&&d<26&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
+  suivreAnneaux(B);
+  if(B.invincible<=0){
+    anneauxBlessent(B,2);
+    if(d<26&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
+  }
+}
+/* IL ONDULE. Son cap ne vire que lentement vers la cible, et sa route
+   serpente autour de ce cap : il ne peut donc PAS vous suivre au plus court,
+   et c'est ce qui rend la fuite latérale payante. */
+function nagerLeviathan(B,cible,vit){
+  B.cap+=clamp(ecartAngle(cible,B.cap),-.048,.048);
+  const a=B.cap+Math.sin(B.t/13)*.55;
+  B.x=clamp(B.x+Math.cos(a)*vit,TS*3,(MW-3)*TS);
+  B.y=clamp(B.y+Math.sin(a)*vit,TS*3,(MH-3)*TS);
+  B.dir=Math.abs(Math.cos(a))>Math.abs(Math.sin(a))?(Math.cos(a)>0?3:1):(Math.sin(a)>0?2:0);
 }
 
 /* ------------------------ LE COLOSSE DE GRÈS ------------------------
    Gardien de l'Arène des Sables. Rien ne l'entame que SES PROPRES BLOCS : il
-   t'en jette, tu les ramasses au bracelet et tu les lui renvoies. Entre deux
-   jets, il charge. */
+   t'en jette, tu les ramasses au bracelet et tu les lui renvoies.
+
+   Il est en DEUX MORCEAUX : le tronc, et un poing qui se détache et vole tout
+   seul. Deux dangers à des endroits différents, en même temps. Et il ne
+   marche pas : il s'enfonce dans le sable, court dessous, et jaillit. */
 function reveillerColosse(){
   if(boss) return;
   const ar=SABLES.arene;
   boss={type:'colosse',x:(ar.x0+(ar.w>>1))*TS+8,y:(ar.y0+ar.h-5)*TS+8,z:0,vz:0,r:20,dir:0,
     pv:pvGardien('colosse'),pvmax:pvGardien('colosse'),phase:'attente',t:0,cd:60,
-    flash:0,kx:0,ky:0,anim:0,stun:0};
+    flash:0,kx:0,ky:0,anim:0,stun:0,
+    /* Le poing est posé SUR le tronc dès l'éveil. Laissé à (0,0), il partait
+       du coin du monde si le gardien le lançait à sa toute première image :
+       `majPoingColosse` ne le recale qu'en FIN de mise à jour, donc après le
+       tir. Mesuré : 6 111 px entre le tronc et son poing. */
+    poing:{x:(ar.x0+(ar.w>>1))*TS+30,y:(ar.y0+ar.h-5)*TS+8,z:18,etat:'colle',ax:0,ay:0}};
   annonce('LE COLOSSE DE GRÈS'); son(70,1,'sawtooth',.1,-30); bruit(.8,.11); secousse=18;
 }
 function majColosse(){
@@ -7686,18 +7844,21 @@ function majColosse(){
     dire("LE DÉSERT SE TAIT. LE COLOSSE N'EST PLUS QU'UN TAS DE SABLE.",320);
     setTimeout(autoSauver,600); return;
   }
-  B.z=baseSol(B.x,B.y);
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
   B.dir=Math.abs(dx)>Math.abs(dy)?(dx>0?3:1):(dy>0?2:0);
-  if(B.stun>0){ B.kx*=.9; B.ky*=.9; bouger(B,B.kx,B.ky);
-    if(B.t%8===0) particules(B.x+(rnd()-.5)*26,B.y-12,B.z+24,1,'#d6ab6e',1,20); return; }
+  if(B.stun>0){ B.z=baseSol(B.x,B.y); B.kx*=.9; B.ky*=.9; bouger(B,B.kx,B.ky);
+    if(B.t%8===0) particules(B.x+(rnd()-.5)*26,B.y-12,B.z+24,1,'#d6ab6e',1,20);
+    majPoingColosse(B); return; }
   if(B.cd>0) B.cd--;
+  if(B.phase!=='fouille') B.z=baseSol(B.x,B.y);
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    bouger(B,Math.cos(a)*.32+B.kx,Math.sin(a)*.32+B.ky);
-    if(B.cd<=0){ if(rnd()<.55&&d<180){ B.phase='jet'; B.cd=44; }
-      else { B.phase='charge'; B.cd=60; B.ax=Math.cos(a)*2.6; B.ay=Math.sin(a)*2.6;
-        son(150,.28,'sawtooth',.06,90); } }
+    /* Il ne marche pas : il pèse. Au sol il reste planté, et se déplace en
+       PLONGEANT dans le sable — jamais autrement. */
+    if(B.cd<=0){ const r=rnd();
+      if(r<.4&&d<190){ B.phase='jet'; B.cd=48; }
+      else if(r<.72){ B.phase='poing'; B.cd=70; }
+      else { B.phase='fouille'; B.cd=110; annonce('IL PLONGE DANS LE SABLE');
+        son(110,.5,'sine',.07,-50); } }
   }
   else if(B.phase==='jet'){
     if(B.cd===22){                                    // arrache et jette un bloc
@@ -7708,27 +7869,78 @@ function majColosse(){
     }
     if(B.cd<=0){ B.phase='attente'; B.cd=64; }
   }
-  else if(B.phase==='charge'){
-    const ax=B.x, ay=B.y; bouger(B,B.ax+B.kx,B.ay+B.ky);
-    if(B.t%4===0) particules(B.x,B.y+6,B.z,2,'#c89a5c',1.4,16);
-    if(d<30&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
-    if(Math.abs(B.x-ax)<.4&&Math.abs(B.y-ay)<.4){ B.stun=80; secousse=12; bruit(.35,.1);
-      particules(B.x,B.y,B.z+10,20,'#d6ab6e',3.4,30); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=64; }
+  else if(B.phase==='poing'){
+    /* LE POING PART. Le gardien reste où il est : c'est son deuxième morceau
+       qui vous cherche, et il revient en arrière comme un boulet au bout d'une
+       chaîne. On se retrouve avec deux choses à surveiller, à deux endroits. */
+    if(B.cd===56&&B.poing.etat==='colle'){
+      const a=Math.atan2(dy,dx);
+      B.poing.etat='vole'; B.poing.ax=Math.cos(a)*3.6; B.poing.ay=Math.sin(a)*3.6;
+      son(190,.2,'sawtooth',.06,-40); secousse=Math.max(secousse,6);
+    }
+    if(B.cd<=0){ B.phase='attente'; B.cd=66; }
+  }
+  else if(B.phase==='fouille'){
+    /* IL FOUIT. Sous le sable il est hors d'atteinte et n'y a qu'une butte qui
+       court ; il ressort SOUS le héros, et l'onde de son jaillissement part de
+       là — avec sa brèche. */
+    const sol=baseSol(B.x,B.y);
+    if(B.cd>84){ B.z=lerp(B.z,-26,.16);
+      if(B.t%3===0) particules(B.x,B.y,sol,2,'#d6ab6e',1.6,20); }
+    else if(B.cd>30){
+      const a=Math.atan2(dy,dx);
+      B.x=clamp(B.x+Math.cos(a)*1.55,TS*3,(MW-3)*TS);
+      B.y=clamp(B.y+Math.sin(a)*1.55,TS*3,(MH-3)*TS);
+      if(B.t%2===0) particules(B.x,B.y,baseSol(B.x,B.y),1,'#e8c07e',1.3,18);
+    }
+    else {
+      if(B.cd===30){ secousse=15; bruit(.45,.11); son(70,.6,'sawtooth',.09,-30);
+        particules(B.x,B.y,sol+4,30,'#e8c07e',3.8,34);
+        onde(B.x,B.y,sol,'#e8c07e',2,2.7,158,rnd()*6.2832); }
+      B.z=lerp(B.z,sol,.24);
+    }
+    if(B.cd<=0){ B.phase='attente'; B.cd=58; B.z=sol; }
   }
   B.kx*=.88; B.ky*=.88;
-  if(d<28&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
+  majPoingColosse(B);
+  if(B.z>-6&&d<28&&Math.abs(B.z-J.z)<30) blesser(2,B.x,B.y);
+}
+/* Le second morceau. Collé au tronc il pivote du côté du héros — on voit donc
+   toujours d'où le coup partira. Détaché, il ralentit, s'arrête, puis rentre. */
+function majPoingColosse(B){
+  const P=B.poing; if(!P) return;
+  if(P.etat==='colle'){
+    const a=Math.atan2(J.y-B.y,J.x-B.x);
+    P.x=B.x+Math.cos(a)*22; P.y=B.y+Math.sin(a)*15; P.z=B.z+18; return;
+  }
+  if(P.etat==='vole'){
+    P.x+=P.ax; P.y+=P.ay; P.ax*=.968; P.ay*=.968;
+    if(Math.hypot(P.ax,P.ay)<.55||Math.hypot(P.x-B.x,P.y-B.y)>200){ P.etat='retour'; }
+  } else {
+    const a=Math.atan2(B.y-P.y,B.x-P.x);
+    P.x+=Math.cos(a)*3.4; P.y+=Math.sin(a)*3.4;
+    if(Math.hypot(P.x-B.x,P.y-B.y)<24) P.etat='colle';
+  }
+  P.z=Math.max(baseSol(P.x,P.y)+16,B.z+18);
+  if(B.t%3===0) particules(P.x,P.y,P.z,1,'#d6ab6e',1,14);
+  if(Math.hypot(J.x-P.x,J.y-P.y)<15&&Math.abs(J.z-P.z)<28) blesser(2,P.x,P.y);
 }
 
 /* ------------------------ LA REINE DES LUCIOLES NOIRES ------------------------
-   Gardienne du Cœur du Marais. Elle éteint ton fanal par vagues (la nuit
-   retombe), appelle des feux follets, et crache des lucioles noires. */
+   Gardienne du Cœur du Marais, et la seule qui VOLE pour de bon : elle ne
+   vient jamais droit sur vous, elle tourne autour, très haut. Ce n'est pas
+   elle qui descend, c'est son ESSAIM — six lucioles en orbite, qu'elle lâche
+   une à une et qui, celles-là, poursuivent. L'essaim se voit : c'est sa
+   réserve de munitions, à l'œil nu. */
+const ESSAIM_REINE=6;
 function reveillerReine(){
   if(boss) return;
   const ar=MARAIS.arene;
+  const essaim=new Array(ESSAIM_REINE);
+  for(let k=0;k<ESSAIM_REINE;k++) essaim[k]={a:k*6.2832/ESSAIM_REINE,vivant:1};
   boss={type:'reine',x:(ar.x0+(ar.w>>1))*TS+8,y:(ar.y0+ar.h-5)*TS+8,z:0,vz:0,r:18,dir:2,
     pv:pvGardien('reine'),pvmax:pvGardien('reine'),phase:'attente',t:0,cd:56,
-    flash:0,kx:0,ky:0,anim:0,stun:0,voile:0};
+    flash:0,kx:0,ky:0,anim:0,stun:0,voile:0,orb:0,lasse:0,essaim};
   annonce('LA REINE DES LUCIOLES NOIRES'); son(80,.9,'sawtooth',.1,-30); bruit(.7,.1); secousse=16;
 }
 function majReine(){
@@ -7743,39 +7955,66 @@ function majReine(){
     dire("LES MURMURES SE TAISENT. LE MARAIS RESPIRE ENFIN.",320);
     setTimeout(autoSauver,600); return;
   }
-  B.z=baseSol(B.x,B.y)+10+Math.sin(B.anim/20)*3;   // elle vole
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
   if(B.voile>0) B.voile--;
+  if(B.lasse>0) B.lasse--;
+  /* ELLE TOURNE. Jamais un pas vers vous : une orbite large, dont le rayon
+     respire, et une altitude qui la tient au-dessus du marais. Sauf quand elle
+     est LASSE — après avoir soufflé le voile, elle redescend à hauteur d'homme
+     et traîne : c'est là qu'on la rejoint sans courir.
+     Son altitude reste dans la portée de la lame : la hauteur EST un décor,
+     pas une règle. Une règle de plus se paierait dans la table du § 63, et sa
+     règle à elle est déjà écrite — c'est la lumière. */
+  const haut=(B.lasse>0)?5:18;
+  B.z=baseSol(B.x,B.y)+haut+Math.sin(B.anim/26)*(B.lasse>0?2:5);
   if(B.stun>0){ B.kx*=.9; B.ky*=.9;
     if(B.t%8===0) particules(B.x+(rnd()-.5)*24,B.y-12,B.z+22,1,'#7de0a0',1,20); return; }
+  /* L'essaim repousse : une luciole toutes les cent images. Le nombre en
+     orbite dit exactement ce qui lui reste à jeter. */
+  if(B.t%100===0){ const morte=B.essaim.find(s=>!s.vivant);
+    if(morte){ morte.vivant=1; son(880,.05,'triangle',.03,60); } }
+  B.orb+=(B.lasse>0?.008:.020);
+  const rayon=(B.lasse>0?52:92)+Math.sin(B.anim/72)*30;
+  const cx=clamp(J.x+Math.cos(B.orb)*rayon,TS*3,(MW-3)*TS);
+  const cy=clamp(J.y+Math.sin(B.orb)*rayon,TS*3,(MH-3)*TS);
+  B.x=lerp(B.x,cx,B.lasse>0?.030:.055); B.y=lerp(B.y,cy,B.lasse>0?.030:.055);
   if(B.cd>0) B.cd--;
+
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    B.x=clamp(B.x+Math.cos(a)*.5,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.5,TS*3,(MH-3)*TS);
-    if(B.cd<=0){ const r=rnd();
-      if(r<.34){ B.phase='voile'; B.cd=96; B.voile=130; secousse=8;
+    if(B.cd<=0){ const r=rnd(), reste=B.essaim.reduce((n,s)=>n+s.vivant,0);
+      if(r<.32){ B.phase='voile'; B.cd=110; B.voile=130; secousse=8;
         son(120,.4,'sine',.06,-70); annonce('LA REINE ÉTEINT TON FANAL'); }
-      else if(r<.67){ B.phase='gerbe'; B.cd=58; }
-      else { B.phase='appel'; B.cd=46; son(320,.25,'square',.05,-120); } }
+      else if(reste>=2&&r<.5){ B.phase='couvee'; B.cd=54; son(320,.25,'square',.05,-120); }
+      else { B.phase='essaim'; B.cd=100; } }
   }
   else if(B.phase==='voile'){
-    const a=Math.atan2(dy,dx);
-    B.x=clamp(B.x+Math.cos(a)*.7,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.7,TS*3,(MH-3)*TS);
-    if(B.cd%22===0){ const aa=Math.atan2(dy,dx);
-      tirs.push({x:B.x,y:B.y,z:B.z+8,vx:Math.cos(aa)*2.2,vy:Math.sin(aa)*2.2,vie:110,ami:0,spr:'venin'}); }
+    /* Elle souffle la nuit. Rien d'autre : elle ne tire pas pendant ce
+       temps-là — mais quand la nuit retombe, elle est épuisée. */
+    if(B.cd%14===0) particules(B.x,B.y,B.z+6,4,'#3a2b52',2.4,26);
+    if(B.cd<=0){ B.phase='attente'; B.cd=70; B.lasse=150; annonce('ELLE RETOMBE'); }
+  }
+  else if(B.phase==='essaim'){
+    /* L'ESSAIM. Elle lâche ses lucioles une à une, et celles-là POURSUIVENT.
+       Un tir droit s'esquive en s'écartant ; celui-ci, non : il faut le semer
+       en tournant court, ou lui mettre un mur entre les ailes. */
+    if(B.cd%18===0){ const s=B.essaim.find(s=>s.vivant);
+      if(s){ s.vivant=0;
+        const px=B.x+Math.cos(B.orb*3+s.a)*22, py=B.y+Math.sin(B.orb*3+s.a)*22;
+        const a=Math.atan2(J.y-py,J.x-px);
+        tirs.push({x:px,y:py,z:B.z,vx:Math.cos(a)*1.45,vy:Math.sin(a)*1.45,
+          vie:220,ami:0,spr:'venin',hom:.032});
+        son(520,.07,'triangle',.04,-40); } }
     if(B.cd<=0){ B.phase='attente'; B.cd=64; }
   }
-  else if(B.phase==='gerbe'){
-    if(B.cd%13===0){ const n=8, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+12,vx:Math.cos(a)*2.0,vy:Math.sin(a)*2.0,vie:110,ami:0,spr:'venin'}); }
-      son(260,.09,'sawtooth',.05,-120); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=58; }
-  }
-  else if(B.phase==='appel'){
-    if(B.cd===22){ for(let k=0;k<2;k++){ const a=rnd()*6.28;
-      const lx=Math.floor((B.x+Math.cos(a)*30)/TS), ly=Math.floor((B.y+Math.sin(a)*30)/TS);
-      pondre('follet',clamp(lx,4,MW-4),clamp(ly,Y_MARAIS+2,MH-2)); }
+  else if(B.phase==='couvee'){
+    /* La couvée lui COÛTE : deux lucioles quittent l'orbite pour devenir des
+       feux follets. Appeler du renfort, chez elle, c'est se désarmer. */
+    if(B.cd===30){ let pris=0;
+      for(const s of B.essaim){ if(pris>=2) break; if(!s.vivant) continue;
+        s.vivant=0; pris++;
+        const a=rnd()*6.2832;
+        const lx=Math.floor((B.x+Math.cos(a)*30)/TS), ly=Math.floor((B.y+Math.sin(a)*30)/TS);
+        pondre('follet',clamp(lx,4,MW-4),clamp(ly,Y_MARAIS+2,MH-2)); }
       particules(B.x,B.y,B.z+10,14,'#7de0a0',2.6,24); }
     if(B.cd<=0){ B.phase='attente'; B.cd=62; }
   }
@@ -7785,13 +8024,20 @@ function majReine(){
 
 /* ==================== LA SENTINELLE DU CIEL ====================
    Un automate qui ne s'ouvre qu'entre deux rafales : pendant la rafale, elle
-   est close et te repousse ; c'est dans le répit qu'on la touche. */
+   est close et te repousse ; c'est dans le répit qu'on la touche.
+
+   Elle est une MACHINE, et cela se voit à sa façon de bouger : jamais de
+   diagonale, jamais de dérive. Elle s'immobilise, file d'un trait sur un axe,
+   s'arrête net. Son arme est du même bois : un RAYON qui balaie l'arène comme
+   une aiguille, à vitesse constante — on n'esquive pas un rayon, on tourne
+   avec lui. */
 function reveillerSentinelle(){
   if(boss) return;
   const a=NUES.arene;
   boss={type:'sentinelle',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-5)*TS+8,z:0,vz:0,r:18,dir:0,
     pv:pvGardien('sentinelle'),pvmax:pvGardien('sentinelle'),phase:'attente',t:0,cd:70,
-    flash:0,kx:0,ky:0,anim:0,stun:0,close:0,coeurs:3};
+    flash:0,kx:0,ky:0,anim:0,stun:0,close:0,coeurs:3,
+    ray:0,rayon:0,sens:1,dx:1,dy:0,dashT:0,pause:20};
   annonce('LA SENTINELLE DU CIEL');
   son(180,.8,'square',.08,-60); bruit(.6,.1); secousse=16;
 }
@@ -7815,13 +8061,14 @@ function majSentinelle(){
   if(B.stun>0){ B.kx*=.9; B.ky*=.9; return; }
   if(B.cd>0) B.cd--;
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    B.x=clamp(B.x+Math.cos(a)*.55,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.55,TS*3,(MH-3)*TS);
+    dashSentinelle(B,dx,dy);
     if(B.cd<=0){ const r=rnd();
-      if(r<.42){ B.phase='rafale'; B.cd=104; B.close=104; secousse=7;
+      if(r<.36){ B.phase='rafale'; B.cd=104; B.close=104; secousse=7;
         son(140,.5,'sawtooth',.07,-60); annonce('RAFALE : ELLE SE CLÔT'); }
-      else if(r<.74){ B.phase='gerbe'; B.cd=62; }
-      else { B.phase='appel'; B.cd=48; son(340,.22,'square',.05,-140); } }
+      else if(r<.72){ B.phase='rayon'; B.cd=190; B.rayon=1;
+        B.sens=(rnd()<.5)?1:-1; B.ray=Math.atan2(dy,dx)+Math.PI;
+        annonce('LE RAYON SE LÈVE'); son(1200,.5,'square',.05,-200); }
+      else { B.phase='grille'; B.cd=76; son(340,.22,'square',.05,-140); } }
   }
   else if(B.phase==='rafale'){
     // elle souffle : on est repoussé, et sa coque est fermée
@@ -7830,15 +8077,29 @@ function majSentinelle(){
     if(B.cd%16===0) particules(B.x,B.y,B.z+10,6,'#dfe6ff',3,26);
     if(B.cd<=0){ B.phase='attente'; B.cd=70; }
   }
-  else if(B.phase==='gerbe'){
-    if(B.cd%15===0){ const n=6, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+12,vx:Math.cos(a)*2.3,vy:Math.sin(a)*2.3,vie:110,ami:0,spr:'venin'}); }
-      son(300,.09,'square',.05,-140); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=62; }
+  else if(B.phase==='rayon'){
+    /* LE RAYON. Il part toujours DOS au héros et tourne à vitesse fixe : on
+       sait donc à la seconde près quand il arrivera. Rien à esquiver — il faut
+       courir dans le même sens que lui, ou le laisser passer et repartir en
+       sens inverse. Elle reste plantée pendant tout le balayage : c'est aussi
+       le plus long moment où elle est ouverte. */
+    B.ray+=B.sens*.0225;
+    if(d<210&&Math.abs(ecartAngle(Math.atan2(dy,dx),B.ray))<.14) blesser(2,B.x,B.y,false);
+    if(B.cd%9===0){ son(1400,.03,'square',.02);
+      particules(B.x+Math.cos(B.ray)*90,B.y+Math.sin(B.ray)*90,B.z+8,1,'#8fd0ff',1,14); }
+    if(B.cd<=0){ B.phase='attente'; B.cd=76; B.rayon=0; }
   }
-  else if(B.phase==='appel'){
-    if(B.cd===24){ for(let k=0;k<2;k++){ const a=rnd()*6.28;
+  else if(B.phase==='grille'){
+    /* LA GRILLE : quatre traits sur les axes du monde, puis quatre en
+       diagonale, puis on recommence. Aucun hasard dans l'angle — c'est ce qui
+       la distingue d'une gerbe : on peut se placer À L'AVANCE dans un
+       interstice, et il sera encore là au coup suivant. */
+    if(B.cd%20===0){ const base=(B.cd%40===0)?0:.7854;
+      for(let k=0;k<4;k++){ const a=base+k*1.5708;
+        tirs.push({x:B.x+Math.cos(a)*12,y:B.y+Math.sin(a)*12,z:B.z+12,
+          vx:Math.cos(a)*2.4,vy:Math.sin(a)*2.4,vie:130,ami:0,spr:'venin'}); }
+      son(300,.09,'square',.05,-140); }
+    if(B.cd===10){ for(let k=0;k<2;k++){ const a=rnd()*6.2832;
       const lx=Math.floor((B.x+Math.cos(a)*34)/TS), ly=Math.floor((B.y+Math.sin(a)*34)/TS);
       pondre('aigle',clamp(lx,4,MW-4),clamp(ly,Y_NUES+2,Y_FAILLE-2)); }
       particules(B.x,B.y,B.z+10,14,'#aabce8',2.6,24); }
@@ -7846,6 +8107,26 @@ function majSentinelle(){
   }
   B.kx*=.9; B.ky*=.9;
   if(d<26&&Math.abs(B.z-J.z)<34) blesser(2,B.x,B.y);
+}
+/* Elle ne dérive pas : elle s'aligne. Un axe, un trait, un arrêt net — et
+   pendant l'arrêt elle ne bouge pas d'un pixel. La diagonale lui est
+   interdite, et c'est ce qui la trahit : on sait toujours de quel côté elle
+   arrivera. */
+function dashSentinelle(B,dx,dy){
+  if(B.pause>0){ B.pause--; return; }
+  if(B.dashT>0){
+    B.dashT--;
+    B.x=clamp(B.x+B.dx*3.5,TS*3,(MW-3)*TS); B.y=clamp(B.y+B.dy*3.5,TS*3,(MH-3)*TS);
+    if(B.t%3===0) particules(B.x-B.dx*10,B.y-B.dy*10,B.z+8,1,'#dfe6ff',1,14);
+    if(B.dashT===0){ B.pause=28; son(180,.06,'square',.04,-60); }
+    return;
+  }
+  /* Elle se met en face : elle rattrape d'abord le grand écart, jamais les
+     deux à la fois. */
+  if(Math.abs(dx)>Math.abs(dy)){ B.dx=Math.sign(dx)||1; B.dy=0; }
+  else { B.dx=0; B.dy=Math.sign(dy)||1; }
+  B.dashT=10+Math.floor(rnd()*10);
+  son(520,.05,'square',.035,60);
 }
 
 /* ==================== LE RONGEUR D'ÉTOILES ====================
@@ -7856,7 +8137,11 @@ function reveillerRongeur(){
   const a=FAILLE.arene;
   boss={type:'rongeur',x:(a.x0+(a.w>>1))*TS+8,y:(a.y0+a.h-6)*TS+8,z:0,vz:0,r:22,dir:0,
     pv:pvGardien('rongeur'),pvmax:pvGardien('rongeur'),phase:'attente',t:0,cd:80,flash:0,kx:0,ky:0,anim:0,stun:0,
-    ax:0,ay:0,palier:0,coeurNu:false,etoiles:3};
+    ax:0,ay:0,palier:0,coeurNu:false,etoiles:3,
+    /* Il rejoue les gestes des autres : il lui faut donc leur outillage —
+       la spirale du Cœur, le bond du Yéti, le corps du Léviathan, le rayon de
+       la Sentinelle. Tout alloué ici, à l'éveil. */
+    spir:0,vz:0,enVol:0,cap:0,ray:0,rayon:0,sens:1,serp:batirAnneaux(6)};
   annonce("LE RONGEUR D'ÉTOILES");
   son(50,1.4,'sawtooth',.12,-24); bruit(1,.14); secousse=22;
   dire("IL A DÉVORÉ LES TROIS ÉTOILES. REPRENDS-LES.",300);
@@ -7912,69 +8197,94 @@ function majRongeur(){
        cinquième règle, et la seule du jeu qui vous retire quelque chose. */
     // les paliers vont de 0 à 4 : le DERNIER est 4, pas 5
     if(pal<4) devorerUnOutil(B); else rendreLesOutils(B);
-    B.palier=pal; B.phase='attente'; B.cd=50; secousse=10;
-    annonce(['','GERBE DE BRAISES','GLACE ET BOURRASQUES','DÉLUGE ET PLONGÉE','LE CŒUR À NU'][pal]||'');
+    B.palier=pal; B.phase='attente'; B.cd=50; secousse=10; B.rayon=0; B.enVol=0;
+    annonce(['','LE BOND DU ROI','LE CORPS DU SERPENT','LE RAYON DE LA MACHINE','LE CŒUR À NU'][pal]||'');
     son(120,.5,'sawtooth',.08,-40); }
   B.coeurNu=(pal===4);
-  B.z=baseSol(B.x,B.y)+(pal===3?18:8)+Math.sin(B.anim/18)*3;
+  const solR=baseSol(B.x,B.y);
   const dx=J.x-B.x, dy=J.y-B.y, d=Math.hypot(dx,dy);
   if(B.stun>0){ B.kx*=.9; B.ky*=.9; return; }
   if(B.cd>0) B.cd--;
 
+  /* Il VOLE — il n'a jamais posé un pied par terre — et il ne traverse pas
+     l'espace : il CLIGNOTE. Trois tuiles d'un coup, sans trajectoire, ce qui
+     interdit de le tenir à distance. Sauf en plein bond emprunté au Yéti :
+     là, il retombe comme tout le monde. */
+  if(!B.enVol) B.z=solR+22+Math.sin(B.anim/18)*4;
+
   if(B.phase==='attente'){
-    const a=Math.atan2(dy,dx);
-    B.x=clamp(B.x+Math.cos(a)*.5,TS*3,(MW-3)*TS); B.y=clamp(B.y+Math.sin(a)*.5,TS*3,(MH-3)*TS);
+    if(B.cd%46===0&&d>60){
+      const a=Math.atan2(dy,dx)+(rnd()-.5)*1.4;
+      particules(B.x,B.y,B.z+10,16,'#c86ae0',2.6,24);
+      B.x=clamp(B.x+Math.cos(a)*46,TS*3,(MW-3)*TS);
+      B.y=clamp(B.y+Math.sin(a)*46,TS*3,(MH-3)*TS);
+      particules(B.x,B.y,B.z+10,16,'#e08aff',2.6,24);
+      son(660,.09,'square',.04,-180);
+    }
     if(B.cd<=0){
-      /* Palier 0 : la charge du Gardien de Pierre. 1 : la gerbe du Cœur.
-         2 : la glace du Yéti. 3 : la plongée du Léviathan. 4 : le cœur à nu. */
-      B.phase=['charge','gerbe','glace','plongee','nu'][pal];
-      B.cd=[76,66,90,110,120][pal];
-      if(pal===0){ const b=Math.atan2(dy,dx); B.ax=Math.cos(b)*3.2; B.ay=Math.sin(b)*3.2;
-        son(140,.3,'sawtooth',.06,90); }
-      if(pal===3) son(90,.5,'sine',.07,-40);
+      /* Chaque palier lui emprunte le GESTE d'un gardien, pas seulement son
+         élément : la spirale du Cœur, le bond du Yéti, le corps du Léviathan,
+         le rayon de la Sentinelle — puis le cœur à nu, qui n'est à personne. */
+      B.phase=['spirale','bond','serpent','rayonnoir','nu'][pal];
+      B.cd=[92,80,150,170,120][pal];
+      if(pal===0) B.spir=Math.atan2(dy,dx)+Math.PI;
+      if(pal===1){ B.enVol=1; B.vz=4.8;
+        const vol=2*B.vz/.24, a=Math.atan2(dy,dx), port=Math.min(d,150);
+        B.ax=Math.cos(a)*port/vol; B.ay=Math.sin(a)*port/vol;
+        son(200,.3,'triangle',.06,-70); }
+      if(pal===2){ B.cap=Math.atan2(dy,dx); son(140,.5,'sine',.06,-30); }
+      if(pal===3){ B.rayon=1; B.sens=(rnd()<.5)?1:-1; B.ray=Math.atan2(dy,dx)+Math.PI;
+        son(1200,.5,'square',.05,-200); }
     }
   }
-  else if(B.phase==='charge'){
-    bouger(B,B.ax,B.ay); B.ax*=.985; B.ay*=.985;
-    if(B.cd%6===0) particules(B.x,B.y,B.z+8,2,'#c86ae0',1.6,18);
+  else if(B.phase==='spirale'){
+    if(B.cd%5===0){ B.spir+=.32;
+      for(let k=0;k<3;k++){ const a=B.spir+k*2.0944;
+        tirs.push({x:B.x+Math.cos(a)*14,y:B.y+Math.sin(a)*14,z:B.z+12,
+          vx:Math.cos(a)*2.0,vy:Math.sin(a)*2.0,vie:130,ami:0,spr:'venin'}); }
+      son(330,.05,'sawtooth',.035,-80); }
     if(B.cd<=0){ B.phase='attente'; B.cd=64; }
   }
-  else if(B.phase==='gerbe'){
-    if(B.cd%12===0){ const n=10, base=rnd()*6.28;
-      for(let k=0;k<n;k++){ const a=base+k*6.2832/n;
-        tirs.push({x:B.x,y:B.y,z:B.z+12,vx:Math.cos(a)*2.2,vy:Math.sin(a)*2.2,vie:120,ami:0,spr:'venin'}); }
-      son(240,.09,'sawtooth',.05,-120); }
-    if(B.cd<=0){ B.phase='attente'; B.cd=60; }
+  else if(B.phase==='bond'){
+    B.vz-=.24; B.z+=B.vz;
+    B.x=clamp(B.x+B.ax,TS*3,(MW-3)*TS); B.y=clamp(B.y+B.ay,TS*3,(MH-3)*TS);
+    if(B.t%3===0) particules(B.x,B.y,B.z,1,'#c86ae0',1.2,16);
+    if(B.z<=solR+8){
+      B.z=solR+8; B.enVol=0; B.vz=0;
+      secousse=14; bruit(.4,.1); son(64,.5,'sawtooth',.09,-30);
+      onde(B.x,B.y,solR,'#e08aff',2,2.8,150,rnd()*6.2832);
+      particules(B.x,B.y,solR+4,26,'#e08aff',3.6,32);
+      B.phase='attente'; B.cd=54;
+    }
+    if(B.cd<=0){ B.phase='attente'; B.cd=54; B.enVol=0; }
   }
-  else if(B.phase==='glace'){
-    /* Il se couvre de glace : rien ne l'entame tant que la carapace tient.
-       Le boomerang la brise — comme au Roi Yéti. */
-    if(B.gel===undefined) B.gel=3;
-    if(B.cd%20===0&&d<170){ const a=Math.atan2(dy,dx);
-      tirs.push({x:B.x,y:B.y,z:B.z+10,vx:Math.cos(a)*2.6,vy:Math.sin(a)*2.6,vie:110,ami:0,spr:'venin'}); }
-    if(B.cd%9===0) particules(B.x+(rnd()-.5)*30,B.y+(rnd()-.5)*24,B.z+14,1,'#c8ecff',1.2,20);
-    if(B.cd<=0||B.gel<=0){ B.phase='attente'; B.cd=58; B.gel=undefined; }
+  else if(B.phase==='serpent'){
+    /* IL S'ALLONGE : la queue qui le suit devient un mur mouvant. Il ne vous
+       touche plus avec sa tête, il vous ENFERME avec son corps. */
+    B.cap+=clamp(ecartAngle(Math.atan2(dy,dx)+1.1,B.cap),-.05,.05);
+    const a=B.cap+Math.sin(B.t/12)*.6;
+    B.x=clamp(B.x+Math.cos(a)*1.9,TS*3,(MW-3)*TS);
+    B.y=clamp(B.y+Math.sin(a)*1.9,TS*3,(MH-3)*TS);
+    if(B.cd<=0){ B.phase='attente'; B.cd=68; }
   }
-  else if(B.phase==='plongee'){
-    // il s'enfonce dans le néant, puis ressurgit sous le héros
-    if(B.cd>70){ B.z=lerp(B.z,-20,.14); }
-    else if(B.cd>34){ if(B.cd===70){ B.x=J.x; B.y=J.y; } }
-    else { B.z=lerp(B.z,baseSol(B.x,B.y)+18,.2);
-      if(B.cd===34){ secousse=12; son(70,.6,'sawtooth',.09,-30);
-        particules(B.x,B.y,B.z+4,28,'#3f2c5c',3.4,34);
-        for(let k=0;k<8;k++){ const a=k*6.2832/8;
-          tirs.push({x:B.x,y:B.y,z:B.z+8,vx:Math.cos(a)*2.4,vy:Math.sin(a)*2.4,vie:100,ami:0,spr:'venin'}); } } }
-    if(B.cd<=0){ B.phase='attente'; B.cd=70; }
+  else if(B.phase==='rayonnoir'){
+    B.ray+=B.sens*.024;
+    if(d<220&&Math.abs(ecartAngle(Math.atan2(dy,dx),B.ray))<.15) blesser(2,B.x,B.y,false);
+    if(B.cd%9===0){ son(1400,.03,'square',.02);
+      particules(B.x+Math.cos(B.ray)*100,B.y+Math.sin(B.ray)*100,B.z+8,1,'#e08aff',1,14); }
+    if(B.cd<=0){ B.phase='attente'; B.cd=72; B.rayon=0; }
   }
   else if(B.phase==='nu'){
-    /* Le cœur à nu : les trois étoiles battent à l'air libre. Il ne bouge
-       presque plus — c'est le moment de frapper. */
+    /* Le cœur à nu : les trois étoiles battent à l'air libre. Il ne clignote
+       plus, il ne fuit plus — c'est le moment de frapper, et le seul. */
     if(B.cd%26===0){ const a=Math.atan2(dy,dx);
       tirs.push({x:B.x,y:B.y,z:B.z+10,vx:Math.cos(a)*1.9,vy:Math.sin(a)*1.9,vie:120,ami:0,spr:'venin'}); }
     if(B.cd%7===0) particules(B.x+(rnd()-.5)*36,B.y+(rnd()-.5)*30,B.z+16,1,'#ffe86a',1.4,24);
     if(B.cd<=0){ B.phase='attente'; B.cd=90; }
   }
   B.kx*=.9; B.ky*=.9;
+  suivreAnneaux(B);
+  if(pal>=2&&pal<4) anneauxBlessent(B,2);
   if(d<30&&Math.abs(B.z-J.z)<38) blesser(2,B.x,B.y);
 }
 
@@ -8115,15 +8425,69 @@ function majBoomerang(p,i){
     son(680,.06,'triangle',.04,120); tirs.splice(i,1);
   }
 }
+/* ======================= LES ONDES DE CHOC =======================
+   Un anneau qui s'élargit au ras du sol. Ce n'est pas un projectile de plus :
+   on ne l'esquive pas en s'écartant — il arrive de partout à la fois. On
+   l'esquive par sa BRÈCHE, l'ouverture qu'il traîne avec lui. Trois gardiens
+   s'en servent, chacun à son heure : le Yéti quand il retombe, le Colosse
+   quand il jaillit du sable, le Rongeur quand il emprunte leurs gestes.
+
+   `trou` est l'angle de la brèche ; `ANGLE_BRECHE` sa demi-largeur. Passer
+   `null` donne un anneau plein — personne ne s'en sert, mais la distinction
+   doit exister pour que « il y a une brèche » soit une vraie affirmation. */
+const ANGLE_BRECHE=.62;
+function onde(x,y,z,col,deg,vr,rmax,trou){
+  ondes.push({x,y,z,r:8,rmax,vr,col,deg,trou:(trou==null?null:trou),touche:0,t:0});
+}
+/* L'écart angulaire ramené dans [-PI,PI] : utilisé partout où un gardien
+   compare deux directions. Écrit une fois, sinon chacun le réinvente. */
+function ecartAngle(a,b){ let d=a-b;
+  while(d>Math.PI) d-=6.2832; while(d<-Math.PI) d+=6.2832; return d; }
+function majOndes(){
+  for(let i=ondes.length-1;i>=0;i--){
+    const o=ondes[i]; o.t++; o.r+=o.vr;
+    if(!o.touche){
+      const dx=J.x-o.x, dy=J.y-o.y, d=Math.hypot(dx,dy);
+      const dansLaBreche=(o.trou!=null)&&Math.abs(ecartAngle(Math.atan2(dy,dx),o.trou))<ANGLE_BRECHE;
+      if(!dansLaBreche&&Math.abs(d-o.r)<10&&Math.abs(J.z-o.z)<26){
+        o.touche=1; blesser(o.deg,o.x,o.y,false);
+      }
+    }
+    if(o.t%4===0){ const a=(o.trou==null?0:o.trou+Math.PI)+o.t*.4;
+      particules(o.x+Math.cos(a)*o.r,o.y+Math.sin(a)*o.r,o.z+4,1,o.col,.8,14); }
+    if(o.r>=o.rmax) ondes.splice(i,1);
+  }
+}
+function dessinerOnde(g,o){
+  const a0=(o.trou==null)?0:o.trou+ANGLE_BRECHE, a1=(o.trou==null)?6.2832:o.trou-ANGLE_BRECHE+6.2832;
+  const fondu=1-o.r/o.rmax;
+  g.save();
+  g.translate(o.x,o.y-o.z); g.scale(1,.45);
+  g.strokeStyle=o.col; g.globalAlpha=.28+fondu*.5; g.lineWidth=4;
+  g.beginPath(); g.arc(0,0,o.r,a0,a1); g.stroke();
+  g.globalAlpha=.9*fondu; g.lineWidth=1.5;
+  g.beginPath(); g.arc(0,0,o.r-2,a0,a1); g.stroke();
+  g.restore(); g.globalAlpha=1;
+}
 function majDivers(){
   majSceaux();
   majPapillons();
+  majOndes();
   for(let i=tirs.length-1;i>=0;i--){
     const p=tirs[i];
     /* ---- le boomerang : il part, ralentit, revient, et ramasse au passage ---- */
     if(p.boom){ majBoomerang(p,i); continue; }
     /* ---- le bloc lourd jeté au bracelet ---- */
     if(p.lourd){ majBlocLourd(p,i); continue; }
+    /* Deux traits que rien ne portait avant la refonte des gardiens, et qui
+       distinguent leurs tirs mieux que n'importe quel sprite : celui qui
+       POURSUIT (l'essaim de la Reine) et celui qui ACCÉLÈRE (l'anneau du
+       Cœur). Ils vivent ici, sur le tir : aucun gardien n'a besoin de piloter
+       ses projectiles image par image. Rien n'est alloué. */
+    if(p.hom){ const cap=Math.atan2(p.vy,p.vx), v=Math.hypot(p.vx,p.vy);
+      const na=cap+clamp(ecartAngle(Math.atan2(J.y-p.y,J.x-p.x),cap),-p.hom,p.hom);
+      p.vx=Math.cos(na)*v; p.vy=Math.sin(na)*v; }
+    if(p.acc){ p.vx*=p.acc; p.vy*=p.acc; }
     p.x+=p.vx; p.y+=p.vy; p.vie--;
     const tx=Math.floor(p.x/TS),ty=Math.floor(p.y/TS);
     if(p.ami&&Obj(tx,ty)===O.OEIL){
@@ -9072,8 +9436,73 @@ function dessinerJoueur(g){
       g.fillRect(Math.round(J.x+Math.cos(aa)*13)-1,Math.round(J.y-J.z-12+Math.sin(aa)*7)-1,2,2); }
   }
 }
+/* ============ CE QUI DÉBORDE DU SPRITE D'UN GARDIEN ============
+   Un corps en anneaux, un poing détaché, un essaim en orbite, un rayon : rien
+   de tout cela ne tient dans une image de 46×50. On le dessine autour, et en
+   deux temps — ce qui passe DERRIÈRE le gardien avant lui, ce qui passe devant
+   après. Aucune allocation : que des primitives. */
+function anneauxDerriere(g,e,corps,bord){
+  const A=e.serp; if(!A) return;
+  for(let k=A.anneaux.length-1;k>=0;k--){
+    const s=A.anneaux[k];
+    ombre(g,s.x,s.y,s.z,s.r*.8);
+    const y=s.y-s.z;
+    g.fillStyle=bord;
+    g.beginPath(); g.ellipse(s.x,y,s.r,s.r*.86,0,0,6.2832); g.fill();
+    g.fillStyle=corps;
+    g.beginPath(); g.ellipse(s.x,y-1,s.r-2.2,s.r*.7,0,0,6.2832); g.fill();
+    // une écaille claire sur le dessus : sans elle le corps est une chenille grise
+    g.fillStyle='rgba(255,255,255,.22)';
+    g.fillRect(Math.round(s.x)-2,Math.round(y-s.r*.55),4,2);
+  }
+}
+function dessinerGardienDevant(g,e){
+  /* LE POING DU COLOSSE : son second morceau, avec sa propre ombre — c'est
+     elle qui dit où il va retomber. */
+  if(e.type==='colosse'&&e.poing){
+    const P=e.poing, sp=SPR.bloclourd;
+    ombre(g,P.x,P.y,P.z,8);
+    if(P.etat!=='colle'){          // la chaîne : on voit à quoi il est encore relié
+      g.strokeStyle='rgba(214,171,110,.5)'; g.lineWidth=2;
+      g.beginPath(); g.moveTo(e.x,e.y-e.z-22); g.lineTo(P.x,P.y-P.z); g.stroke();
+    }
+    g.drawImage(sp,Math.round(P.x-sp.width/2),Math.round(P.y-P.z-sp.height/2));
+  }
+  /* L'ESSAIM DE LA REINE : ce qui tourne encore autour d'elle est ce qui lui
+     reste à jeter. La jauge de ses munitions est le décor lui-même. */
+  if(e.type==='reine'&&e.essaim){
+    for(const s of e.essaim){ if(!s.vivant) continue;
+      const a=e.orb*3+s.a;
+      const px=Math.round(e.x+Math.cos(a)*22), py=Math.round(e.y-e.z+Math.sin(a)*13);
+      g.fillStyle='#2a1c3c'; g.fillRect(px-2,py-2,5,5);
+      g.fillStyle='#7de0a0'; g.fillRect(px-1,py-1,3,3);
+      g.fillStyle='#d8ffe8'; g.fillRect(px,py,1,1);
+    }
+  }
+  /* LE RAYON : une aiguille qui balaie. On dessine la lame et son halo, plus
+     une amorce qui bat — sans elle on ne voit pas d'où il part. */
+  if(e.rayon){
+    const chaud=(e.type==='rongeur');
+    const L=chaud?220:210, y0=e.y-e.z-14;
+    const cx=Math.cos(e.ray), sy=Math.sin(e.ray)*.6;
+    g.save(); g.globalCompositeOperation='lighter';
+    g.strokeStyle=chaud?'rgba(224,138,255,.30)':'rgba(143,208,255,.30)'; g.lineWidth=11;
+    g.beginPath(); g.moveTo(e.x,y0); g.lineTo(e.x+cx*L,y0+sy*L); g.stroke();
+    g.strokeStyle=chaud?'#f0c8ff':'#dff0ff'; g.lineWidth=2.5;
+    g.beginPath(); g.moveTo(e.x,y0); g.lineTo(e.x+cx*L,y0+sy*L); g.stroke();
+    g.restore();
+    const r=3+(tick%8<4?1:0);
+    g.fillStyle=chaud?'#ffe8ff':'#ffffff';
+    g.fillRect(Math.round(e.x)-r,Math.round(y0)-r,r*2,r*2);
+  }
+}
 function dessinerEnnemi(g,e){
   let nom;
+  /* Le corps du serpent passe DERRIÈRE la tête : dessiné avant elle, de la
+     queue vers le cou. Le Rongeur n'en a un qu'à partir de son troisième
+     palier — avant, il n'y a rien à montrer. */
+  if(e.type==='kraken'&&e.invincible<=0) anneauxDerriere(g,e,'#39a8bc','#1f6e80');
+  else if(e.type==='rongeur'&&e.palier>=2&&e.palier<4) anneauxDerriere(g,e,'#5a3d78','#2c1c40');
   if(e.type==='gluant') nom='gluant'+(Math.floor(e.anim/7)%4);
   else if(e.type==='mini') nom='mini'+(Math.floor(e.anim/6)%4);
   else if(e.type==='pieuvre') nom='pieuvre'+e.dir+(Math.floor(e.anim/12)%2);
@@ -9131,6 +9560,7 @@ function dessinerEnnemi(g,e){
       g.fillStyle='#ffe86a';
       g.fillRect(Math.round(e.x+Math.cos(a2)*13)-1,Math.round(e.y-e.z-50+Math.sin(a2)*4)-1,3,3); }
   }
+  if(e===boss) dessinerGardienDevant(g,e);
 }
 
 /* ============================ RENDU MONDE ============================ */
@@ -9257,6 +9687,7 @@ function rendreMonde(){
   for(const o of butins) add(o,'butin');
   for(const b of bombes) add(b,'bombe');
   for(const p of tirs) add(p,'tir');
+  for(const o of ondes) add(o,'onde');
   for(const c of coffres) add(c,'coffre');
   for(const st of structures) add(st,'struct');
   for(const p of pnjs) add(p,'pnj');
@@ -9273,6 +9704,7 @@ function rendreMonde(){
       for(const {o,t} of b){
         if(t==='joueur') dessinerJoueur(X);
         else if(t==='e') dessinerEnnemi(X,o);
+        else if(t==='onde') dessinerOnde(X,o);
         else if(t==='struct'){
           const sp=SPR[o.spr];
           X.fillStyle='rgba(8,10,22,.26)';
@@ -10377,7 +10809,7 @@ function majArene(){
 function ouvrirArene(){
   razQuetes();
   genererMonde(); prerendreSol(); construireMini(); poserCoffres();
-  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
+  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];ondes=[];boss=null;
   batirEnclosArene();
   /* Tout l'outillage : sans lui la moitié du bestiaire est intouchable. */
   Q.portailOuvert=true; Q.bottes=true; Q.palmes=true; Q.boomerang=true;
@@ -10411,7 +10843,7 @@ function batirEnclosArene(){
 }
 function quitterArene(){
   areneEtat.actif=false;
-  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];boss=null;
+  ennemis=[];tirs=[];butins=[];bombes=[];parts=[];ondes=[];boss=null;
   etat='titre'; menuSel=0; viderTampon();
 }
 
@@ -10635,7 +11067,7 @@ const VERSION_SAUVE=1;
    et rester égale à celle de package.json — un contrôle le vérifie, faute de
    quoi elle vieillit sans que personne ne s'en aperçoive (elle est restée à
    « V0.6 — 6 des 8 mondes » alors que les huit étaient livrés). */
-const VERSION='V4.4';
+const VERSION='V4.5';
 let objsRef=null;                 // décor d'origine, pour calculer les différences
 let solRef=null;                  // sol d'origine : un gué comblé est un sol modifié
 let emplacement=0;                // emplacement de sauvegarde actif (0..2)
